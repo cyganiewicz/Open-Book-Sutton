@@ -283,12 +283,13 @@ export default function AdminQuestionsPage() {
 
       <HelpBox title="How this works" variant="info">
         <p className="mb-1.5">
-          Residents can submit questions from the &quot;Ask a Question&quot; page on
-          your public portal. Questions appear here for you to review and respond to.
+          This page shows questions that were previously submitted through the portal.
+          The &quot;Ask a Question&quot; page now directs residents to email your
+          town&apos;s finance office directly.
         </p>
         <p>
-          You can mark questions as read, reply to them (the reply is saved for your
-          records), or delete questions that are spam or off-topic.
+          You can review older questions here, mark them as read, or delete
+          questions that are spam or off-topic.
         </p>
       </HelpBox>
 

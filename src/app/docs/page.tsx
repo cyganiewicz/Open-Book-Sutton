@@ -190,6 +190,64 @@ Schools,HVAC Replacement,200000,Capital Stabilization`}</code>
             </div>
 
             <div>
+              <h2 className="text-lg font-medium mt-8 mb-3">UMAS (Uniform Municipal Accounting System)</h2>
+              <p className="text-gray-600 mb-3">
+                Massachusetts towns report financials using the UMAS format. OpenBook
+                is designed to work with UMAS exports. To upload your UMAS data:
+              </p>
+              <ol className="list-decimal list-inside text-gray-600 space-y-2 mb-3">
+                <li>Export your Schedule A data from your accounting system as a CSV or Excel file.</li>
+                <li>Make sure the export includes column headers (Department, Function Area, Object Code, amounts by fiscal year).</li>
+                <li>On the upload page, select the matching category (Expenses, Revenues, or Capital).</li>
+                <li>OpenBook will auto-detect common UMAS header patterns like &quot;FY2026 Budget&quot; and &quot;Object Code&quot;.</li>
+                <li>Review the auto-detected mappings and correct any that look wrong.</li>
+              </ol>
+              <p className="text-gray-600 mb-3">
+                UMAS expenditure categories map to OpenBook fields as follows:
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border border-gray-200 rounded-lg">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="px-4 py-2 text-left font-medium">UMAS Column</th>
+                      <th className="px-4 py-2 text-left font-medium">OpenBook Mapping</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-gray-600">
+                    <tr className="border-t border-gray-200">
+                      <td className="px-4 py-2">Department / Dept</td>
+                      <td className="px-4 py-2">Department</td>
+                    </tr>
+                    <tr className="border-t border-gray-200">
+                      <td className="px-4 py-2">Function / Functional Area</td>
+                      <td className="px-4 py-2">Function Area</td>
+                    </tr>
+                    <tr className="border-t border-gray-200">
+                      <td className="px-4 py-2">Object Code / Account Code</td>
+                      <td className="px-4 py-2">Account / Object Code</td>
+                    </tr>
+                    <tr className="border-t border-gray-200">
+                      <td className="px-4 py-2">Description / Line Item</td>
+                      <td className="px-4 py-2">Line Item / Description</td>
+                    </tr>
+                    <tr className="border-t border-gray-200">
+                      <td className="px-4 py-2">FY20XX Budget / Appropriation</td>
+                      <td className="px-4 py-2">Fiscal Year Amount (type: Budget)</td>
+                    </tr>
+                    <tr className="border-t border-gray-200">
+                      <td className="px-4 py-2">FY20XX Actual / Expenditure</td>
+                      <td className="px-4 py-2">Fiscal Year Amount (type: Actual)</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                The DOR Schedule A format from the Massachusetts Division of Local Services also works.
+                Export your town&apos;s data from the DOR gateway and upload directly.
+              </p>
+            </div>
+
+            <div>
               <h2 className="text-lg font-medium mt-8 mb-3">Common Issues</h2>
               <ul className="list-disc list-inside text-gray-600 space-y-2">
                 <li>

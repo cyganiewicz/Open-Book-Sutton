@@ -164,11 +164,15 @@ export default function SetupPage() {
   };
 
   if (loading) {
-    return <p className="text-gray-500">Loading...</p>;
+    return (
+      <div className="max-w-lg mx-auto">
+        <p className="text-gray-500">Loading...</p>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-lg">
+    <div className="max-w-lg mx-auto">
       <h1 className="text-2xl font-semibold tracking-tight">
         {isNew ? "Set Up Your Town" : "Town Settings"}
       </h1>

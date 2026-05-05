@@ -70,7 +70,7 @@ export default async function HomePage() {
                     {town.logoUrl ? (
                       <img
                         src={town.logoUrl}
-                        alt=""
+                        alt={`${town.name} logo`}
                         className="h-8 w-8 rounded object-contain"
                       />
                     ) : (

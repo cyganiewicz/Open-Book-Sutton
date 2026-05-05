@@ -36,6 +36,7 @@ export default async function TownLayout({
             </p>
           )}
           <p className="text-xs text-gray-400">
+            Town of {town.name} |{" "}
             Powered by{" "}
             <span className="font-display font-medium">OpenBook</span>
             {town.contactEmail && (

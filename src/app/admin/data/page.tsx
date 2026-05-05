@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import HelpBox from "@/components/admin/HelpBox";
 import StorageIndicator from "@/components/admin/StorageIndicator";
@@ -23,6 +24,7 @@ interface Town {
 }
 
 export default function DataManagementPage() {
+  const router = useRouter();
   const [town, setTown] = useState<Town | null>(null);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [loading, setLoading] = useState(true);
@@ -185,7 +187,28 @@ export default function DataManagementPage() {
                     <td className="px-4 py-3 text-gray-500">
                       {new Date(upload.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right space-x-3">
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`Replace "${upload.fileName}"? This will delete the current data and open the upload page so you can re-upload with new mappings.`)) return;
+                          setDeleting(upload.id);
+                          try {
+                            const res = await fetch(`/api/uploads/${upload.id}`, { method: "DELETE" });
+                            if (res.ok) {
+                              router.push(`/admin/upload?townId=${town!.id}`);
+                            }
+                          } catch {
+                            setError("Failed to delete upload");
+                          } finally {
+                            setDeleting(null);
+                          }
+                        }}
+                        disabled={deleting === upload.id}
+                        className="text-blue-600 hover:text-blue-800 text-sm disabled:opacity-50"
+                        aria-label={`Replace upload ${upload.fileName}`}
+                      >
+                        Replace
+                      </button>
                       <button
                         onClick={() => handleDelete(upload.id)}
                         disabled={deleting === upload.id}

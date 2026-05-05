@@ -50,7 +50,7 @@ export default function PortalHeader({
             {logoUrl && (
               <img
                 src={logoUrl}
-                alt=""
+                alt={`${townName} logo`}
                 className="h-7 w-7 rounded object-contain bg-white/10"
               />
             )}

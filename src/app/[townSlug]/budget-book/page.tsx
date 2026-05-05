@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { groupAndSum, detectCurrentAndPreviousYear } from "@/lib/aggregator";
 import { formatCurrency, abbreviateCurrency } from "@/lib/format";
+import PrintButton from "@/components/portal/PrintButton";
 
 export default async function BudgetBookPage({
   params,
@@ -75,10 +76,10 @@ export default async function BudgetBookPage({
               {town.name} Budget Book
             </p>
             <p className="text-xs text-gray-500 mt-0.5">
-              This is a printable version of the full budget. Use
-              Ctrl+P (Cmd+P on Mac) to save as PDF.
+              This is a printable version of the full budget.
             </p>
           </div>
+          <PrintButton />
         </div>
       </div>
 

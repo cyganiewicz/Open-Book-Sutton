@@ -23,6 +23,7 @@ export default function TooltipsPage() {
   const [lineItems, setLineItems] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const [savedKey, setSavedKey] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedLineItem, setSelectedLineItem] = useState("");
   const [editTexts, setEditTexts] = useState<Record<string, string>>({});
@@ -100,6 +101,8 @@ export default function TooltipsPage() {
           prev.filter((t) => !(t.scope === scope && t.key === key))
         );
       }
+      setSavedKey(textKey);
+      setTimeout(() => setSavedKey(null), 2000);
     } catch {
       // ignore
     } finally {
@@ -229,6 +232,9 @@ export default function TooltipsPage() {
                   >
                     {saving === `category:${selectedCategory}` ? "..." : "Save"}
                   </button>
+                  {savedKey === `category:${selectedCategory}` && (
+                    <span className="text-sm text-emerald-600 font-medium" role="status">Saved!</span>
+                  )}
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
                   Leave the field empty and press Save to remove this
@@ -308,6 +314,9 @@ export default function TooltipsPage() {
                       ? "..."
                       : "Save"}
                   </button>
+                  {savedKey === `line-item:${selectedLineItem}` && (
+                    <span className="text-sm text-emerald-600 font-medium" role="status">Saved!</span>
+                  )}
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
                   Leave the field empty and press Save to remove this hover
