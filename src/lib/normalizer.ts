@@ -12,11 +12,11 @@ export function normalizeRows(
 
   for (const m of mappings) {
     if (m.targetField === "skip") continue;
-    if (m.targetField === "fyAmount" && m.fiscalYear && m.amountType) {
+    if (m.targetField === "fyAmount" && m.fiscalYear) {
       fyColumns.push({
         sourceColumn: m.sourceColumn,
         fiscalYear: m.fiscalYear,
-        amountType: m.amountType,
+        amountType: m.amountType || "budget",
       });
     } else if (m.targetField === "fiscalYear") {
       fiscalYearColumn = m.sourceColumn;

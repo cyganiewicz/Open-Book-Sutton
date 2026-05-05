@@ -16,57 +16,47 @@ Town administrators upload budget data (CSV or Excel), customize portal branding
 
 ![Admin](docs/screenshots/admin-upload.png)
 
-## Features
-
-**For residents**
-- Budget overview with year-over-year comparisons
-- Expense and revenue breakdowns by department and function
-- Capital project listings with funding sources
-- Searchable line-item tables with export to spreadsheet
-- Printable budget book generation
-- "Ask a Question" form routed to the town's finance office
-- Supporting documents and external links
-
-**For administrators**
-- CSV/Excel upload with automatic column detection
-- Portal branding (name, colors, logo, contact info)
-- Tooltips that explain budget items in plain language
-- Document and link management
-- Resident question inbox with reply functionality
-- Staff capital request review and approval
-
-**For town staff**
-- Capital expenditure request submission
-- Request tracking and status updates
-
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+
-- npm
+- Node.js 18+ (20 LTS recommended)
+- npm 9+
 
-### Setup
+### 1. Install and configure
 
 ```bash
 npm install
+cp .env.example .env
 ```
 
-Create a `.env` file:
+Edit `.env` and add a setup key (used once to register the first admin account):
 
 ```
 DATABASE_URL="file:./dev.db"
-ADMIN_SETUP_KEY="your-setup-key"
+SETUP_KEY="pick-any-secret-string"
 ```
 
-Initialize the database and seed sample data:
+### 2. Initialize the database
 
 ```bash
 npx prisma migrate dev
+```
+
+If the database ever falls out of sync with the schema (e.g. after pulling new migrations), you can reset and re-run:
+
+```bash
+npx prisma migrate reset
+npx prisma generate
+```
+
+Optionally seed sample data so the portal isn't empty on first boot:
+
+```bash
 npm run seed
 ```
 
-Start the dev server:
+### 3. Start the dev server
 
 ```bash
 npm run dev
@@ -74,10 +64,141 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Setting Up Your Portal
+
+Once the dev server is running, walk through the admin flow in order. Each step is a tab in the admin header.
+
+### 1. Create an admin account
+
+Visit `/admin/register` and use the `SETUP_KEY` from your `.env` to create the first admin user. After that, sign in at `/admin/login`.
+
+### 2. Configure your town (Settings tab)
+
+Go to `/admin/setup` to set:
+
+- **Town name and slug** — the slug becomes the URL (`/your-town-slug`)
+- **Primary color** — colors chart accent and links on the public portal
+- **Logo** — shown as tab icon and on page
+- **Contact email** — where you want resident questions to be sent to
+- **About text** — appears on the portal homepage
+- **Invite code** — used by staff who self-register at `/staff/register`
+
+### 3. Upload budget data (Upload tab)
+
+The upload flow has three steps:
+
+1. **Pick a category** — Expenses, Revenues, Capital Projects, or Reserves. A sample table preview appears so you can see what shape the file should take.
+2. **Drop in a CSV or Excel file** — up to 10 MB. After upload, you'll see a small preview of the first two rows.
+3. **Map your columns** — OpenBook auto-detects common header patterns (e.g. `FY2026 Budget`, `Department`). Anything ambiguous you label manually. If you are missing required categories, you must add them before savinging and uploading your data. Check the warnings to see what you might be missing!
+
+Each category has its own required fields:
+
+| Category         | Required mappings                                                     |
+| ---------------- | --------------------------------------------------------------------- |
+| Expenses         | Function Area, Fiscal Year Amount (with at least one set to "Budget") |
+| Revenues         | Category, Fiscal Year Amount (with at least one set to "Budget")      |
+| Capital Projects | Department, Purpose, Funding Source, Fiscal Year Amount               |
+| Reserves         | (no public page yet — data is stored but not rendered)                |
+
+Examples of ideal data formats can be found in the repository, under sample-data
+
+Sample Data (Capital)
+![Capital](docs/screenshots/sample-data-capital.png)
+
+Sample Data (Revenue)
+![Revenue](docs/screenshots/sample-data-revenue.png)
+
+### 4. Manage existing data (Data tab)
+
+`/admin/data` lists every upload with its category, row count, status, and date. From here you can delete an upload (and all its rows) or wipe everything to start over. Use **Upload New Data** to add another file alongside what's already there — different categories live independently.
+
+### 5. Polish the portal
+
+Once data is uploaded, several optional features make the portal more useful for residents:
+
+- **Tooltips** (`/admin/tooltips`) — hover-text explanations attached to budget categories or line items. A `?` icon appears next to any category or line item that has a tooltip on the public portal. It is generally recommended that these tooltips contain short, non-essential information.
+- **Links** (`/admin/links`) — supporting external links (e.g. town meeting warrants, audit reports) that show on the portal.
+- **PDFs** (`/admin/documents`) — uploadable PDF documents (annual reports, fee schedules, etc.).
+- **Questions** (`/admin/questions`) — resident inbox. Residents submit questions via the portal's "Ask a Question" form; you reply from this tab.
+- **Requests** (`/admin/requests`) — review and approve capital expenditure requests that staff submit via `/staff`.
+- **Transfer** (`/admin/transfer`) — export/import town data for moving between environments.
+
+### 6. Preview the public site
+
+The admin header has a **Preview** link that opens your public portal (`/[townSlug]`) in a new tab so you can see what residents will see while you're still editing.
+
+## Features
+
+### For residents
+
+- Budget overview with year-over-year comparisons
+- Expense and revenue breakdowns by department and function (pie charts, stacked trend bars)
+- Capital project listings with funding sources
+- Searchable line-item tables with CSV export
+- Printable budget book generation
+- "Ask a Question" form routed to the town's finance office
+- Supporting documents and external links
+- Plain-language tooltips on budget items
+
+### For administrators
+
+- CSV/Excel upload with automatic column detection and per-category validation
+- Sample-data preview while picking a category
+- Portal branding (name, colors, logo, contact info, about text)
+- Tooltip authoring for categories and line items
+- Document and link management
+- Resident question inbox with reply functionality
+- Staff capital request review and approval
+- One-click public-site preview from the admin header
+
+### For town staff
+
+- Self-registration via an invite code
+- Capital expenditure request submission
+- Request tracking and status updates
+
 ## Tech Stack
 
 - **Framework**: Next.js 16 (App Router, Turbopack)
-- **Database**: SQLite via Prisma with better-sqlite3
+- **Database**: SQLite via Prisma 7 with the better-sqlite3 adapter
 - **Styling**: Tailwind CSS v4
 - **Charts**: Chart.js + react-chartjs-2
 - **Data import**: PapaParse (CSV), SheetJS (Excel)
+- **Auth**: scrypt-hashed passwords, HTTP-only session cookies
+
+## Environment Variables
+
+| Variable       | Required | Description                                                            |
+| -------------- | -------- | ---------------------------------------------------------------------- |
+| `DATABASE_URL` | Yes      | SQLite database file path (e.g. `file:./dev.db`)                       |
+| `SETUP_KEY`    | Yes      | Secret string used once at `/admin/register` to create the first admin |
+
+## Project Structure
+
+```
+src/
+  app/
+    [townSlug]/         # public-facing town portal
+    admin/              # admin dashboard
+    api/                # route handlers (upload, mapping, tooltips, etc.)
+    docs/               # in-app setup + data format docs
+  components/
+    portal/             # public-portal components (charts, tables, tooltip)
+    admin/              # admin-only components
+  lib/
+    parser.ts           # CSV/Excel parsing
+    column-detector.ts  # auto-mapping for upload headers
+    normalizer.ts       # mapping → BudgetRow normalization
+    aggregator.ts       # grouping/summing helpers used by portal pages
+prisma/
+  schema.prisma         # data model
+  migrations/           # database migration history
+```
+
+## Troubleshooting
+
+**"Dev login failed" or 500 errors after pulling changes** — usually the local DB is out of sync with the schema. Run `npx prisma migrate reset` and `npx prisma generate`, then restart the dev server so the regenerated Prisma client is picked up.
+
+**0 rows after uploading** — check that the column you expect to be the dollar amount is mapped to **Fiscal Year Amount**, with the **Fiscal Year** field filled in. Without those, rows can't be produced.
+
+**Upload preview shows the wrong number of columns** — the parser uses the first row as headers. Files with title rows or blank rows above the headers won't parse correctly; trim them in your spreadsheet first.

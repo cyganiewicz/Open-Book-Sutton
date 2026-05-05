@@ -40,13 +40,13 @@ export function buildExpenseSummaryTiles(
       value: topFunction ? topFunction[0] : "N/A",
     },
     {
-      label: "$ Change",
+      label: "$ Change from Last Year",
       value: formatCurrency(change.absolute),
       change: formatPercent(change.percent),
       changeType: change.absolute >= 0 ? "positive" : "negative",
     },
     {
-      label: "% Change",
+      label: "% Change from Last Year",
       value: formatPercent(change.percent),
       changeType: change.percent >= 0 ? "positive" : "negative",
     },

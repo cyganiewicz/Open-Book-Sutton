@@ -23,7 +23,8 @@ export default function TooltipsPage() {
   const [lineItems, setLineItems] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
-  const [lineItemSearch, setLineItemSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedLineItem, setSelectedLineItem] = useState("");
   const [editTexts, setEditTexts] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -115,11 +116,11 @@ export default function TooltipsPage() {
     setEditTexts((prev) => ({ ...prev, [`${scope}:${key}`]: text }));
   };
 
-  const filteredLineItems = lineItemSearch
-    ? lineItems.filter((li) =>
-        li.toLowerCase().includes(lineItemSearch.toLowerCase())
-      )
-    : lineItems.slice(0, 50);
+  const categoryHasTooltip = (cat: string) =>
+    tooltips.some((t) => t.scope === "category" && t.key === cat && t.text);
+
+  const lineItemHasTooltip = (li: string) =>
+    tooltips.some((t) => t.scope === "line-item" && t.key === li && t.text);
 
   if (loading) return <p className="text-gray-500">Loading...</p>;
 
@@ -140,9 +141,12 @@ export default function TooltipsPage() {
   return (
     <div className="space-y-10">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Tooltips & Explainers</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Tooltips & Explainers
+        </h1>
         <p className="text-gray-500 mt-1">
-          Add explanatory text that appears on the resident portal when hovering over budget categories and line items.
+          Add explanatory text that appears on the resident portal when hovering
+          over budget categories and line items.
         </p>
       </div>
 
@@ -155,8 +159,8 @@ export default function TooltipsPage() {
         <p>
           For example, you might explain that &quot;Unclassified&quot; expenses
           include things like insurance and retirement benefits, or that
-          &quot;Cherry Sheet Assessments&quot; are state charges passed to
-          the town.
+          &quot;Cherry Sheet Assessments&quot; are state charges passed to the
+          town.
         </p>
       </HelpBox>
 
@@ -177,33 +181,61 @@ export default function TooltipsPage() {
             No budget data uploaded yet. Upload data to see categories here.
           </p>
         ) : (
-          <div className="space-y-3">
-            {categories.map((cat) => (
-              <div
-                key={cat}
-                className="bg-white border border-gray-200 rounded-lg p-4"
+          <div className="space-y-4 mt-4">
+            <div>
+              <select
+                id="categorySelect"
+                aria-label="Pick a category to add or edit its explanation"
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <label className="text-sm font-medium block mb-2">{cat}</label>
+                <option value="">Choose a category or start typing…</option>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {categoryHasTooltip(cat) ? "● " : ""}
+                    {cat}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                ● indicates a category that already has an explanation.
+              </p>
+            </div>
+
+            {selectedCategory && (
+              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                <label className="text-sm font-medium block mb-2">
+                  {selectedCategory}
+                </label>
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    value={getTooltipText("category", cat)}
+                    value={getTooltipText("category", selectedCategory)}
                     onChange={(e) =>
-                      setTooltipText("category", cat, e.target.value)
+                      setTooltipText(
+                        "category",
+                        selectedCategory,
+                        e.target.value
+                      )
                     }
                     placeholder="Explain this category for residents..."
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <button
-                    onClick={() => handleSave("category", cat)}
-                    disabled={saving === `category:${cat}`}
+                    onClick={() => handleSave("category", selectedCategory)}
+                    disabled={saving === `category:${selectedCategory}`}
                     className="px-3 py-2 bg-gray-900 text-white rounded-md text-sm hover:bg-gray-800 disabled:opacity-50"
                   >
-                    {saving === `category:${cat}` ? "..." : "Save"}
+                    {saving === `category:${selectedCategory}` ? "..." : "Save"}
                   </button>
                 </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Leave the field empty and press Save to remove this
+                  explanation.
+                </p>
               </div>
-            ))}
+            )}
           </div>
         )}
       </section>
@@ -214,10 +246,10 @@ export default function TooltipsPage() {
         <HelpBox variant="tip">
           <p>
             Line items are the individual rows in your budget tables (e.g.,
-            &quot;Police Salaries&quot;, &quot;Road Maintenance&quot;).
-            Hover text appears when a resident moves their mouse over or taps
-            on a line item. This is great for explaining what an unfamiliar
-            budget line actually pays for.
+            &quot;Police Salaries&quot;, &quot;Road Maintenance&quot;). Hover
+            text appears when a resident moves their mouse over or taps on a
+            line item. This is great for explaining what an unfamiliar budget
+            line actually pays for.
           </p>
         </HelpBox>
 
@@ -226,50 +258,64 @@ export default function TooltipsPage() {
             No budget data uploaded yet. Upload data to see line items here.
           </p>
         ) : (
-          <>
-            <input
-              type="text"
-              value={lineItemSearch}
-              onChange={(e) => setLineItemSearch(e.target.value)}
-              placeholder="Search line items..."
-              className="w-full max-w-sm px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-              aria-label="Search line items"
-            />
-
-            <div className="space-y-2">
-              {filteredLineItems.map((item) => (
-                <div
-                  key={item}
-                  className="bg-white border border-gray-200 rounded-lg p-3"
-                >
-                  <label className="text-sm font-medium block mb-1.5">{item}</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={getTooltipText("line-item", item)}
-                      onChange={(e) =>
-                        setTooltipText("line-item", item, e.target.value)
-                      }
-                      placeholder="Add hover text..."
-                      className="flex-1 px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <button
-                      onClick={() => handleSave("line-item", item)}
-                      disabled={saving === `line-item:${item}`}
-                      className="px-3 py-1.5 bg-gray-900 text-white rounded-md text-sm hover:bg-gray-800 disabled:opacity-50"
-                    >
-                      {saving === `line-item:${item}` ? "..." : "Save"}
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {lineItems.length > 50 && !lineItemSearch && (
-                <p className="text-xs text-gray-400">
-                  Showing first 50 of {lineItems.length} items. Use search to find specific line items.
-                </p>
-              )}
+          <div className="space-y-4 mt-4">
+            <div>
+              <select
+                id="lineItemSelect"
+                aria-label="Pick a line item to add or edit its hover text"
+                value={selectedLineItem}
+                onChange={(e) => setSelectedLineItem(e.target.value)}
+                className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Choose a line item or start typing…</option>
+                {lineItems.map((item) => (
+                  <option key={item} value={item}>
+                    {lineItemHasTooltip(item) ? "● " : ""}
+                    {item}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                ● indicates a line item that already has hover text.
+              </p>
             </div>
-          </>
+
+            {selectedLineItem && (
+              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                <label className="text-sm font-medium block mb-2">
+                  {selectedLineItem}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={getTooltipText("line-item", selectedLineItem)}
+                    onChange={(e) =>
+                      setTooltipText(
+                        "line-item",
+                        selectedLineItem,
+                        e.target.value
+                      )
+                    }
+                    placeholder="Add hover text..."
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={() => handleSave("line-item", selectedLineItem)}
+                    disabled={saving === `line-item:${selectedLineItem}`}
+                    className="px-3 py-2 bg-gray-900 text-white rounded-md text-sm hover:bg-gray-800 disabled:opacity-50"
+                  >
+                    {saving === `line-item:${selectedLineItem}`
+                      ? "..."
+                      : "Save"}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Leave the field empty and press Save to remove this hover
+                  text.
+                </p>
+              </div>
+            )}
+          </div>
         )}
       </section>
     </div>

@@ -6,6 +6,236 @@ import { useDropzone } from "react-dropzone";
 import type { DetectedMapping, DataCategory } from "@/types";
 import HelpBox from "@/components/admin/HelpBox";
 
+interface CategoryRequirement {
+  field: string;
+  label: string;
+  reason: string;
+}
+
+const CATEGORY_REQUIREMENTS: Record<
+  DataCategory,
+  {
+    required: CategoryRequirement[];
+    recommended: CategoryRequirement[];
+    needsBudgetAmount: boolean;
+    note?: string;
+  }
+> = {
+  expenses: {
+    required: [
+      {
+        field: "functionArea",
+        label: "Function Area",
+        reason: "groups the pie chart and trend chart",
+      },
+      {
+        field: "fyAmount",
+        label: "Fiscal Year Amount",
+        reason: "the dollar value for each row",
+      },
+    ],
+    recommended: [
+      {
+        field: "department",
+        label: "Department",
+        reason: "second-level grouping in the table",
+      },
+      {
+        field: "lineItem",
+        label: "Line Item / Description",
+        reason: "row label in the table",
+      },
+      {
+        field: "objectCode",
+        label: "Account / Object Code",
+        reason: "shown alongside line items",
+      },
+    ],
+    needsBudgetAmount: true,
+  },
+  revenues: {
+    required: [
+      {
+        field: "category1",
+        label: "Category",
+        reason: "groups the pie chart, trend chart, and table",
+      },
+      {
+        field: "fyAmount",
+        label: "Fiscal Year Amount",
+        reason: "the dollar value",
+      },
+    ],
+    recommended: [
+      {
+        field: "category2",
+        label: "Subcategory",
+        reason: "sub-grouping in the table",
+      },
+      {
+        field: "lineItem",
+        label: "Line Item / Description",
+        reason: "row label in the table",
+      },
+    ],
+    needsBudgetAmount: true,
+  },
+  capital: {
+    required: [
+      {
+        field: "department",
+        label: "Department",
+        reason: "groups the pie chart and 'Top Department' tile",
+      },
+      {
+        field: "purpose",
+        label: "Purpose / Project",
+        reason: "shown as the project name in the table",
+      },
+      {
+        field: "fundingSource",
+        label: "Funding Source",
+        reason: "powers the 'Top Funding Source' tile",
+      },
+      {
+        field: "fyAmount",
+        label: "Fiscal Year Amount",
+        reason: "the dollar value for each project",
+      },
+    ],
+    recommended: [],
+    needsBudgetAmount: false,
+  },
+  reserves: {
+    required: [],
+    recommended: [],
+    needsBudgetAmount: false,
+    note: "Reserves data will be saved, but there's no public reserves page yet — nothing will render on the portal.",
+  },
+};
+
+function getMappingErrors(
+  category: DataCategory,
+  mappings: DetectedMapping[]
+): string[] {
+  const errors: string[] = [];
+  const req = CATEGORY_REQUIREMENTS[category];
+  const mappedFields = new Set(mappings.map((m) => m.targetField));
+
+  for (const r of req.required) {
+    if (!mappedFields.has(r.field)) {
+      errors.push(`Missing required mapping: ${r.label} (${r.reason}).`);
+    }
+  }
+
+  const fyAmounts = mappings.filter((m) => m.targetField === "fyAmount");
+  if (fyAmounts.length > 0) {
+    const missingYear = fyAmounts.filter(
+      (m) => !m.fiscalYear || !m.fiscalYear.trim()
+    );
+    if (missingYear.length > 0) {
+      errors.push(
+        `Set the fiscal year on ${missingYear.length} amount column${
+          missingYear.length === 1 ? "" : "s"
+        }.`
+      );
+    }
+    if (
+      req.needsBudgetAmount &&
+      !fyAmounts.some((m) => m.amountType === "budget")
+    ) {
+      errors.push(
+        `At least one amount column must be set to type "Budget" so the current year shows on the portal.`
+      );
+    }
+  }
+
+  return errors;
+}
+
+const CATEGORY_LABELS: Record<DataCategory, string> = {
+  expenses: "Expenses",
+  revenues: "Revenues",
+  capital: "Capital Projects",
+  reserves: "Reserves",
+};
+
+const SAMPLE_DATA: Record<
+  DataCategory,
+  { headers: string[]; rows: string[][] }
+> = {
+  expenses: {
+    headers: [
+      "Dept",
+      "Function",
+      "Description",
+      "Object Code",
+      "FY2024 Actual",
+      "FY2025 Budget",
+      "FY2026 Budget",
+    ],
+    rows: [
+      [
+        "Selectmen",
+        "General Government",
+        "Town Admin Salary",
+        "5110",
+        "165000",
+        "170000",
+        "175000",
+      ],
+      [
+        "Police",
+        "Public Safety",
+        "Chief Salary",
+        "5110",
+        "145000",
+        "150000",
+        "155000",
+      ],
+      [
+        "Police",
+        "Public Safety",
+        "Patrol Salaries",
+        "5110",
+        "680000",
+        "710000",
+        "740000",
+      ],
+    ],
+  },
+  revenues: {
+    headers: [
+      "Category",
+      "Source",
+      "Description",
+      "FY2025 Actual",
+      "FY2026 Budget",
+    ],
+    rows: [
+      ["Tax Levy", "Property Tax", "Real Estate Tax", "28500000", "29200000"],
+      ["State Aid", "Chapter 70", "School Aid", "5200000", "5350000"],
+      ["Local Receipts", "Motor Vehicle", "MV Excise", "1800000", "1850000"],
+    ],
+  },
+  capital: {
+    headers: ["Department", "Purpose", "FY2026 Budget", "Funding Source"],
+    rows: [
+      ["DPW", "Road Resurfacing Program", "500000", "Free Cash"],
+      ["Fire", "Engine Replacement", "350000", "Borrowing"],
+      ["Schools", "HVAC Replacement", "200000", "Capital Stabilization"],
+    ],
+  },
+  reserves: {
+    headers: ["Fund Name", "Category", "FY2025 Balance", "FY2026 Balance"],
+    rows: [
+      ["Stabilization Fund", "General", "2400000", "2550000"],
+      ["Capital Stabilization", "Capital", "1100000", "950000"],
+      ["Free Cash", "General", "1800000", "2050000"],
+    ],
+  },
+};
+
 const TARGET_FIELDS = [
   { value: "department", label: "Department" },
   { value: "lineItem", label: "Line Item / Description" },
@@ -41,13 +271,15 @@ export default function UploadPage() {
   const paramTownId = searchParams.get("townId");
 
   const [townId, setTownId] = useState(paramTownId || "");
-  const [category, setCategory] = useState<DataCategory>("expenses");
+  const [category, setCategory] = useState<DataCategory | "">("");
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [mappings, setMappings] = useState<DetectedMapping[]>([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
+    []
+  );
   const [rawData, setRawData] = useState<Record<string, string>[]>([]);
 
   // Auto-detect town if no townId provided
@@ -79,7 +311,10 @@ export default function UploadPage() {
       formData.append("dataCategory", category);
 
       try {
-        const res = await fetch("/api/upload", { method: "POST", body: formData });
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
         const data = await res.json();
 
         if (!res.ok) {
@@ -100,6 +335,7 @@ export default function UploadPage() {
         const parsed = Papa.parse<Record<string, string>>(text, {
           header: true,
           skipEmptyLines: true,
+          transformHeader: (h) => h.trim(),
         });
         setRawData(parsed.data);
       } catch {
@@ -115,19 +351,36 @@ export default function UploadPage() {
     onDrop,
     accept: {
       "text/csv": [".csv"],
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
+        ".xlsx",
+      ],
     },
     maxFiles: 1,
   });
 
   const updateMapping = (index: number, field: string, value: string) => {
     setMappings((prev) =>
-      prev.map((m, i) => (i === index ? { ...m, [field]: value } : m))
+      prev.map((m, i) => {
+        if (i !== index) return m;
+        const updated = { ...m, [field]: value };
+        if (
+          field === "targetField" &&
+          value === "fyAmount" &&
+          !updated.amountType
+        ) {
+          updated.amountType = "budget";
+        }
+        return updated;
+      })
     );
   };
 
+  const mappingErrors =
+    uploadResult && category ? getMappingErrors(category, mappings) : [];
+
   const handleConfirmMapping = async () => {
     if (!uploadResult) return;
+    if (mappingErrors.length > 0) return;
     setSaving(true);
     setError("");
 
@@ -178,7 +431,9 @@ export default function UploadPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Upload Budget Data</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Upload Budget Data
+        </h1>
         <p className="text-gray-500 mt-1">
           Upload a CSV or Excel file with your budget data.
         </p>
@@ -192,12 +447,12 @@ export default function UploadPage() {
               uploading expenses, revenues, or capital project data.
             </p>
             <p className="mb-1.5">
-              <strong>2. Upload your file</strong> — Drag in a CSV or Excel
-              file from your accounting system (UMAS exports work great).
+              <strong>2. Upload your file</strong> — Drag in a CSV or Excel file
+              from your accounting system (UMAS exports work great).
             </p>
             <p>
-              <strong>3. Map the columns</strong> — We&apos;ll try to match
-              your columns automatically. You can correct any that look wrong.
+              <strong>3. Map the columns</strong> — We&apos;ll try to match your
+              columns automatically. You can correct any that look wrong.
             </p>
           </HelpBox>
 
@@ -215,15 +470,21 @@ export default function UploadPage() {
           </HelpBox>
 
           <div>
-            <label htmlFor="dataCategory" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="dataCategory"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               Data Category
             </label>
             <select
               id="dataCategory"
               value={category}
-              onChange={(e) => setCategory(e.target.value as DataCategory)}
+              onChange={(e) => setCategory(e.target.value as DataCategory | "")}
               className="px-3 py-2 border border-gray-300 rounded-md text-sm"
             >
+              <option value="" disabled>
+                Choose a category…
+              </option>
               <option value="expenses">Expenses</option>
               <option value="revenues">Revenues</option>
               <option value="capital">Capital Projects</option>
@@ -231,37 +492,86 @@ export default function UploadPage() {
             </select>
           </div>
 
-          <div
-            {...getRootProps()}
-            className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
-              isDragActive
-                ? "border-blue-400 bg-blue-50"
-                : "border-gray-300 hover:border-gray-400"
-            }`}
-            role="button"
-            aria-label="Upload file area. Drag and drop or click to browse."
-          >
-            <input {...getInputProps()} />
-            {uploading ? (
-              <p className="text-gray-500">Uploading...</p>
-            ) : isDragActive ? (
-              <p className="text-blue-600">Drop the file here</p>
-            ) : (
-              <div>
-                <p className="text-gray-600 font-medium">
-                  Drag and drop a CSV or Excel file
-                </p>
-                <p className="text-sm text-gray-400 mt-1">
-                  or click to browse (max 10MB)
-                </p>
+          {category && (
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">
+                Uploads work best when a row represents a different category or
+                line amount, rather than a specific year. Your file should look
+                something like this:
+              </p>
+              <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {SAMPLE_DATA[category].headers.map((h) => (
+                        <th
+                          key={h}
+                          className="px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap"
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {SAMPLE_DATA[category].rows.map((row, i) => (
+                      <tr key={i} className="border-t border-gray-200">
+                        {row.map((cell, j) => (
+                          <td
+                            key={j}
+                            className="px-3 py-2 text-gray-700 whitespace-nowrap"
+                          >
+                            {cell}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Column names don&apos;t need to match the examples exactly —
+                we&apos;ll help you map them in the next step.
+              </p>
+            </div>
+          )}
+
+          {category && (
+            <div
+              {...getRootProps()}
+              className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
+                isDragActive
+                  ? "border-blue-400 bg-blue-50"
+                  : "border-gray-300 hover:border-gray-400"
+              }`}
+              role="button"
+              aria-label="Upload file area. Drag and drop or click to browse."
+            >
+              <input {...getInputProps()} />
+              {uploading ? (
+                <p className="text-gray-500">Uploading...</p>
+              ) : isDragActive ? (
+                <p className="text-blue-600">Drop the file here</p>
+              ) : (
+                <div>
+                  <p className="text-gray-600 font-medium">
+                    Drag and drop a CSV or Excel file
+                  </p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    or click to browse (max 10MB)
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4" role="alert">
+        <div
+          className="bg-red-50 border border-red-200 rounded-lg p-4"
+          role="alert"
+        >
           <p className="text-sm text-red-600 font-medium">{error}</p>
           {validationErrors.length > 0 && (
             <ul className="mt-2 text-sm text-red-500 list-disc list-inside space-y-1">
@@ -277,10 +587,72 @@ export default function UploadPage() {
 
       {uploadResult && (
         <div className="space-y-6">
-          <div className="bg-gray-50 rounded-lg p-4">
-            <p className="text-sm text-gray-600">
-              <span className="font-medium">{uploadResult.totalRows}</span> rows detected with{" "}
-              <span className="font-medium">{uploadResult.headers.length}</span> columns
+          <div className="bg-gray-50 rounded-lg p-6 grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {category && (
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">
+                  Category
+                </p>
+                <p className="text-xl font-semibold tracking-tight text-gray-900">
+                  {CATEGORY_LABELS[category]}
+                </p>
+              </div>
+            )}
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">
+                Rows detected
+              </p>
+              <p className="text-xl font-semibold tracking-tight text-gray-900">
+                {uploadResult.totalRows.toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">
+                Columns
+              </p>
+              <p className="text-xl font-semibold tracking-tight text-gray-900">
+                {uploadResult.headers.length}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-2">
+              Preview of your file
+            </p>
+            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {uploadResult.headers.map((h) => (
+                      <th
+                        key={h}
+                        className="px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {uploadResult.sampleRows.slice(0, 2).map((row, i) => (
+                    <tr key={i} className="border-t border-gray-200">
+                      {uploadResult.headers.map((h) => (
+                        <td
+                          key={h}
+                          className="px-3 py-2 text-gray-700 whitespace-nowrap"
+                        >
+                          {row[h] ?? ""}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Showing the first 2 rows of{" "}
+              {uploadResult.totalRows.toLocaleString()}.
             </p>
           </div>
 
@@ -300,6 +672,52 @@ export default function UploadPage() {
                 </p>
               </HelpBox>
             </div>
+
+            {category && CATEGORY_REQUIREMENTS[category].note && (
+              <div className="mb-4">
+                <HelpBox title="Heads up" variant="warning">
+                  <p>{CATEGORY_REQUIREMENTS[category].note}</p>
+                </HelpBox>
+              </div>
+            )}
+
+            {category &&
+              CATEGORY_REQUIREMENTS[category].required.length > 0 && (
+                <div className="mb-4">
+                  <HelpBox
+                    title={`What ${CATEGORY_LABELS[category]} charts need`}
+                    variant="tip"
+                  >
+                    <p className="mb-2">
+                      Make sure these columns are mapped — the charts and tables
+                      won&apos;t render correctly without them:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 mb-3">
+                      {CATEGORY_REQUIREMENTS[category].required.map((r) => (
+                        <li key={r.label}>
+                          <strong>{r.label}</strong> — {r.reason}
+                        </li>
+                      ))}
+                    </ul>
+                    {CATEGORY_REQUIREMENTS[category].recommended.length > 0 && (
+                      <>
+                        <p className="mb-2">
+                          Recommended for richer detail (optional):
+                        </p>
+                        <ul className="list-disc list-inside space-y-1">
+                          {CATEGORY_REQUIREMENTS[category].recommended.map(
+                            (r) => (
+                              <li key={r.label}>
+                                <strong>{r.label}</strong> — {r.reason}
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </>
+                    )}
+                  </HelpBox>
+                </div>
+              )}
 
             <div className="space-y-3">
               {mappings.map((m, i) => (
@@ -342,7 +760,9 @@ export default function UploadPage() {
                   {m.targetField === "fyAmount" && (
                     <div className="mt-3 flex items-center gap-3 pl-4 border-l-2 border-blue-200">
                       <div>
-                        <label className="text-xs text-gray-500">Fiscal Year</label>
+                        <label className="text-xs text-gray-500">
+                          Fiscal Year
+                        </label>
                         <input
                           type="text"
                           value={m.fiscalYear || ""}
@@ -373,11 +793,26 @@ export default function UploadPage() {
             </div>
           </div>
 
+          {mappingErrors.length > 0 && (
+            <HelpBox title="Fix these before saving" variant="warning">
+              <ul className="list-disc list-inside space-y-1">
+                {mappingErrors.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+            </HelpBox>
+          )}
+
           <div className="flex items-center gap-4">
             <button
               onClick={handleConfirmMapping}
-              disabled={saving}
-              className="px-4 py-2 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
+              disabled={saving || mappingErrors.length > 0}
+              title={
+                mappingErrors.length > 0
+                  ? "Fix the missing required mappings above first"
+                  : undefined
+              }
+              className="px-4 py-2 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {saving ? "Processing..." : "Confirm & Save Data"}
             </button>
