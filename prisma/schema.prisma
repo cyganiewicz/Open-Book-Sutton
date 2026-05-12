@@ -29,6 +29,7 @@ model Town {
   pdfDocuments     PdfDocument[]
   staffUsers       StaffUser[]
   capitalRequests  CapitalRequest[]
+  faqEntries       FaqEntry[]
 }
 
 model AdminUser {
@@ -179,6 +180,19 @@ model StaffSession {
   user      StaffUser @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime  @default(now())
+}
+
+model FaqEntry {
+  id        String   @id @default(cuid())
+  townId    String
+  town      Town     @relation(fields: [townId], references: [id], onDelete: Cascade)
+  question  String
+  answer    String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([townId])
 }
 
 model CapitalRequest {
