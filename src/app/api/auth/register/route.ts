@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { hashPassword, createSession, setSessionCookie } from "@/lib/auth";
+import { hashPassword, createSession, setSessionCookie, getCurrentUser } from "@/lib/auth";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { email, password, name, setupKey } = body;
+  const { email, password, name } = body;
 
   if (!email || !password || !name) {
     return NextResponse.json(
@@ -13,12 +13,16 @@ export async function POST(request: Request) {
     );
   }
 
-  const expectedKey = process.env.SETUP_KEY;
-  if (expectedKey && setupKey !== expectedKey) {
-    return NextResponse.json(
-      { error: "Invalid setup key" },
-      { status: 403 }
-    );
+  const adminCount = await prisma.adminUser.count();
+
+  if (adminCount > 0) {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json(
+        { error: "Registration is closed. An existing admin must create new accounts." },
+        { status: 403 }
+      );
+    }
   }
 
   const existing = await prisma.adminUser.findUnique({ where: { email } });
@@ -37,8 +41,10 @@ export async function POST(request: Request) {
     },
   });
 
-  const token = await createSession(user.id);
-  await setSessionCookie(token);
+  if (adminCount === 0) {
+    const token = await createSession(user.id);
+    await setSessionCookie(token);
+  }
 
   return NextResponse.json(
     { id: user.id, email: user.email, name: user.name },
