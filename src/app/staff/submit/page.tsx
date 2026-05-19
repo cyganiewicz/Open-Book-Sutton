@@ -136,7 +136,7 @@ export default function StaffSubmitPage() {
 
         <div>
           <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-            Description <span className="text-gray-400 font-normal">(optional)</span>
+            Description <span className="text-gray-500 font-normal">(optional)</span>
           </label>
           <textarea
             id="description"
@@ -167,7 +167,7 @@ export default function StaffSubmitPage() {
 
         <div>
           <label htmlFor="fundingSource" className="block text-sm font-medium text-gray-700 mb-1">
-            Funding Source <span className="text-gray-400 font-normal">(optional)</span>
+            Funding Source <span className="text-gray-500 font-normal">(optional)</span>
           </label>
           <input
             id="fundingSource"

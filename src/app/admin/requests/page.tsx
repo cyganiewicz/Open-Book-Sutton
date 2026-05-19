@@ -224,6 +224,8 @@ export default function AdminRequestsPage() {
                   onClick={() =>
                     setExpandedId(expandedId === req.id ? null : req.id)
                   }
+                  aria-expanded={expandedId === req.id}
+                  aria-label={`${expandedId === req.id ? "Collapse" : "Expand"} request: ${req.purpose}`}
                   className="w-full grid grid-cols-12 gap-2 px-4 py-3 text-left hover:bg-gray-50 transition-colors items-center"
                 >
                   <div className="col-span-2 text-sm text-gray-900 truncate">
@@ -258,7 +260,7 @@ export default function AdminRequestsPage() {
                       <div>
                         <p className="text-gray-500 text-xs">Staff Member</p>
                         <p className="font-medium">{req.staffUser.name}</p>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs text-gray-500">
                           {req.staffUser.email}
                         </p>
                       </div>
@@ -300,10 +302,14 @@ export default function AdminRequestsPage() {
 
                     {/* Admin Notes Input */}
                     <div className="mt-4 pt-4 border-t border-gray-200">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label
+                        htmlFor={`admin-notes-${req.id}`}
+                        className="block text-xs font-medium text-gray-700 mb-1"
+                      >
                         Admin Notes
                       </label>
                       <textarea
+                        id={`admin-notes-${req.id}`}
                         value={adminNotes[req.id] ?? req.adminNotes ?? ""}
                         onChange={(e) =>
                           setAdminNotes((prev) => ({
@@ -360,7 +366,7 @@ export default function AdminRequestsPage() {
                           </button>
                         )}
                         {updating === req.id && (
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-gray-500">
                             Updating...
                           </span>
                         )}

@@ -13,7 +13,7 @@ export default function DocsPage() {
           <Link href="/" className="text-lg font-semibold tracking-tight">
             OpenBook
           </Link>
-          <span className="text-gray-400 font-normal ml-1">Documentation</span>
+          <span className="text-gray-500 font-normal ml-1">Documentation</span>
         </div>
       </header>
 
@@ -87,9 +87,9 @@ export default function DocsPage() {
                 <table className="w-full text-sm border border-gray-200 rounded-lg">
                   <thead>
                     <tr className="bg-gray-50">
-                      <th className="px-4 py-2 text-left font-medium">Variable</th>
-                      <th className="px-4 py-2 text-left font-medium">Required</th>
-                      <th className="px-4 py-2 text-left font-medium">Description</th>
+                      <th scope="col" className="px-4 py-2 text-left font-medium">Variable</th>
+                      <th scope="col" className="px-4 py-2 text-left font-medium">Required</th>
+                      <th scope="col" className="px-4 py-2 text-left font-medium">Description</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -152,8 +152,8 @@ export default function DocsPage() {
                     <table className="w-full text-sm border border-gray-200 rounded-lg">
                       <thead>
                         <tr className="bg-gray-50">
-                          <th className="px-4 py-2 text-left font-medium">Variable</th>
-                          <th className="px-4 py-2 text-left font-medium">Value</th>
+                          <th scope="col" className="px-4 py-2 text-left font-medium">Variable</th>
+                          <th scope="col" className="px-4 py-2 text-left font-medium">Value</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -462,8 +462,8 @@ Schools,HVAC Replacement,200000,Capital Stabilization`}</code>
                 <table className="w-full text-sm border border-gray-200 rounded-lg">
                   <thead>
                     <tr className="bg-gray-50">
-                      <th className="px-4 py-2 text-left font-medium">UMAS Column</th>
-                      <th className="px-4 py-2 text-left font-medium">OpenBook Mapping</th>
+                      <th scope="col" className="px-4 py-2 text-left font-medium">UMAS Column</th>
+                      <th scope="col" className="px-4 py-2 text-left font-medium">OpenBook Mapping</th>
                     </tr>
                   </thead>
                   <tbody className="text-gray-600">
@@ -520,7 +520,7 @@ Schools,HVAC Replacement,200000,Capital Stabilization`}</code>
         </section>
       </main>
 
-      <footer className="border-t border-gray-200 py-6 text-center text-xs text-gray-400">
+      <footer className="border-t border-gray-200 py-6 text-center text-xs text-gray-500">
         OpenBook — Municipal Budget Transparency
       </footer>
     </div>

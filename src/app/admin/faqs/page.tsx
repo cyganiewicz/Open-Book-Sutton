@@ -292,7 +292,7 @@ export default function AdminFaqsPage() {
         </div>
 
         {faqs.length === 0 ? (
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-gray-500">
             No FAQs added yet. Use the form above to add your first one.
           </p>
         ) : (
@@ -304,10 +304,14 @@ export default function AdminFaqsPage() {
                   className="bg-white border border-blue-200 rounded-lg p-4 space-y-3"
                 >
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">
+                    <label
+                      htmlFor={`edit-q-${faq.id}`}
+                      className="block text-xs text-gray-500 mb-1"
+                    >
                       Question
                     </label>
                     <input
+                      id={`edit-q-${faq.id}`}
                       type="text"
                       value={editQuestion}
                       onChange={(e) => setEditQuestion(e.target.value)}
@@ -315,10 +319,14 @@ export default function AdminFaqsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">
+                    <label
+                      htmlFor={`edit-a-${faq.id}`}
+                      className="block text-xs text-gray-500 mb-1"
+                    >
                       Answer
                     </label>
                     <textarea
+                      id={`edit-a-${faq.id}`}
                       value={editAnswer}
                       onChange={(e) => setEditAnswer(e.target.value)}
                       rows={4}

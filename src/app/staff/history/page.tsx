@@ -124,6 +124,8 @@ export default function StaffHistoryPage() {
             <div key={req.id}>
               <button
                 onClick={() => setExpandedId(expandedId === req.id ? null : req.id)}
+                aria-expanded={expandedId === req.id}
+                aria-label={`${expandedId === req.id ? "Collapse" : "Expand"} request: ${req.purpose}`}
                 className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
               >
                 <div className="flex-1 min-w-0">
@@ -150,6 +152,7 @@ export default function StaffHistoryPage() {
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
+                  aria-hidden="true"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>

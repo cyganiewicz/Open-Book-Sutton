@@ -315,7 +315,7 @@ export default function AdminQuestionsPage() {
 
       {/* Question list */}
       {filtered.length === 0 ? (
-        <p className="text-sm text-gray-400 py-4">
+        <p className="text-sm text-gray-500 py-4">
           {filter === "all"
             ? "No questions have been submitted yet."
             : `No ${filter} questions.`}

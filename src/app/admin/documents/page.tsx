@@ -250,7 +250,7 @@ export default function AdminDocumentsPage() {
               <p className="text-sm font-medium text-gray-700">
                 {selectedFile.name}
               </p>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-500">
                 {formatFileSize(selectedFile.size)}
               </p>
               <button
@@ -282,7 +282,7 @@ export default function AdminDocumentsPage() {
               <p className="text-gray-600 font-medium mt-3">
                 Drag and drop a PDF file
               </p>
-              <p className="text-sm text-gray-400 mt-1">
+              <p className="text-sm text-gray-500 mt-1">
                 or{" "}
                 <button
                   onClick={() => fileInputRef.current?.click()}
@@ -313,7 +313,7 @@ export default function AdminDocumentsPage() {
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
                   Display Title{" "}
-                  <span className="text-gray-400 font-normal">(optional)</span>
+                  <span className="text-gray-500 font-normal">(optional)</span>
                 </label>
                 <input
                   id="pdf-title"
@@ -366,14 +366,14 @@ export default function AdminDocumentsPage() {
             </span>
           </h2>
           {pdfs.length > 0 && (
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-gray-500">
               Total: {formatFileSize(totalSize)}
             </p>
           )}
         </div>
 
         {pdfs.length === 0 ? (
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-gray-500">
             No PDFs uploaded yet. Use the form above to upload your first
             document.
           </p>
@@ -408,7 +408,7 @@ export default function AdminDocumentsPage() {
                         {getCategoryLabel(pdf.category)}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
                       <span>{pdf.fileName}</span>
                       <span>{formatFileSize(pdf.fileSize)}</span>
                       <span>{formatDate(pdf.createdAt)}</span>

@@ -224,7 +224,7 @@ export default function SetupPage() {
             URL Slug
           </label>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-400">openbook.gov/</span>
+            <span className="text-sm text-gray-500">openbook.gov/</span>
             <input
               id="townSlug"
               type="text"
@@ -234,7 +234,7 @@ export default function SetupPage() {
               required
             />
           </div>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             This is the web address for your portal. It&apos;s auto-generated from
             your town name. Use lowercase letters and dashes only.
           </p>
@@ -284,7 +284,7 @@ export default function SetupPage() {
             disabled={logoUploading}
             className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 disabled:opacity-50"
           />
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             {logoUploading
               ? "Uploading..."
               : "Upload your town seal or logo. PNG, JPEG, SVG, or WebP (max 5 MB)."}
@@ -303,7 +303,7 @@ export default function SetupPage() {
             placeholder="finance@townname.gov"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             This email will be shown on your portal so residents can reach out
             with questions about the budget.
           </p>

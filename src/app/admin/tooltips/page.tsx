@@ -180,7 +180,7 @@ export default function TooltipsPage() {
         </HelpBox>
 
         {categories.length === 0 ? (
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-gray-500">
             No budget data uploaded yet. Upload data to see categories here.
           </p>
         ) : (
@@ -208,11 +208,15 @@ export default function TooltipsPage() {
 
             {selectedCategory && (
               <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <label className="text-sm font-medium block mb-2">
+                <label
+                  htmlFor="category-tooltip-text"
+                  className="text-sm font-medium block mb-2"
+                >
                   {selectedCategory}
                 </label>
                 <div className="flex gap-2">
                   <input
+                    id="category-tooltip-text"
                     type="text"
                     value={getTooltipText("category", selectedCategory)}
                     onChange={(e) =>
@@ -260,7 +264,7 @@ export default function TooltipsPage() {
         </HelpBox>
 
         {lineItems.length === 0 ? (
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-gray-500">
             No budget data uploaded yet. Upload data to see line items here.
           </p>
         ) : (
@@ -288,11 +292,15 @@ export default function TooltipsPage() {
 
             {selectedLineItem && (
               <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <label className="text-sm font-medium block mb-2">
+                <label
+                  htmlFor="lineitem-tooltip-text"
+                  className="text-sm font-medium block mb-2"
+                >
                   {selectedLineItem}
                 </label>
                 <div className="flex gap-2">
                   <input
+                    id="lineitem-tooltip-text"
                     type="text"
                     value={getTooltipText("line-item", selectedLineItem)}
                     onChange={(e) =>

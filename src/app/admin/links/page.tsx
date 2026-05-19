@@ -270,7 +270,7 @@ export default function AdminLinksPage() {
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
                 Description{" "}
-                <span className="text-gray-400 font-normal">(optional)</span>
+                <span className="text-gray-500 font-normal">(optional)</span>
               </label>
               <input
                 id="link-description"
@@ -322,7 +322,7 @@ export default function AdminLinksPage() {
         </h2>
 
         {links.length === 0 ? (
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-gray-500">
             No links added yet. Use the form above to add your first link.
           </p>
         ) : (
@@ -335,10 +335,14 @@ export default function AdminLinksPage() {
                 >
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">
+                      <label
+                        htmlFor={`edit-title-${link.id}`}
+                        className="block text-xs text-gray-500 mb-1"
+                      >
                         Title
                       </label>
                       <input
+                        id={`edit-title-${link.id}`}
                         type="text"
                         value={editTitle}
                         onChange={(e) => setEditTitle(e.target.value)}
@@ -346,10 +350,14 @@ export default function AdminLinksPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">
+                      <label
+                        htmlFor={`edit-url-${link.id}`}
+                        className="block text-xs text-gray-500 mb-1"
+                      >
                         URL
                       </label>
                       <input
+                        id={`edit-url-${link.id}`}
                         type="url"
                         value={editUrl}
                         onChange={(e) => setEditUrl(e.target.value)}
@@ -359,10 +367,14 @@ export default function AdminLinksPage() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">
+                      <label
+                        htmlFor={`edit-desc-${link.id}`}
+                        className="block text-xs text-gray-500 mb-1"
+                      >
                         Description
                       </label>
                       <input
+                        id={`edit-desc-${link.id}`}
                         type="text"
                         value={editDescription}
                         onChange={(e) => setEditDescription(e.target.value)}
@@ -370,10 +382,14 @@ export default function AdminLinksPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">
+                      <label
+                        htmlFor={`edit-cat-${link.id}`}
+                        className="block text-xs text-gray-500 mb-1"
+                      >
                         Category
                       </label>
                       <select
+                        id={`edit-cat-${link.id}`}
                         value={editCategory}
                         onChange={(e) => setEditCategory(e.target.value)}
                         className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -386,10 +402,14 @@ export default function AdminLinksPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">
+                      <label
+                        htmlFor={`edit-sort-${link.id}`}
+                        className="block text-xs text-gray-500 mb-1"
+                      >
                         Sort Order
                       </label>
                       <input
+                        id={`edit-sort-${link.id}`}
                         type="number"
                         value={editSortOrder}
                         onChange={(e) =>
@@ -428,7 +448,7 @@ export default function AdminLinksPage() {
                           {getCategoryLabel(link.category)}
                         </span>
                         {link.sortOrder > 0 && (
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-gray-500">
                             #{link.sortOrder}
                           </span>
                         )}
@@ -438,7 +458,7 @@ export default function AdminLinksPage() {
                           {link.description}
                         </p>
                       )}
-                      <p className="text-xs text-gray-400 mt-1 truncate">
+                      <p className="text-xs text-gray-500 mt-1 truncate">
                         {link.url}
                       </p>
                     </div>

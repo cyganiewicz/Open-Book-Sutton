@@ -185,7 +185,7 @@ export default async function DocumentsPage({
                       <p className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
                         {pdf.title || pdf.fileName}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs text-gray-500 mt-1">
                         PDF &middot; {formatFileSize(pdf.fileSize)}
                       </p>
                     </div>

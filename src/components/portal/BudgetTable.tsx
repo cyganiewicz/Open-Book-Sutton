@@ -196,7 +196,7 @@ export default function BudgetTable({
                 className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 hover:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
               >
                 <span className="font-medium text-gray-700">Fiscal Year</span>
-                <span className="text-gray-400 text-xs">
+                <span className="text-gray-500 text-xs">
                   {selectedYears.length} selected
                 </span>
                 <svg

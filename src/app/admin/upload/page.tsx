@@ -570,7 +570,7 @@ export default function UploadPage() {
                   <p className="text-gray-600 font-medium">
                     Drag and drop a CSV or Excel file
                   </p>
-                  <p className="text-sm text-gray-400 mt-1">
+                  <p className="text-sm text-gray-500 mt-1">
                     or click to browse (max 10MB)
                   </p>
                 </div>
@@ -742,7 +742,7 @@ export default function UploadPage() {
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium">{m.sourceColumn}</p>
-                      <p className="text-xs text-gray-400 mt-1 truncate">
+                      <p className="text-xs text-gray-500 mt-1 truncate">
                         {uploadResult.sampleRows
                           .slice(0, 2)
                           .map((r) => r[m.sourceColumn])

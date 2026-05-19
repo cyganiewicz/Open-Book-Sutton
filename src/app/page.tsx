@@ -11,7 +11,7 @@ export default async function HomePage() {
     <div className="min-h-screen flex flex-col bg-gray-50">
       <header className="border-b border-gray-200 bg-white">
         <div className="max-w-3xl mx-auto px-4 py-5 sm:py-7">
-          <p className="text-xs font-display font-medium uppercase tracking-widest text-gray-400 mb-2">
+          <p className="text-xs font-display font-medium uppercase tracking-widest text-gray-500 mb-2">
             Municipal Budget Transparency
           </p>
           <h1 className="text-3xl sm:text-4xl font-display font-bold tracking-tight text-gray-900">
@@ -29,7 +29,7 @@ export default async function HomePage() {
         <div className="max-w-3xl mx-auto w-full px-4 py-6">
         {towns.length === 0 ? (
           <div>
-            <p className="text-gray-400 text-lg mb-6">No towns published yet.</p>
+            <p className="text-gray-500 text-lg mb-6">No towns published yet.</p>
             <div className="bg-white border border-gray-200 rounded-lg p-6">
               <p className="text-sm font-display font-semibold text-gray-800 mb-3">
                 Getting started
@@ -85,7 +85,7 @@ export default async function HomePage() {
                       <span className="font-display font-semibold text-gray-900 group-hover:text-gray-700">
                         {town.name}
                       </span>
-                      <p className="text-xs text-gray-400">View budget portal</p>
+                      <p className="text-xs text-gray-500">View budget portal</p>
                     </div>
                   </div>
                 </Link>
@@ -170,7 +170,7 @@ export default async function HomePage() {
 
       <footer className="border-t border-gray-200 py-4">
         <div className="max-w-3xl mx-auto px-4">
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500">
             OpenBook is a municipal budget transparency platform.
           </p>
         </div>

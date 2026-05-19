@@ -34,7 +34,7 @@ export default async function AdminLayout({
       <header className="border-b border-gray-200 bg-white">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/admin/setup" className="text-lg font-semibold tracking-tight shrink-0">
-            OpenBook <span className="text-gray-400 font-normal">Admin</span>
+            OpenBook <span className="text-gray-500 font-normal">Admin</span>
           </Link>
           <div className="flex items-center gap-2">
             <nav

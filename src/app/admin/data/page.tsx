@@ -199,7 +199,7 @@ export default function DataManagementPage() {
       ) : (
         <>
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm" aria-label="Uploaded budget files">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
                   <th scope="col" className="px-4 py-3 text-left font-medium text-gray-600">File</th>

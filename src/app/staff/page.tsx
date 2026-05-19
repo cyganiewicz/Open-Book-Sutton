@@ -106,7 +106,7 @@ export default async function StaffDashboardPage() {
         {requests.length === 0 ? (
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
             <p className="text-gray-500">No requests yet.</p>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-gray-500 mt-1">
               Submit your first capital expenditure request to get started.
             </p>
           </div>

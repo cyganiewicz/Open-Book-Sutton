@@ -68,7 +68,7 @@ export default function RegisterPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="w-full max-w-md">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-            <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+            <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
             </svg>
           </div>
@@ -80,11 +80,15 @@ export default function RegisterPage() {
           </p>
 
           <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="admin-verification-link"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               Verification link
             </label>
             <div className="flex gap-2">
               <input
+                id="admin-verification-link"
                 type="text"
                 readOnly
                 value={verificationLink}
@@ -98,7 +102,7 @@ export default function RegisterPage() {
                 {copied ? "Copied" : "Copy"}
               </button>
             </div>
-            <p className="text-xs text-gray-400 mt-2">
+            <p className="text-xs text-gray-500 mt-2">
               Send this link to the new admin so they can verify their email.
             </p>
           </div>
