@@ -33,12 +33,14 @@ model Town {
 }
 
 model AdminUser {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  createdAt    DateTime @default(now())
-  sessions     Session[]
+  id                String   @id @default(cuid())
+  email             String   @unique
+  passwordHash      String
+  name              String
+  emailVerified     Boolean  @default(false)
+  verificationToken String?
+  createdAt         DateTime @default(now())
+  sessions          Session[]
 }
 
 model Session {
@@ -163,14 +165,16 @@ model PdfDocument {
 }
 
 model StaffUser {
-  id           String   @id @default(cuid())
-  townId       String
-  town         Town     @relation(fields: [townId], references: [id], onDelete: Cascade)
-  email        String   @unique
-  passwordHash String
-  name         String
-  department   String?
-  createdAt    DateTime @default(now())
+  id                String   @id @default(cuid())
+  townId            String
+  town              Town     @relation(fields: [townId], references: [id], onDelete: Cascade)
+  email             String   @unique
+  passwordHash      String
+  name              String
+  department        String?
+  emailVerified     Boolean  @default(false)
+  verificationToken String?
+  createdAt         DateTime @default(now())
 
   sessions        StaffSession[]
   capitalRequests CapitalRequest[]

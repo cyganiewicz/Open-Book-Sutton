@@ -202,12 +202,12 @@ export default function DataManagementPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">File</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">Category</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-600">Rows</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">Date</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-600">Actions</th>
+                  <th scope="col" className="px-4 py-3 text-left font-medium text-gray-600">File</th>
+                  <th scope="col" className="px-4 py-3 text-left font-medium text-gray-600">Category</th>
+                  <th scope="col" className="px-4 py-3 text-right font-medium text-gray-600">Rows</th>
+                  <th scope="col" className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
+                  <th scope="col" className="px-4 py-3 text-left font-medium text-gray-600">Date</th>
+                  <th scope="col" className="px-4 py-3 text-right font-medium text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody>

@@ -86,7 +86,7 @@ export default async function DashboardPage({
         <h1 className="text-2xl font-semibold tracking-tight">
           FY{currentYear} Budget Overview
         </h1>
-        <p className="text-gray-500 mt-1">
+        <p className="text-gray-600 mt-1">
           Town of {town.name} financial summary
         </p>
       </div>
@@ -107,7 +107,7 @@ export default async function DashboardPage({
 
       <section>
         <h2 className="text-lg font-medium mb-1">Expenses</h2>
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-gray-600 mb-4">
           How the town spends money — broken down by department and function area.
           The tiles below show the big picture; scroll down for line-by-line detail.
         </p>
@@ -132,7 +132,7 @@ export default async function DashboardPage({
 
       <section>
         <h2 className="text-lg font-medium mb-1">Revenues</h2>
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-gray-600 mb-4">
           Where the town&apos;s money comes from — property taxes, state aid,
           local fees, and other sources.
         </p>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { parseCSV, parseExcel } from "@/lib/parser";
-import { normalizeRows } from "@/lib/normalizer";
+import { cleanRows } from "@/lib/parser";
+import { normalizeRows, stripZeroAmountRows } from "@/lib/normalizer";
 import type { ColumnMappingInput } from "@/types";
 
 export async function POST(request: Request) {
@@ -48,8 +48,12 @@ export async function POST(request: Request) {
     });
   }
 
-  // Normalize and store budget rows
-  const normalized = normalizeRows(rawData, mappings);
+  // Clean raw data (strip totals, blanks, titles) then normalize
+  const cleanedData = cleanRows({
+    headers: Object.keys(rawData[0] || {}),
+    rows: rawData,
+  }).rows;
+  const normalized = stripZeroAmountRows(normalizeRows(cleanedData, mappings));
 
   // Delete existing rows for this upload
   await prisma.budgetRow.deleteMany({ where: { uploadId } });

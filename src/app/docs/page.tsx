@@ -105,6 +105,277 @@ export default function DocsPage() {
           </div>
         </section>
 
+        {/* Deployment Guide */}
+        <section>
+          <h1 className="text-2xl font-semibold tracking-tight mb-6">
+            Deployment Guide
+          </h1>
+
+          <div className="prose prose-sm max-w-none space-y-6">
+            <p className="text-gray-600">
+              OpenBook runs locally with SQLite out of the box, but for a public-facing
+              portal you&apos;ll want to deploy it to a hosting provider with a production
+              database. This section walks through the recommended path.
+            </p>
+
+            <div>
+              <h2 className="text-lg font-medium mt-8 mb-3">Deploying to Vercel (Recommended)</h2>
+              <p className="text-gray-600 mb-3">
+                Vercel is the easiest way to get OpenBook online. It auto-builds on every
+                push to your main branch, handles SSL, and has a free tier that works fine
+                for municipal portals.
+              </p>
+              <ol className="list-decimal list-inside text-gray-600 space-y-3">
+                <li>
+                  <strong>Fork the repository</strong>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Go to{" "}
+                    <code className="bg-gray-100 px-1 rounded">https://github.com/your-org/openbook</code>{" "}
+                    and click <strong>Fork</strong>. This gives your town its own copy of the codebase.
+                  </p>
+                </li>
+                <li>
+                  <strong>Connect to Vercel</strong>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Sign up at{" "}
+                    <code className="bg-gray-100 px-1 rounded">vercel.com</code>, click{" "}
+                    <strong>Add New Project</strong>, and import your forked repo. Vercel will
+                    detect the Next.js framework automatically.
+                  </p>
+                </li>
+                <li>
+                  <strong>Add environment variables</strong>
+                  <p className="mt-1 text-sm text-gray-500">
+                    In the Vercel project settings, go to <strong>Environment Variables</strong> and add:
+                  </p>
+                  <div className="mt-2 overflow-x-auto">
+                    <table className="w-full text-sm border border-gray-200 rounded-lg">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="px-4 py-2 text-left font-medium">Variable</th>
+                          <th className="px-4 py-2 text-left font-medium">Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-t border-gray-200">
+                          <td className="px-4 py-2"><code>DATABASE_URL</code></td>
+                          <td className="px-4 py-2 text-gray-600">
+                            Your Postgres connection string (see Database Migration below)
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="mt-2 text-sm text-gray-500">
+                    For the database, grab a free Postgres instance from{" "}
+                    <code className="bg-gray-100 px-1 rounded">neon.tech</code> or{" "}
+                    <code className="bg-gray-100 px-1 rounded">supabase.com</code>. Both offer
+                    free tiers that are more than enough for a single town&apos;s budget data.
+                  </p>
+                </li>
+                <li>
+                  <strong>Deploy</strong>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Click <strong>Deploy</strong>. Vercel builds the app and gives you a public URL
+                    like{" "}
+                    <code className="bg-gray-100 px-1 rounded">openbook-yourtown.vercel.app</code>.
+                    Every push to your main branch triggers a new deployment automatically.
+                  </p>
+                </li>
+              </ol>
+            </div>
+
+            <div>
+              <h2 className="text-lg font-medium mt-8 mb-3">Database Migration (SQLite to Postgres)</h2>
+              <p className="text-gray-600 mb-3">
+                Locally, OpenBook uses SQLite. For production you need to switch to Postgres.
+                Here&apos;s how:
+              </p>
+              <ol className="list-decimal list-inside text-gray-600 space-y-3">
+                <li>
+                  <strong>Get a Postgres connection string</strong>
+                  <p className="mt-1 text-sm text-gray-500">
+                    It looks something like:{" "}
+                    <code className="bg-gray-100 px-1 rounded">
+                      postgresql://user:password@host:5432/dbname
+                    </code>
+                  </p>
+                </li>
+                <li>
+                  <strong>Update the Prisma schema</strong>
+                  <p className="mt-1 text-sm text-gray-500">
+                    In <code className="bg-gray-100 px-1 rounded">prisma/schema.prisma</code>,
+                    change the datasource provider:
+                  </p>
+                  <pre className="mt-1 bg-gray-50 rounded-lg p-3 text-sm overflow-x-auto">
+                    <code>{`datasource db {
+  provider = "postgresql"  // was "sqlite"
+  url      = env("DATABASE_URL")
+}`}</code>
+                  </pre>
+                </li>
+                <li>
+                  <strong>Set the environment variable</strong>
+                  <pre className="mt-1 bg-gray-50 rounded-lg p-3 text-sm overflow-x-auto">
+                    <code>DATABASE_URL=&quot;postgresql://user:password@host:5432/dbname&quot;</code>
+                  </pre>
+                </li>
+                <li>
+                  <strong>Run migrations</strong>
+                  <pre className="mt-1 bg-gray-50 rounded-lg p-3 text-sm overflow-x-auto">
+                    <code>npx prisma migrate dev</code>
+                  </pre>
+                </li>
+              </ol>
+              <p className="text-sm text-gray-500 mt-3">
+                <strong>Note:</strong> Your local SQLite data does not carry over when you switch
+                to Postgres. After migrating, re-upload your budget data through the admin panel.
+                The schema and tables are created by the migration — it&apos;s just the row data
+                that doesn&apos;t transfer.
+              </p>
+            </div>
+
+            <div>
+              <h2 className="text-lg font-medium mt-8 mb-3">Custom Domain Setup</h2>
+              <p className="text-gray-600 mb-3">
+                Once your portal is deployed, you can point a real domain at it.
+              </p>
+              <ol className="list-decimal list-inside text-gray-600 space-y-3">
+                <li>
+                  <strong>Add the domain in Vercel</strong>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Go to your project&apos;s <strong>Settings → Domains</strong> and add your
+                    domain (e.g.,{" "}
+                    <code className="bg-gray-100 px-1 rounded">budget.townname.gov</code>).
+                  </p>
+                </li>
+                <li>
+                  <strong>Add a CNAME record in your DNS provider</strong>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Create a CNAME record pointing to:
+                  </p>
+                  <pre className="mt-1 bg-gray-50 rounded-lg p-3 text-sm overflow-x-auto">
+                    <code>cname.vercel-dns.com</code>
+                  </pre>
+                  <p className="mt-1 text-sm text-gray-500">
+                    For <code className="bg-gray-100 px-1 rounded">.gov</code> subdomains,
+                    your IT department sets this in the town&apos;s DNS management. For domains on
+                    GoDaddy, Namecheap, Cloudflare, etc., do the same thing in their DNS panel.
+                  </p>
+                </li>
+                <li>
+                  <strong>SSL is automatic</strong>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Vercel provisions and renews SSL certificates automatically once the DNS
+                    record propagates. No extra configuration needed.
+                  </p>
+                </li>
+              </ol>
+            </div>
+
+            <div>
+              <h2 className="text-lg font-medium mt-8 mb-3">IT Department Handoff</h2>
+              <p className="text-gray-600 mb-3">
+                In most towns, the person setting up OpenBook (town manager, finance director)
+                is not the same person who manages DNS and hosting. Here&apos;s how the work splits:
+              </p>
+
+              <div className="mb-4">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">What the town manager does:</h3>
+                <ul className="list-disc list-inside text-gray-600 space-y-1">
+                  <li>Fork the OpenBook repo to the town&apos;s GitHub account</li>
+                  <li>Run the app locally and create the admin account</li>
+                  <li>Configure the town name, slug, and branding</li>
+                  <li>Upload budget data and verify everything looks right</li>
+                </ul>
+              </div>
+
+              <div className="mb-4">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">What IT does:</h3>
+                <ul className="list-disc list-inside text-gray-600 space-y-1">
+                  <li>Connect the forked repo to Vercel</li>
+                  <li>Set up a Postgres database (Neon or Supabase free tier)</li>
+                  <li>Add the <code className="bg-gray-100 px-1 rounded">DATABASE_URL</code> environment variable in Vercel</li>
+                  <li>Point the subdomain (e.g., <code className="bg-gray-100 px-1 rounded">budget.townname.gov</code>) via CNAME</li>
+                  <li>Verify the deployment is live and SSL is working</li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">IT Handoff Checklist</h3>
+                <ol className="list-decimal list-inside text-gray-600 space-y-2">
+                  <li>
+                    Fork the repo at{" "}
+                    <code className="bg-gray-100 px-1 rounded">https://github.com/your-org/openbook</code>
+                  </li>
+                  <li>
+                    Create a Vercel account and import the forked repo
+                  </li>
+                  <li>
+                    Provision a Postgres database (Neon:{" "}
+                    <code className="bg-gray-100 px-1 rounded">neon.tech</code>, Supabase:{" "}
+                    <code className="bg-gray-100 px-1 rounded">supabase.com</code>)
+                  </li>
+                  <li>
+                    Copy the connection string and add it as{" "}
+                    <code className="bg-gray-100 px-1 rounded">DATABASE_URL</code> in Vercel
+                    environment variables
+                  </li>
+                  <li>
+                    Update <code className="bg-gray-100 px-1 rounded">prisma/schema.prisma</code>{" "}
+                    provider to <code className="bg-gray-100 px-1 rounded">&quot;postgresql&quot;</code>{" "}
+                    and commit the change
+                  </li>
+                  <li>Deploy — Vercel builds automatically on push</li>
+                  <li>
+                    Add custom domain in Vercel and set the CNAME record to{" "}
+                    <code className="bg-gray-100 px-1 rounded">cname.vercel-dns.com</code>
+                  </li>
+                  <li>Wait for DNS propagation and confirm SSL is active</li>
+                  <li>
+                    Have the town manager log in, re-upload budget data, and verify the public portal
+                  </li>
+                </ol>
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-lg font-medium mt-8 mb-3">Alternative Hosting</h2>
+              <p className="text-gray-600 mb-3">
+                Vercel is the path of least resistance, but OpenBook is a standard Next.js app.
+                You can host it anywhere that runs Node.js.
+              </p>
+              <ul className="list-disc list-inside text-gray-600 space-y-2">
+                <li>
+                  <strong>Railway</strong> (<code className="bg-gray-100 px-1 rounded">railway.app</code>)
+                  — connect your repo, add <code className="bg-gray-100 px-1 rounded">DATABASE_URL</code>,
+                  and Railway handles the rest.
+                </li>
+                <li>
+                  <strong>Render</strong> (<code className="bg-gray-100 px-1 rounded">render.com</code>)
+                  — similar flow. Create a Web Service, point it at your repo, set environment variables.
+                </li>
+                <li>
+                  <strong>Self-hosted</strong> — build and run it yourself:
+                  <pre className="mt-1 bg-gray-50 rounded-lg p-3 text-sm overflow-x-auto">
+                    <code>{`npm run build
+npm start`}</code>
+                  </pre>
+                  <p className="mt-1 text-sm text-gray-500">
+                    The app listens on port 3000 by default. Put it behind nginx or Caddy
+                    for SSL termination.
+                  </p>
+                </li>
+              </ul>
+              <p className="text-sm text-gray-500 mt-3">
+                Regardless of hosting provider, the same database migration steps apply:
+                switch the Prisma provider to <code className="bg-gray-100 px-1 rounded">&quot;postgresql&quot;</code>,
+                set <code className="bg-gray-100 px-1 rounded">DATABASE_URL</code>, and run migrations.
+              </p>
+            </div>
+          </div>
+        </section>
+
         {/* Data Format Guide */}
         <section>
           <h1 className="text-2xl font-semibold tracking-tight mb-6">

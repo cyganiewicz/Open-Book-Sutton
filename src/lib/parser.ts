@@ -70,3 +70,108 @@ export function parseFile(
   }
   return parseExcel(content as ArrayBuffer);
 }
+
+// ---------------------------------------------------------------------------
+// Row-cleaning utilities for non-standard municipal budget layouts
+// ---------------------------------------------------------------------------
+
+/**
+ * Patterns that indicate a row is a title/preamble row sitting above the
+ * actual data.  These are checked against cells that appear to be the only
+ * non-empty value in the row (i.e. a "spanning" title cell).
+ */
+const TITLE_PATTERNS = [
+  /\btown\s+of\b/i,
+  /\bcity\s+of\b/i,
+  /\bfy\s*20\d{2}\b/i,
+  /\bbudget\b/i,
+  /\bschedule\s+[a-z]/i,
+];
+
+/**
+ * Keywords that — when they ARE the entire (trimmed, decoration-stripped)
+ * cell value — indicate a subtotal / total row.
+ *
+ * We intentionally keep this list narrow so legitimate line items like
+ * "Police Total Budget" are not caught.
+ */
+const TOTAL_KEYWORDS = new Set([
+  "total",
+  "totals",
+  "subtotal",
+  "sub-total",
+  "grand total",
+]);
+
+/**
+ * Strip decoration characters that municipal spreadsheets often use around
+ * totals (asterisks, dashes, underscores, colons).
+ */
+function stripDecoration(value: string): string {
+  return value.replace(/^[\s*_\-:]+|[\s*_\-:]+$/g, "").trim();
+}
+
+/**
+ * Returns true when the cell text is *just* a total keyword, optionally
+ * wrapped in decoration like "** TOTAL **" or "--- Subtotal ---".
+ */
+function isTotalLabel(cell: string): boolean {
+  const stripped = stripDecoration(cell).toLowerCase();
+  return TOTAL_KEYWORDS.has(stripped);
+}
+
+/**
+ * Returns true when a row looks like a blank / separator row
+ * (every cell is empty or whitespace-only).
+ */
+function isBlankRow(row: Record<string, string>): boolean {
+  return Object.values(row).every((v) => !v || !v.trim());
+}
+
+/**
+ * Returns true when a row looks like a title/preamble row:
+ * exactly one non-empty cell whose value matches a title pattern.
+ */
+function isTitleRow(row: Record<string, string>, columnCount: number): boolean {
+  const nonEmpty = Object.values(row).filter((v) => v && v.trim());
+  // A title row typically has only 1 meaningful cell in a multi-column sheet
+  if (nonEmpty.length !== 1 || columnCount < 2) return false;
+  const cell = nonEmpty[0].trim();
+  return TITLE_PATTERNS.some((p) => p.test(cell));
+}
+
+/**
+ * Returns true when the first text cell of the row is a total keyword.
+ */
+function isSubtotalRow(row: Record<string, string>): boolean {
+  // Find the first non-empty cell value
+  for (const value of Object.values(row)) {
+    const trimmed = value?.trim();
+    if (trimmed) {
+      return isTotalLabel(trimmed);
+    }
+  }
+  return false;
+}
+
+/**
+ * Pre-process parsed rows to strip noise that is common in municipal
+ * budget spreadsheets:
+ *  - Title/preamble rows above the header
+ *  - Blank/separator rows
+ *  - Subtotal and total rows
+ *
+ * Call this after parsing but before column detection.
+ */
+export function cleanRows(parsed: ParsedFile): ParsedFile {
+  const columnCount = parsed.headers.length;
+
+  const cleaned = parsed.rows.filter((row) => {
+    if (isBlankRow(row)) return false;
+    if (isTitleRow(row, columnCount)) return false;
+    if (isSubtotalRow(row)) return false;
+    return true;
+  });
+
+  return { headers: parsed.headers, rows: cleaned };
+}

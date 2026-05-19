@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { prisma } from "@/lib/db";
 import {
   hashPassword,
@@ -51,7 +52,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create staff user
+    // Create staff user with verification token
+    const verificationToken = randomUUID();
     const passwordHash = hashPassword(password);
     const user = await prisma.staffUser.create({
       data: {
@@ -60,6 +62,7 @@ export async function POST(request: Request) {
         name,
         department: department || null,
         townId: town.id,
+        verificationToken,
       },
     });
 
@@ -67,11 +70,16 @@ export async function POST(request: Request) {
     const token = await createStaffSession(user.id);
     await setStaffSessionCookie(token);
 
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[dev] Verification link for ${email}: /verify?token=${verificationToken}`);
+    }
+
     return NextResponse.json({
       id: user.id,
       email: user.email,
       name: user.name,
       townId: user.townId,
+      verificationToken,
     });
   } catch (error) {
     console.error("Staff registration error:", error);

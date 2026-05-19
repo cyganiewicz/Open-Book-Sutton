@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { prisma } from "@/lib/db";
 import { hashPassword, createSession, setSessionCookie, getCurrentUser } from "@/lib/auth";
 
@@ -33,11 +34,14 @@ export async function POST(request: Request) {
     );
   }
 
+  const verificationToken = randomUUID();
+
   const user = await prisma.adminUser.create({
     data: {
       email,
       passwordHash: hashPassword(password),
       name,
+      verificationToken,
     },
   });
 
@@ -46,8 +50,17 @@ export async function POST(request: Request) {
     await setSessionCookie(token);
   }
 
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[dev] Verification link for ${email}: /verify?token=${verificationToken}`);
+  }
+
   return NextResponse.json(
-    { id: user.id, email: user.email, name: user.name },
+    {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      verificationToken,
+    },
     { status: 201 }
   );
 }

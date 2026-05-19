@@ -78,6 +78,14 @@ export function normalizeRows(
   return results;
 }
 
+/**
+ * Remove noise rows where every amount field is 0 or null.
+ * Call after normalization to strip rows that carry no financial data.
+ */
+export function stripZeroAmountRows(rows: NormalizedRow[]): NormalizedRow[] {
+  return rows.filter((row) => row.amount !== 0 && row.amount != null);
+}
+
 function findAmountColumn(
   row: Record<string, string>,
   fieldMap: Map<string, string>

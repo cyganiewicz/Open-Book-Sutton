@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { parseCSV, parseExcel } from "@/lib/parser";
+import { parseCSV, parseExcel, cleanRows } from "@/lib/parser";
 import { detectColumns } from "@/lib/column-detector";
 import type { DataCategory } from "@/types";
 
@@ -72,12 +72,12 @@ export async function POST(request: Request) {
   try {
     if (fileType === "csv") {
       const text = await file.text();
-      const parsed = parseCSV(text);
+      const parsed = cleanRows(parseCSV(text));
       headers = parsed.headers;
       rows = parsed.rows;
     } else {
       const buffer = await file.arrayBuffer();
-      const parsed = parseExcel(buffer);
+      const parsed = cleanRows(parseExcel(buffer));
       headers = parsed.headers;
       rows = parsed.rows;
     }

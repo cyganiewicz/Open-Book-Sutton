@@ -12,6 +12,8 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [verificationLink, setVerificationLink] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,19 +33,94 @@ export default function RegisterPage() {
         body: JSON.stringify({ name, email, password }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const data = await res.json();
         setError(data.error || "Registration failed");
         return;
       }
 
-      router.push("/admin/setup");
+      if (data.verificationToken) {
+        const link = `${window.location.origin}/verify?token=${data.verificationToken}`;
+        setVerificationLink(link);
+      } else {
+        router.push("/admin/setup");
+      }
     } catch {
       setError("Something went wrong");
     } finally {
       setLoading(false);
     }
   };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(verificationLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback: select the text in the input
+    }
+  };
+
+  if (verificationLink) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="w-full max-w-md">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+            <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-center">
+            Account created
+          </h1>
+          <p className="text-gray-500 text-center mt-1 mb-6">
+            Share the verification link below to verify the email address.
+          </p>
+
+          <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Verification link
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                readOnly
+                value={verificationLink}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm text-gray-600 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="px-3 py-2 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 transition-colors whitespace-nowrap"
+              >
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              Send this link to the new admin so they can verify their email.
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            <Link
+              href="/admin/setup"
+              className="flex-1 text-center px-4 py-2 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 transition-colors"
+            >
+              Continue to Setup
+            </Link>
+            <Link
+              href="/admin/register"
+              className="flex-1 text-center px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+            >
+              Register Another
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">

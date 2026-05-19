@@ -154,7 +154,7 @@ export default async function RevenuesPage({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Revenues</h1>
-          <p className="text-gray-500 mt-1">Yearly revenue by source</p>
+          <p className="text-gray-600 mt-1">Yearly revenue by source</p>
         </div>
         <ExportButton
           data={exportData}

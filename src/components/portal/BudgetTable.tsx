@@ -176,7 +176,7 @@ export default function BudgetTable({
                 aria-label="Search budget items"
               />
               {query && (
-                <p className="text-xs text-gray-400 mt-1.5">
+                <p className="text-xs text-gray-500 mt-1.5">
                   {filtered.filter((r) => !r.isGroup && !r.isSubtotal).length}{" "}
                   results
                 </p>
@@ -259,6 +259,7 @@ export default function BudgetTable({
             className="w-full text-sm"
             style={{ minWidth: "600px" }}
             role="table"
+            aria-label="Budget data"
           >
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50/80">
@@ -363,7 +364,7 @@ export default function BudgetTable({
                 <tr>
                   <td
                     colSpan={effectiveHeaders.length}
-                    className="px-4 py-8 text-center text-gray-400 text-sm"
+                    className="px-4 py-8 text-center text-gray-500 text-sm"
                   >
                     {query
                       ? "No items match your search."

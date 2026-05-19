@@ -98,7 +98,7 @@ export default async function CapitalPage({
           <h1 className="text-2xl font-semibold tracking-tight">
             Capital Projects
           </h1>
-          <p className="text-gray-500 mt-1">Capital spending by department</p>
+          <p className="text-gray-600 mt-1">Capital spending by department</p>
         </div>
         <ExportButton data={exportData} filename={`${town.slug}-capital`} />
       </div>

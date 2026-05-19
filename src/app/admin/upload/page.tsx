@@ -518,6 +518,7 @@ export default function UploadPage() {
                       {SAMPLE_DATA[category].headers.map((h) => (
                         <th
                           key={h}
+                          scope="col"
                           className="px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap"
                         >
                           {h}
@@ -639,6 +640,7 @@ export default function UploadPage() {
                     {uploadResult.headers.map((h) => (
                       <th
                         key={h}
+                        scope="col"
                         className="px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap"
                       >
                         {h}
@@ -772,10 +774,14 @@ export default function UploadPage() {
                   {m.targetField === "fyAmount" && (
                     <div className="mt-3 flex items-center gap-3 pl-4 border-l-2 border-blue-200">
                       <div>
-                        <label className="text-xs text-gray-500">
+                        <label
+                          htmlFor={`fy-${i}`}
+                          className="text-xs text-gray-500"
+                        >
                           Fiscal Year
                         </label>
                         <input
+                          id={`fy-${i}`}
                           type="text"
                           value={m.fiscalYear || ""}
                           onChange={(e) =>
@@ -786,8 +792,14 @@ export default function UploadPage() {
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-500">Type</label>
+                        <label
+                          htmlFor={`amt-type-${i}`}
+                          className="text-xs text-gray-500"
+                        >
+                          Type
+                        </label>
                         <select
+                          id={`amt-type-${i}`}
                           value={m.amountType || "budget"}
                           onChange={(e) =>
                             updateMapping(i, "amountType", e.target.value)

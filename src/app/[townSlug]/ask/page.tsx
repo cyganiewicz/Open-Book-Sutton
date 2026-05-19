@@ -31,7 +31,7 @@ export default async function FaqPage({
         <h1 className="text-2xl font-semibold tracking-tight">
           Frequently Asked Questions
         </h1>
-        <p className="text-gray-500 mt-1">
+        <p className="text-gray-600 mt-1">
           Answers to common questions about {town.name}&apos;s budget.
         </p>
       </div>
@@ -67,7 +67,7 @@ export default async function FaqPage({
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-600">
             No FAQs have been published yet. Check back soon.
           </p>
         </div>

@@ -31,11 +31,11 @@ export default async function TownLayout({
       <footer className="border-t border-gray-200 bg-white py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center space-y-2">
           {town.aboutText && (
-            <p className="text-gray-500 text-xs max-w-xl mx-auto leading-relaxed">
+            <p className="text-gray-600 text-xs max-w-xl mx-auto leading-relaxed">
               {town.aboutText}
             </p>
           )}
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500">
             Town of {town.name} |{" "}
             Powered by{" "}
             <span className="font-display font-medium">OpenBook</span>
