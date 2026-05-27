@@ -7,7 +7,7 @@ export async function PATCH(
 ) {
   const { townId } = await params;
   const body = await request.json();
-  const { name, slug, primaryColor, logoUrl, contactEmail, aboutText } = body;
+  const { name, slug, primaryColor, logoUrl, contactEmail, aboutText, allowedDomains } = body;
 
   const town = await prisma.town.findUnique({ where: { id: townId } });
   if (!town) {
@@ -34,6 +34,7 @@ export async function PATCH(
       ...(logoUrl !== undefined && { logoUrl: logoUrl || null }),
       ...(contactEmail !== undefined && { contactEmail: contactEmail || null }),
       ...(aboutText !== undefined && { aboutText: aboutText || null }),
+      ...(allowedDomains !== undefined && { allowedDomains: allowedDomains || "" }),
     },
   });
 

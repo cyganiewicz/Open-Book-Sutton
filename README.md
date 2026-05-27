@@ -57,7 +57,6 @@ Go to `/admin/setup` to set:
 - **Logo** — shown as tab icon and on page
 - **Contact email** — where you want resident questions to be sent to
 - **About text** — appears on the portal homepage
-- **Invite code** — used by staff who self-register at `/staff/register`
 
 ### 3. Upload budget data (Upload tab)
 
@@ -129,9 +128,13 @@ The admin header has a **Preview** link that opens your public portal (`/[townSl
 
 ### For town staff
 
-- Self-registration via an invite code
+- Account creation via admin-issued invite links
 - Capital expenditure request submission
 - Request tracking and status updates
+
+## IT Onboarding
+
+If you're a municipal IT director deploying OpenBook for your town, see the [IT Onboarding Guide](docs/it-onboarding.md) for hosting, DNS, security, and user management details.
 
 ## Tech Stack
 

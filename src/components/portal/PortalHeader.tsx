@@ -17,7 +17,7 @@ const NAV_ITEMS = [
   { label: "Capital", path: "/capital" },
   { label: "Documents", path: "/documents" },
   { label: "Budget Book", path: "/budget-book" },
-  { label: "FAQ", path: "/ask" },
+  { label: "FAQ", path: "/faq" },
 ];
 
 export default function PortalHeader({

@@ -101,7 +101,7 @@ export default async function DashboardPage({
           a spreadsheet using the Export button, or generate a complete{" "}
           <a href={`/${town.slug}/budget-book`} className="underline font-medium">Budget Book</a>{" "}
           for printing. Have a question?{" "}
-          <a href={`/${town.slug}/ask`} className="underline font-medium">Ask here</a>.
+          <a href={`/${town.slug}/faq`} className="underline font-medium">Check the FAQ</a>.
         </p>
       </div>
 

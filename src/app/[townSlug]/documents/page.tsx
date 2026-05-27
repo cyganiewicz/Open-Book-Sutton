@@ -80,7 +80,7 @@ export default async function DocumentsPage({
           the data you see on this portal. PDFs can be downloaded
           directly; links open in a new tab. If you&apos;re looking for
           a document that isn&apos;t here, use the{" "}
-          <a href={`/${townSlug}/ask`} className="underline font-medium">Ask a Question</a>{" "}
+          <a href={`/${townSlug}/faq`} className="underline font-medium">FAQ</a>{" "}
           form to let us know.
         </p>
       </div>

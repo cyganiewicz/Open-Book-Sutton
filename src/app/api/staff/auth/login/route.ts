@@ -34,6 +34,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!user.emailVerified) {
+      return NextResponse.json(
+        { error: "Your account is pending admin approval. Please contact your administrator." },
+        { status: 403 }
+      );
+    }
+
     const token = await createStaffSession(user.id);
     await setStaffSessionCookie(token);
 

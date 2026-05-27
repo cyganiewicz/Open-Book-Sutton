@@ -15,8 +15,9 @@ model Town {
   primaryColor String   @default("#1e40af")
   contactEmail String?
   aboutText    String?
-  inviteCode   String   @default("")
-  published    Boolean  @default(false)
+  inviteCode      String   @default("")
+  allowedDomains  String   @default("")
+  published       Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -28,6 +29,7 @@ model Town {
   supportingLinks  SupportingLink[]
   pdfDocuments     PdfDocument[]
   staffUsers       StaffUser[]
+  staffInvites     StaffInvite[]
   capitalRequests  CapitalRequest[]
   faqEntries       FaqEntry[]
 }
@@ -174,10 +176,23 @@ model StaffUser {
   department        String?
   emailVerified     Boolean  @default(false)
   verificationToken String?
+  resetToken        String?  @unique
   createdAt         DateTime @default(now())
 
   sessions        StaffSession[]
   capitalRequests CapitalRequest[]
+}
+
+model StaffInvite {
+  id        String   @id @default(cuid())
+  townId    String
+  town      Town     @relation(fields: [townId], references: [id], onDelete: Cascade)
+  email     String
+  token     String   @unique
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([townId])
 }
 
 model StaffSession {

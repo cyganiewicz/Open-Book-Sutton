@@ -284,7 +284,7 @@ export default function AdminQuestionsPage() {
       <HelpBox title="How this works" variant="info">
         <p className="mb-1.5">
           This page shows questions that were previously submitted through the portal.
-          The &quot;Ask a Question&quot; page now directs residents to email your
+          The FAQ page now directs residents to email your
           town&apos;s finance office directly.
         </p>
         <p>

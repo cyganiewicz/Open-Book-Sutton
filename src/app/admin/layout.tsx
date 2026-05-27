@@ -25,6 +25,7 @@ export default async function AdminLayout({
     { href: "/admin/links", label: "Links" },
     { href: "/admin/documents", label: "PDFs" },
     { href: "/admin/faqs", label: "FAQs" },
+    { href: "/admin/users", label: "Users" },
     { href: "/admin/requests", label: "Requests" },
     { href: "/admin/transfer", label: "Transfer" },
   ];

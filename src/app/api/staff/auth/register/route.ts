@@ -6,6 +6,7 @@ import {
   createStaffSession,
   setStaffSessionCookie,
 } from "@/lib/staff-auth";
+import { sendVerificationEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
   try {
@@ -26,14 +27,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const emailDomain = email.split("@")[1]?.toLowerCase();
-    if (!emailDomain || !emailDomain.endsWith(".gov")) {
-      return NextResponse.json(
-        { error: "Staff accounts require a .gov email address" },
-        { status: 400 }
-      );
-    }
-
     // Look up town by slug
     const town = await prisma.town.findUnique({ where: { slug: townSlug } });
     if (!town) {
@@ -41,6 +34,34 @@ export async function POST(request: Request) {
         { error: "Town not found" },
         { status: 404 }
       );
+    }
+
+    const emailDomain = email.split("@")[1]?.toLowerCase();
+    if (!emailDomain) {
+      return NextResponse.json(
+        { error: "Invalid email address" },
+        { status: 400 }
+      );
+    }
+
+    const allowedDomains = town.allowedDomains
+      ? town.allowedDomains.split(",").map((d: string) => d.trim().toLowerCase()).filter(Boolean)
+      : [];
+
+    if (allowedDomains.length > 0) {
+      if (!allowedDomains.includes(emailDomain)) {
+        return NextResponse.json(
+          { error: `Staff accounts must use one of these email domains: ${allowedDomains.map((d: string) => "@" + d).join(", ")}` },
+          { status: 400 }
+        );
+      }
+    } else {
+      if (!emailDomain.endsWith(".gov")) {
+        return NextResponse.json(
+          { error: "Staff accounts require a .gov email address" },
+          { status: 400 }
+        );
+      }
     }
 
     // Check if email is already registered
@@ -70,9 +91,7 @@ export async function POST(request: Request) {
     const token = await createStaffSession(user.id);
     await setStaffSessionCookie(token);
 
-    if (process.env.NODE_ENV === "development") {
-      console.log(`[dev] Verification link for ${email}: /verify?token=${verificationToken}`);
-    }
+    await sendVerificationEmail(email, name, verificationToken);
 
     return NextResponse.json({
       id: user.id,

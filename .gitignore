@@ -55,3 +55,30 @@ dev.db-journal
 
 # User uploads
 /public/uploads/
+
+
+# Agent-agnostic: symlinks to AGENTS.md
+CLAUDE.md
+GEMINI.md
+CONVENTIONS.md
+.cursorrules
+.windsurfrules
+.clinerules
+.roorules
+.augment-guidelines
+.continuerules
+
+# Agent config directories
+.claude/
+.cursor/
+.codex/
+.opencode/
+.continue/
+.augment/
+.roo/
+.windsurf/
+.aider.conf.yml
+.aiderignore
+
+# Shared memory
+.ai-memory/
