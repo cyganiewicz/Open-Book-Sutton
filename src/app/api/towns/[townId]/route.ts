@@ -26,17 +26,18 @@ export async function PATCH(
   }
 
   const updated = await prisma.town.update({
-    where: { id: townId },
-    data: {
-      ...(name !== undefined && { name }),
-      ...(slug !== undefined && { slug }),
-      ...(primaryColor !== undefined && { primaryColor }),
-      ...(logoUrl !== undefined && { logoUrl: logoUrl || null }),
-      ...(contactEmail !== undefined && { contactEmail: contactEmail || null }),
-      ...(aboutText !== undefined && { aboutText: aboutText || null }),
-      ...(allowedDomains !== undefined && { allowedDomains: allowedDomains || "" }),
-    },
-  });
+  where: { id: townId },
+  data: {
+    ...(name !== undefined && { name }),
+    ...(slug !== undefined && { slug }),
+    ...(primaryColor !== undefined && { primaryColor }),
+    ...(logoUrl !== undefined && { logoUrl: logoUrl || null }),
+    ...(contactEmail !== undefined && { contactEmail: contactEmail || null }),
+    ...(aboutText !== undefined && { aboutText: aboutText || null }),
+    ...(allowedDomains !== undefined && { allowedDomains: allowedDomains || "" }),
+    published: true,
+  },
+});
 
   return NextResponse.json(updated);
 }
