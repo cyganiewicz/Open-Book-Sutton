@@ -29,7 +29,8 @@ export function normalizeRows(
     const col = fieldMap.get(field);
     if (!col) return null;
     const val = row[col];
-    return val && val.trim() ? val.trim() : null;
+    const str = val != null ? String(val) : "";
+    return str.trim() ? str.trim() : null;
   };
 
   const results: NormalizedRow[] = [];
