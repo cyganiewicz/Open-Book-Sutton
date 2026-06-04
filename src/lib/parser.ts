@@ -125,7 +125,7 @@ function isTotalLabel(cell: string): boolean {
  * (every cell is empty or whitespace-only).
  */
 function isBlankRow(row: Record<string, string>): boolean {
-  return Object.values(row).every((v) => !v || !v.trim());
+  return Object.values(row).every((v) => !v || !String(v).trim());
 }
 
 /**
