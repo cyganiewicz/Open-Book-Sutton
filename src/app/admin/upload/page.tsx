@@ -334,14 +334,27 @@ export default function UploadPage() {
         setMappings(result.detectedMappings);
 
         // Re-read file for raw data to send with mapping confirmation
-        const text = await file.text();
-        const Papa = (await import("papaparse")).default;
-        const parsed = Papa.parse<Record<string, string>>(text, {
-          header: true,
-          skipEmptyLines: true,
-          transformHeader: (h) => h.trim(),
-        });
-        setRawData(parsed.data);
+        if (file.name.toLowerCase().endsWith(".xlsx")) {
+          const buffer = await file.arrayBuffer();
+          const XLSX = await import("xlsx");
+          const workbook = XLSX.read(buffer, { type: "array" });
+          const sheetName = workbook.SheetNames[0];
+          const sheet = workbook.Sheets[sheetName];
+          const data = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, {
+            defval: "",
+            raw: false,
+          });
+          setRawData(data);
+        } else {
+          const text = await file.text();
+          const Papa = (await import("papaparse")).default;
+          const parsed = Papa.parse<Record<string, string>>(text, {
+            header: true,
+            skipEmptyLines: true,
+            transformHeader: (h) => h.trim(),
+          });
+          setRawData(parsed.data);
+        }
       } catch {
         setError("Upload failed");
       } finally {
