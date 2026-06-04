@@ -133,12 +133,9 @@ function isBlankRow(row: Record<string, string>): boolean {
  * exactly one non-empty cell whose value matches a title pattern.
  */
 function isTitleRow(row: Record<string, string>, columnCount: number): boolean {
-  const nonEmpty = Object.values(row).filter((v) => v && v.trim());
-  // A title row typically has only 1 meaningful cell in a multi-column sheet
+  const nonEmpty = Object.values(row).filter((v) => v && String(v).trim());
   if (nonEmpty.length !== 1 || columnCount < 2) return false;
-  const cell = nonEmpty[0].trim();
-  return TITLE_PATTERNS.some((p) => p.test(cell));
-}
+  const cell = String(nonEmpty[0]).trim();
 
 /**
  * Returns true when the first text cell of the row is a total keyword.
@@ -146,7 +143,7 @@ function isTitleRow(row: Record<string, string>, columnCount: number): boolean {
 function isSubtotalRow(row: Record<string, string>): boolean {
   // Find the first non-empty cell value
   for (const value of Object.values(row)) {
-    const trimmed = value?.trim();
+    const trimmed = value != null ? String(value).trim() : undefined;
     if (trimmed) {
       return isTotalLabel(trimmed);
     }
