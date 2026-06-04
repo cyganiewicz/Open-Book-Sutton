@@ -52,6 +52,15 @@ export async function POST(request: Request) {
     }).rows;
     const normalized = stripZeroAmountRows(normalizeRows(cleanedData, mappings));
 
+// Debug: return early with diagnostic info if 0 rows
+if (normalized.length === 0) {
+  return NextResponse.json({
+    error: `0 rows produced. Mappings received: ${JSON.stringify(
+      mappings.filter(m => m.targetField === "fyAmount")
+    )}. First raw row: ${JSON.stringify(cleanedData[0])}`,
+  }, { status: 400 });
+}
+
     // Delete existing rows for this upload
     await prisma.budgetRow.deleteMany({ where: { uploadId } });
 
