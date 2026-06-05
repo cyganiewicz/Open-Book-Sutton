@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { cleanRows } from "@/lib/parser";
 import { normalizeRows, stripZeroAmountRows } from "@/lib/normalizer";
+import { parseAccountCodeRules } from "@/lib/account-codes";
 import type { ColumnMappingInput } from "@/types";
 
 export async function POST(request: Request) {
@@ -21,6 +22,10 @@ export async function POST(request: Request) {
     if (!upload) {
       return NextResponse.json({ error: "Upload not found" }, { status: 404 });
     }
+
+    // Load town's account code rules (if configured)
+    const town = await prisma.town.findUnique({ where: { id: upload.townId } });
+    const accountCodeRules = parseAccountCodeRules(town?.accountCodeRules || "");
 
     // Save column mappings
     for (const m of mappings) {
@@ -45,21 +50,14 @@ export async function POST(request: Request) {
       });
     }
 
-    // Clean and normalize rows
+    // Clean and normalize rows, applying account code rules for auto-categorization
     const cleanedData = cleanRows({
       headers: Object.keys(rawData[0] || {}),
       rows: rawData,
     }).rows;
-    const normalized = stripZeroAmountRows(normalizeRows(cleanedData, mappings));
-
-// Debug: return early with diagnostic info if 0 rows
-if (normalized.length === 0) {
-  return NextResponse.json({
-    error: `0 rows produced. Mappings received: ${JSON.stringify(
-      mappings.filter(m => m.targetField === "fyAmount")
-    )}. First raw row: ${JSON.stringify(cleanedData[0])}`,
-  }, { status: 400 });
-}
+    const normalized = stripZeroAmountRows(
+      normalizeRows(cleanedData, mappings, accountCodeRules)
+    );
 
     // Delete existing rows for this upload
     await prisma.budgetRow.deleteMany({ where: { uploadId } });
@@ -95,7 +93,6 @@ if (normalized.length === 0) {
       data: { published: true },
     });
 
-    const town = await prisma.town.findUnique({ where: { id: upload.townId } });
     return NextResponse.json({
       success: true,
       rowsCreated: normalized.length,
