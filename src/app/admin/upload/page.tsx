@@ -244,6 +244,7 @@ const TARGET_FIELDS = [
   { value: "fundCode", label: "Fund Code" },
   { value: "fundName", label: "Fund Name" },
   { value: "category1", label: "Category" },
+  { value: "spendingType", label: "Spending Type (Salaries, Services, etc.)" },
   { value: "category2", label: "Subcategory" },
   { value: "purpose", label: "Purpose / Project" },
   { value: "fundingSource", label: "Funding Source" },
