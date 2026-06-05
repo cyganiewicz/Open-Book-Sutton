@@ -622,11 +622,6 @@ function BulkImportRow({ onImport }: { onImport: (entries: Array<{ code: string;
   const [text, setText] = useState("");
   const [preview, setPreview] = useState<Array<{ code: string; label: string; group: string }>>([]);
 
-  const handlePaste = (val: string) => {
-    setText(val);
-    setPreview(parseBulkText(val));
-  };
-
   const handleImport = () => {
     if (preview.length === 0) return;
     onImport(preview);
@@ -662,10 +657,10 @@ function BulkImportRow({ onImport }: { onImport: (entries: Array<{ code: string;
 
       <textarea
         value={text}
-        onChange={e => handlePaste(e.target.value)}
-        onPaste={e => {
-          // Let the paste happen then parse
-          setTimeout(() => handlePaste(e.currentTarget.value), 0);
+        onChange={e => {
+          const val = e.target.value;
+          setText(val);
+          setPreview(parseBulkText(val));
         }}
         rows={6}
         placeholder={"51110\tRegular Salaries\tSalaries & Wages\n51120\tOvertime Salaries\tSalaries & Wages\n53000\tPurchased Services\tPurchased Services"}
