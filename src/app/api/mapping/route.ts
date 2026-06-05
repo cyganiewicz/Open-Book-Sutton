@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { cleanRows } from "@/lib/parser";
 import { normalizeRows, stripZeroAmountRows } from "@/lib/normalizer";
-import { parseAccountCodeRules } from "@/lib/account-codes";
+import { parseAccountCodeConfig } from "@/lib/account-codes";
 import type { ColumnMappingInput } from "@/types";
 
 export async function POST(request: Request) {
@@ -23,9 +23,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Upload not found" }, { status: 404 });
     }
 
-    // Load town's account code rules (if configured)
+    // Load town's account code config (if configured)
     const town = await prisma.town.findUnique({ where: { id: upload.townId } });
-    const accountCodeRules = parseAccountCodeRules(town?.accountCodeRules || "");
+    const accountCodeConfig = parseAccountCodeConfig(town?.accountCodeRules || "");
 
     // Save column mappings
     for (const m of mappings) {
@@ -50,13 +50,14 @@ export async function POST(request: Request) {
       });
     }
 
-    // Clean and normalize rows, applying account code rules for auto-categorization
+    // Clean and normalize rows, applying account code config for auto-categorization
     const cleanedData = cleanRows({
       headers: Object.keys(rawData[0] || {}),
       rows: rawData,
     }).rows;
+
     const normalized = stripZeroAmountRows(
-      normalizeRows(cleanedData, mappings, accountCodeRules)
+      normalizeRows(cleanedData, mappings, accountCodeConfig, upload.dataCategory)
     );
 
     // Delete existing rows for this upload
