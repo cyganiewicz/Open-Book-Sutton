@@ -132,12 +132,13 @@ export default async function ExpensesPage({
   };
   type Department = {
     name: string;
-    total: number;
+    amounts: Record<string, number>;
+    categories: never[];
     items: LineItem[];
   };
   type FunctionGroup = {
     name: string;
-    total: number;
+    amounts: Record<string, number>;
     departments: Department[];
   };
 
@@ -215,14 +216,17 @@ export default async function ExpensesPage({
           }
           return {
             name: dept,
-            total: curDeptMap.get(`${fn}||${dept}`) || 0,
+            amounts: amtsByYear,
+            categories: [] as never[],
             items,
           };
         });
 
+      const fnAmts: Record<string, number> = {};
+      for (const y of tableYears) { fnAmts[y] = fnTotalsByYear.get(y)?.get(fn) || 0; }
       return {
         name: fn,
-        total: curFnMap.get(fn) || 0,
+        amounts: fnAmts,
         departments,
       };
     });
