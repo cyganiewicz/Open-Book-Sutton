@@ -1,11 +1,12 @@
 import type { ColumnMappingInput, NormalizedRow } from "@/types";
 import { parseAmount } from "./format";
-import { type AccountCodeRules, applyAccountCodeRules } from "./account-codes";
+import { type AccountCodeConfig, applyAccountCodeConfig } from "./account-codes";
 
 export function normalizeRows(
   rawRows: Record<string, string>[],
   mappings: ColumnMappingInput[],
-  accountCodeRules?: AccountCodeRules | null
+  accountCodeConfig?: AccountCodeConfig | null,
+  dataCategory?: string
 ): NormalizedRow[] {
   const fieldMap = new Map<string, string>();
   const fyColumns: { sourceColumn: string; fiscalYear: string; amountType: string }[] = [];
@@ -36,6 +37,15 @@ export function normalizeRows(
     return str.trim() ? str.trim() : null;
   };
 
+  // Whether account code rules apply to this data category
+  const applyRules = (cat: string | undefined) => {
+    if (!accountCodeConfig) return false;
+    if (cat === "expenses") return true;
+    if (cat === "revenues") return accountCodeConfig.applyToRevenues;
+    return false;
+  };
+  const useRules = applyRules(dataCategory);
+
   const results: NormalizedRow[] = [];
 
   for (const row of rawRows) {
@@ -44,10 +54,9 @@ export function normalizeRows(
     let category1 = get(row, "category1");
     let category2 = get(row, "category2");
 
-    // Auto-categorize from account code if town has rules configured
-    // and the user hasn't explicitly mapped category columns
-    if (accountCodeRules && objectCode && (!category1 || !category2)) {
-      const derived = applyAccountCodeRules(objectCode, department, accountCodeRules);
+    // Auto-categorize from account code if configured and not already explicitly mapped
+    if (useRules && accountCodeConfig && objectCode && (!category1 || !category2)) {
+      const derived = applyAccountCodeConfig(objectCode, department, accountCodeConfig);
       if (!category1) category1 = derived.category1;
       if (!category2) category2 = derived.category2;
     }
@@ -104,9 +113,7 @@ function findAmountColumn(
   const mapped = new Set(fieldMap.values());
   for (const [key] of Object.entries(row)) {
     if (mapped.has(key)) continue;
-    if (/amount/i.test(key) || /budget/i.test(key) || /actual/i.test(key)) {
-      return key;
-    }
+    if (/amount/i.test(key) || /budget/i.test(key) || /actual/i.test(key)) return key;
   }
   return null;
 }
