@@ -412,6 +412,9 @@ export default function AccountCodesPage() {
                     </div>
                   )}
                   <AddCodeRow onAdd={(code, label, group) => addCode(activeSeg.index, code, label, group)} />
+                  <BulkImportRow onImport={(entries) => {
+                    entries.forEach(e => addCode(activeSeg.index, e.code, e.label, e.group));
+                  }} />
                 </div>
               </div>
             )}
@@ -531,6 +534,179 @@ export default function AccountCodesPage() {
           {saving ? "Saving…" : "Save all rules"}
         </button>
         <p className="text-xs text-gray-400">Re-upload existing files after saving to reclassify them with new rules.</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Bulk import component ──────────────────────────────────────────────────
+
+/**
+ * Parses pasted text into code entries. Handles common formats:
+ *
+ * Tab-separated (Excel copy-paste):
+ *   51110  Regular Salaries  Salaries & Wages
+ *   51120  Overtime          Salaries & Wages
+ *
+ * Comma-separated:
+ *   51110, Regular Salaries, Salaries & Wages
+ *
+ * Dash/hyphen separated descriptions (no group):
+ *   51110 - Regular Salaries
+ *   51120 - Overtime Salaries
+ *
+ * Code + label only (group inferred blank):
+ *   51110 Regular Salaries
+ *
+ * Code only (one per line):
+ *   51110
+ *   51120
+ */
+function parseBulkText(text: string): Array<{ code: string; label: string; group: string }> {
+  const results: Array<{ code: string; label: string; group: string }> = [];
+  const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+
+  for (const line of lines) {
+    // Skip header-like lines
+    if (/^(code|account|object|segment|label|description|group|type)/i.test(line)) continue;
+
+    let code = "", label = "", group = "";
+
+    // Tab-separated (Excel): code\tlabel\tgroup
+    if (line.includes("\t")) {
+      const parts = line.split("\t").map(p => p.trim());
+      code = parts[0] ?? "";
+      label = parts[1] ?? "";
+      group = parts[2] ?? "";
+    }
+    // Comma-separated: code,label,group
+    else if ((line.match(/,/g) || []).length >= 1) {
+      const parts = line.split(",").map(p => p.trim());
+      code = parts[0] ?? "";
+      label = parts[1] ?? "";
+      group = parts[2] ?? "";
+    }
+    // Dash-separated: code - label (- group)
+    else if (line.includes(" - ")) {
+      const parts = line.split(" - ").map(p => p.trim());
+      code = parts[0] ?? "";
+      label = parts[1] ?? "";
+      group = parts[2] ?? "";
+    }
+    // Space-separated: first token is code, rest is label
+    else {
+      const match = line.match(/^(\S+)\s+(.+)$/);
+      if (match) {
+        code = match[1];
+        label = match[2];
+      } else {
+        code = line;
+        label = line;
+      }
+    }
+
+    code = code.trim();
+    label = label.trim();
+    group = group.trim();
+
+    if (code) {
+      results.push({ code, label: label || code, group });
+    }
+  }
+
+  return results;
+}
+
+function BulkImportRow({ onImport }: { onImport: (entries: Array<{ code: string; label: string; group: string }>) => void }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [preview, setPreview] = useState<Array<{ code: string; label: string; group: string }>>([]);
+
+  const handlePaste = (val: string) => {
+    setText(val);
+    setPreview(parseBulkText(val));
+  };
+
+  const handleImport = () => {
+    if (preview.length === 0) return;
+    onImport(preview);
+    setText("");
+    setPreview([]);
+    setOpen(false);
+  };
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)}
+        className="text-xs text-blue-600 hover:underline mt-1">
+        + Bulk import from list
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-3 border border-blue-200 rounded-xl p-4 bg-blue-50/20 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-gray-700">Bulk import codes</p>
+        <button onClick={() => { setOpen(false); setText(""); setPreview([]); }} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+      </div>
+
+      <p className="text-xs text-gray-500">
+        Paste from Excel or any list. Supported formats (one per line):
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono bg-gray-100 rounded-lg p-3 text-gray-600">
+        <div><p className="font-sans font-medium text-gray-500 mb-1">Tab-separated (Excel)</p>51110{"\t"}Regular Salaries{"\t"}Salaries & Wages</div>
+        <div><p className="font-sans font-medium text-gray-500 mb-1">Comma-separated</p>51110, Regular Salaries, Salaries & Wages</div>
+        <div><p className="font-sans font-medium text-gray-500 mb-1">Dash-separated</p>51110 - Regular Salaries</div>
+      </div>
+
+      <textarea
+        value={text}
+        onChange={e => handlePaste(e.target.value)}
+        onPaste={e => {
+          // Let the paste happen then parse
+          setTimeout(() => handlePaste(e.currentTarget.value), 0);
+        }}
+        rows={6}
+        placeholder={"51110\tRegular Salaries\tSalaries & Wages\n51120\tOvertime Salaries\tSalaries & Wages\n53000\tPurchased Services\tPurchased Services"}
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+      />
+
+      {preview.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-gray-600 mb-2">Preview — {preview.length} codes detected:</p>
+          <div className="border border-gray-200 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                <tr>
+                  <th className="px-3 py-1.5 text-left font-medium text-gray-500 w-24">Code</th>
+                  <th className="px-3 py-1.5 text-left font-medium text-gray-500">Label</th>
+                  <th className="px-3 py-1.5 text-left font-medium text-gray-500">Group</th>
+                </tr>
+              </thead>
+              <tbody>
+                {preview.map((entry, i) => (
+                  <tr key={i} className="border-t border-gray-100">
+                    <td className="px-3 py-1"><code className="bg-gray-100 px-1 rounded">{entry.code}</code></td>
+                    <td className="px-3 py-1 text-gray-700">{entry.label}</td>
+                    <td className="px-3 py-1 text-gray-500">{entry.group || <span className="text-gray-300">—</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <button
+          onClick={handleImport}
+          disabled={preview.length === 0}
+          className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-40"
+        >
+          Import {preview.length > 0 ? `${preview.length} codes` : ""}
+        </button>
+        <button onClick={() => { setText(""); setPreview([]); }} className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700">Clear</button>
       </div>
     </div>
   );
