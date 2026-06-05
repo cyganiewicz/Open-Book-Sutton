@@ -1,10 +1,11 @@
 import type { ColumnMappingInput, NormalizedRow } from "@/types";
 import { parseAmount } from "./format";
-import { inferSpendingType, inferSchoolSubcategory, getObjectCode } from "./account-codes";
+import { type AccountCodeRules, applyAccountCodeRules } from "./account-codes";
 
 export function normalizeRows(
   rawRows: Record<string, string>[],
-  mappings: ColumnMappingInput[]
+  mappings: ColumnMappingInput[],
+  accountCodeRules?: AccountCodeRules | null
 ): NormalizedRow[] {
   const fieldMap = new Map<string, string>();
   const fyColumns: { sourceColumn: string; fiscalYear: string; amountType: string }[] = [];
@@ -38,29 +39,18 @@ export function normalizeRows(
   const results: NormalizedRow[] = [];
 
   for (const row of rawRows) {
-    // Read explicit mapped fields
     const department = get(row, "department");
     const objectCode = get(row, "objectCode");
-    const accountCode = get(row, "objectCode"); // same column used as full account code
-
-    // Explicit category mappings (may be null if not mapped)
     let category1 = get(row, "category1");
     let category2 = get(row, "category2");
 
-    // ── Auto-categorization from account / object codes ──────────────────
-    // Infer spending type (category1) from object code suffix if not already mapped
-    if (!category1 && objectCode) {
-      // objectCode might be the full account string (e.g. "0001-300-300-2210-00-1-00-51110")
-      // or just the last segment ("51110"). Handle both.
-      const objSuffix = objectCode.includes("-") ? getObjectCode(objectCode) : objectCode;
-      category1 = inferSpendingType(objSuffix) || null;
+    // Auto-categorize from account code if town has rules configured
+    // and the user hasn't explicitly mapped category columns
+    if (accountCodeRules && objectCode && (!category1 || !category2)) {
+      const derived = applyAccountCodeRules(objectCode, department, accountCodeRules);
+      if (!category1) category1 = derived.category1;
+      if (!category2) category2 = derived.category2;
     }
-
-    // Infer school subcategory (category2) from program code embedded in account
-    if (!category2 && objectCode && objectCode.includes("-")) {
-      category2 = inferSchoolSubcategory(objectCode, department) || null;
-    }
-    // ────────────────────────────────────────────────────────────────────
 
     const baseRow = {
       fundCode: get(row, "fundCode"),
@@ -69,7 +59,7 @@ export function normalizeRows(
       departmentCode: get(row, "departmentCode"),
       functionArea: get(row, "functionArea"),
       lineItem: get(row, "lineItem"),
-      objectCode: objectCode?.includes("-") ? getObjectCode(objectCode) : objectCode,
+      objectCode,
       category1,
       category2,
       purpose: get(row, "purpose"),
