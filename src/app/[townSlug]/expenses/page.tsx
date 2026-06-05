@@ -295,7 +295,6 @@ export default async function ExpensesPage({
         years={tableYears}
         currentYear={currentYear}
         townColor={town.primaryColor}
-        categoryTooltips={categoryTooltips}
         lineItemTooltips={lineItemTooltips}
       />
     </div>
