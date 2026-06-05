@@ -112,17 +112,17 @@ export default async function BudgetBookPage({
             Executive Summary
           </h2>
           <div className="grid grid-cols-3 gap-6 mt-6">
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Total Expenses</p>
+            <div className="text-center p-4 rounded-xl text-white" style={{ backgroundColor: town.primaryColor }}>
+              <p className="text-sm text-white/70">Total Expenses</p>
               <p className="text-2xl font-bold mt-1">{abbreviateCurrency(totalExpenses)}</p>
             </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
+            <div className="text-center p-4 bg-gray-50 rounded-xl border border-gray-200">
               <p className="text-sm text-gray-500">Total Revenue</p>
-              <p className="text-2xl font-bold mt-1">{abbreviateCurrency(totalRevenues)}</p>
+              <p className="text-2xl font-bold mt-1 text-gray-900">{abbreviateCurrency(totalRevenues)}</p>
             </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
+            <div className="text-center p-4 bg-gray-50 rounded-xl border border-gray-200">
               <p className="text-sm text-gray-500">Capital Projects</p>
-              <p className="text-2xl font-bold mt-1">{abbreviateCurrency(totalCapital)}</p>
+              <p className="text-2xl font-bold mt-1 text-gray-900">{abbreviateCurrency(totalCapital)}</p>
             </div>
           </div>
         </section>
