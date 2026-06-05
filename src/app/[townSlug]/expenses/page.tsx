@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { parseAccountCodeConfig, DEFAULT_EXPENSE_LEVELS } from "@/lib/account-codes";
+import { applySortOrder } from "@/lib/portal-sort";
 import {
   groupAndSum,
   toChartData,
@@ -23,8 +25,6 @@ export default async function ExpensesPage({
   if (!town) return notFound();
 
   // Load sort preferences from account code config
-  const { parseAccountCodeConfig, DEFAULT_EXPENSE_LEVELS } = await import("@/lib/account-codes");
-  const { applySortOrder } = await import("@/lib/portal-sort");
   const acConfig = parseAccountCodeConfig(town.accountCodeRules || "");
   const expLevels = acConfig?.portalOrganization?.expenseLevels ?? DEFAULT_EXPENSE_LEVELS;
   const fnSort   = expLevels[0]?.sort ?? "total_desc";
