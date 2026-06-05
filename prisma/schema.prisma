@@ -17,6 +17,7 @@ model Town {
   aboutText    String?
   inviteCode      String   @default("")
   allowedDomains  String   @default("")
+  accountCodeRules String   @default("")
   published       Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
