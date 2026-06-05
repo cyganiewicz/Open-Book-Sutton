@@ -1,38 +1,50 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { formatCurrency, abbreviateCurrency } from "@/lib/format";
 
-interface LineItem {
+interface ExpLineItem {
   id: string;
   label: string;
   objectCode: string | null;
   amounts: Record<string, number>;
 }
 
-interface Department {
+interface ExpCat2 {
   name: string;
-  total: number;
-  items: LineItem[];
+  amounts: Record<string, number>;
+  items: ExpLineItem[];
 }
 
-interface FunctionGroup {
+interface ExpCat1 {
   name: string;
-  total: number;
-  departments: Department[];
+  amounts: Record<string, number>;
+  subCategories: ExpCat2[];
+  items: ExpLineItem[];
+}
+
+interface ExpDept {
+  name: string;
+  amounts: Record<string, number>;
+  categories: ExpCat1[];
+  items: ExpLineItem[];
+}
+
+interface ExpFn {
+  name: string;
+  amounts: Record<string, number>;
+  departments: ExpDept[];
 }
 
 interface ExpenseTableProps {
-  functionGroups: FunctionGroup[];
+  functionGroups: ExpFn[];
   years: string[];
   currentYear: string;
   townColor?: string;
-  categoryTooltips?: Record<string, string>;
   lineItemTooltips?: Record<string, string>;
 }
 
-// Generates a slightly lighter tint of a hex color for dept headers
-function tintColor(hex: string, opacity: number): string {
+function tint(hex: string, opacity: number) {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
@@ -48,55 +60,48 @@ export default function ExpenseTable({
 }: ExpenseTableProps) {
   const [collapsedFns, setCollapsedFns] = useState<Set<string>>(new Set());
   const [collapsedDepts, setCollapsedDepts] = useState<Set<string>>(new Set());
+  const [collapsedCat1s, setCollapsedCat1s] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [visibleYears, setVisibleYears] = useState<string[]>(() => years.slice(-3));
   const [yearMenuOpen, setYearMenuOpen] = useState(false);
 
-  const toggleFn = (fn: string) =>
-    setCollapsedFns((prev) => {
-      const next = new Set(prev);
-      next.has(fn) ? next.delete(fn) : next.add(fn);
-      return next;
-    });
+  const toggle = (set: Set<string>, key: string): Set<string> => {
+    const next = new Set(set);
+    next.has(key) ? next.delete(key) : next.add(key);
+    return next;
+  };
 
-  const toggleDept = (key: string) =>
-    setCollapsedDepts((prev) => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
-
-  const toggleYear = (y: string) =>
-    setVisibleYears((prev) => {
-      if (prev.includes(y)) return prev.length > 1 ? prev.filter((x) => x !== y) : prev;
-      return [...years.filter((x) => [...prev, y].includes(x))]; // keep sorted
-    });
-
-  // When searching, show all matching rows ignoring collapse
   const searching = query.trim().length > 0;
   const q = query.toLowerCase();
+  const displayYears = years.filter((y) => visibleYears.includes(y));
 
-  const displayedYears = years.filter((y) => visibleYears.includes(y));
+  const allFnsCollapsed = collapsedFns.size === functionGroups.length;
 
-  // Compute total for grand total row
-  const grandTotal = useMemo(
-    () => functionGroups.reduce((s, fg) => s + fg.total, 0),
-    [functionGroups]
-  );
+  // Grand total across all displayed years
+  const grandTotals: Record<string, number> = {};
+  for (const y of displayYears) {
+    grandTotals[y] = functionGroups.reduce(
+      (s, fg) => s + (fg.amounts[y] || 0),
+      0
+    );
+  }
+
+  // Helper: does an item match search
+  const itemMatches = (item: ExpLineItem) =>
+    item.label.toLowerCase().includes(q) ||
+    (item.objectCode || "").toLowerCase().includes(q);
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-      {/* Table toolbar */}
+      {/* Toolbar */}
       <div className="px-5 py-3 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center gap-3 bg-gray-50/60">
-        <div className="flex-1 max-w-xs">
-          <input
-            type="text"
-            placeholder="Search line items…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
+        <input
+          type="text"
+          placeholder="Search accounts and line items…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="flex-1 max-w-xs px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
 
         {years.length > 1 && (
           <div className="relative">
@@ -113,13 +118,19 @@ export default function ExpenseTable({
               </svg>
             </button>
             {yearMenuOpen && (
-              <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[9rem]">
+              <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[9rem]">
                 {[...years].reverse().map((y) => (
                   <label key={y} className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={visibleYears.includes(y)}
-                      onChange={() => toggleYear(y)}
+                      onChange={() =>
+                        setVisibleYears((prev) =>
+                          prev.includes(y)
+                            ? prev.length > 1 ? prev.filter((x) => x !== y) : prev
+                            : years.filter((x) => [...prev, y].includes(x))
+                        )
+                      }
                       className="h-4 w-4 rounded border-gray-300"
                     />
                     <span className="text-gray-700">FY{y}</span>
@@ -131,39 +142,35 @@ export default function ExpenseTable({
         )}
 
         <button
-          onClick={() => {
-            if (collapsedFns.size === functionGroups.length) {
-              setCollapsedFns(new Set());
-            } else {
-              setCollapsedFns(new Set(functionGroups.map((fg) => fg.name)));
-            }
-          }}
-          className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded border border-gray-200 bg-white hover:bg-gray-50 whitespace-nowrap"
+          onClick={() =>
+            setCollapsedFns(
+              allFnsCollapsed ? new Set() : new Set(functionGroups.map((fg) => fg.name))
+            )
+          }
+          className="text-xs text-gray-500 hover:text-gray-700 px-3 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 whitespace-nowrap"
         >
-          {collapsedFns.size === functionGroups.length ? "Expand all" : "Collapse all"}
+          {allFnsCollapsed ? "Expand all" : "Collapse all"}
         </button>
       </div>
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm" style={{ minWidth: "560px" }}>
           <thead>
-            <tr className="border-b border-gray-200">
-              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 w-full">
+            <tr className="border-b-2 border-gray-200 bg-gray-50">
+              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Description
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap hidden sm:table-cell">
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 hidden sm:table-cell w-28">
                 Account
               </th>
-              {displayedYears.map((y) => (
+              {displayYears.map((y) => (
                 <th
                   key={y}
-                  className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
-                  style={{ color: y === currentYear ? townColor : undefined }}
+                  className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide whitespace-nowrap w-36"
+                  style={{ color: y === currentYear ? townColor : "#9ca3af" }}
                 >
                   FY{y}
-                  {y === currentYear && (
-                    <span className="ml-1 text-[9px] font-normal opacity-70">Budget</span>
-                  )}
+                  {y === currentYear && <span className="ml-1 normal-case font-normal opacity-60 text-[10px]">Budget</span>}
                 </th>
               ))}
             </tr>
@@ -171,187 +178,206 @@ export default function ExpenseTable({
 
           <tbody>
             {functionGroups.map((fg) => {
-              const fnCollapsed = collapsedFns.has(fg.name) && !searching;
+              const fnCollapsed = !searching && collapsedFns.has(fg.name);
 
-              // Filter departments/items when searching
-              const matchingDepts = searching
+              const visibleDepts = searching
                 ? fg.departments.filter(
                     (d) =>
                       d.name.toLowerCase().includes(q) ||
-                      d.items.some(
-                        (item) =>
-                          item.label.toLowerCase().includes(q) ||
-                          (item.objectCode || "").toLowerCase().includes(q)
+                      d.items.some(itemMatches) ||
+                      d.categories.some(
+                        (c1) =>
+                          c1.name.toLowerCase().includes(q) ||
+                          c1.items.some(itemMatches) ||
+                          c1.subCategories.some(
+                            (c2) =>
+                              c2.name.toLowerCase().includes(q) ||
+                              c2.items.some(itemMatches)
+                          )
                       )
                   )
                 : fg.departments;
 
-              if (searching && matchingDepts.length === 0) return null;
+              if (searching && visibleDepts.length === 0 && !fg.name.toLowerCase().includes(q))
+                return null;
 
               return (
                 <tbody key={fg.name}>
-                  {/* Function area header row */}
+                  {/* ── Function area header ── */}
                   <tr>
-                    <td
-                      colSpan={2 + displayedYears.length}
-                      className="px-0 py-0 border-t border-gray-100"
-                    >
+                    <td colSpan={2 + displayYears.length} className="p-0 border-t border-gray-100">
                       <button
-                        onClick={() => toggleFn(fg.name)}
+                        onClick={() => setCollapsedFns(toggle(collapsedFns, fg.name))}
                         disabled={searching}
-                        className="w-full flex items-center gap-3 px-5 py-3 text-left text-white font-semibold text-sm transition-opacity hover:opacity-95 disabled:cursor-default"
+                        className="w-full flex items-center gap-3 px-5 py-3 text-white font-semibold text-sm hover:opacity-95 transition-opacity disabled:cursor-default"
                         style={{ backgroundColor: townColor }}
                       >
                         <span
-                          className="text-white/70 text-xs transition-transform flex-shrink-0"
-                          style={{
-                            display: "inline-block",
-                            transform: fnCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
-                          }}
-                        >
-                          ▾
-                        </span>
-                        <span className="flex-1 truncate">{fg.name}</span>
-                        <span className="tabular-nums text-white/80 text-sm font-medium ml-auto pr-1 flex-shrink-0">
-                          {abbreviateCurrency(fg.total)}
+                          className="text-white/60 text-xs flex-shrink-0 transition-transform duration-150"
+                          style={{ display: "inline-block", transform: fnCollapsed ? "rotate(-90deg)" : "rotate(0deg)" }}
+                        >▾</span>
+                        <span className="flex-1 text-left">{fg.name}</span>
+                        <span className="tabular-nums text-white/80 font-medium text-sm flex-shrink-0">
+                          {abbreviateCurrency(fg.amounts[currentYear] || 0)}
                         </span>
                       </button>
                     </td>
                   </tr>
 
-                  {/* Departments */}
-                  {!fnCollapsed &&
-                    matchingDepts.map((dept) => {
-                      const deptKey = `${fg.name}||${dept.name}`;
-                      const deptCollapsed = collapsedDepts.has(deptKey) && !searching;
+                  {!fnCollapsed && visibleDepts.map((dept) => {
+                    const deptKey = `${fg.name}|${dept.name}`;
+                    const deptCollapsed = !searching && collapsedDepts.has(deptKey);
 
-                      const matchingItems = searching
-                        ? dept.items.filter(
-                            (item) =>
-                              item.label.toLowerCase().includes(q) ||
-                              (item.objectCode || "").toLowerCase().includes(q) ||
-                              dept.name.toLowerCase().includes(q)
-                          )
-                        : dept.items;
-
-                      if (searching && matchingItems.length === 0 && !dept.name.toLowerCase().includes(q)) return null;
-
-                      return (
-                        <tbody key={deptKey}>
-                          {/* Department sub-header */}
-                          <tr
-                            className="cursor-pointer select-none border-t border-gray-100"
-                            style={{ backgroundColor: tintColor(townColor, 0.06) }}
-                            onClick={() => toggleDept(deptKey)}
-                          >
-                            <td
-                              className="px-5 py-2.5 font-semibold text-gray-800"
-                              style={{ paddingLeft: "2.75rem" }}
-                            >
-                              <span className="inline-flex items-center gap-2">
-                                <span
-                                  className="text-gray-400 text-xs transition-transform flex-shrink-0"
-                                  style={{
-                                    display: "inline-block",
-                                    transform: deptCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
-                                  }}
-                                >
-                                  ▾
-                                </span>
-                                {dept.name}
-                              </span>
+                    return (
+                      <tbody key={deptKey}>
+                        {/* ── Department row ── */}
+                        <tr
+                          className="cursor-pointer hover:opacity-95 border-t border-white/30"
+                          style={{ backgroundColor: tint(townColor, 0.08) }}
+                          onClick={() => !searching && setCollapsedDepts(toggle(collapsedDepts, deptKey))}
+                        >
+                          <td className="px-5 py-2.5 font-semibold text-gray-800" style={{ paddingLeft: "2.75rem" }}>
+                            <span className="inline-flex items-center gap-2">
+                              <span
+                                className="text-gray-400 text-xs flex-shrink-0 transition-transform duration-150"
+                                style={{ display: "inline-block", transform: deptCollapsed ? "rotate(-90deg)" : "rotate(0deg)" }}
+                              >▾</span>
+                              {dept.name}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 hidden sm:table-cell" />
+                          {displayYears.map((y) => (
+                            <td key={y} className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-700">
+                              {formatCurrency(dept.amounts[y] || 0)}
                             </td>
-                            <td className="px-4 py-2.5 hidden sm:table-cell" />
-                            {displayedYears.map((y) => (
-                              <td key={y} className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-700">
-                                {formatCurrency(
-                                  dept.items.reduce((s, item) => s + (item.amounts[y] || 0), 0)
-                                )}
-                              </td>
-                            ))}
-                          </tr>
+                          ))}
+                        </tr>
 
-                          {/* Line items */}
-                          {!deptCollapsed &&
-                            matchingItems.map((item) => (
-                              <tr
-                                key={item.id}
-                                className="border-t border-gray-50 hover:bg-gray-50/60 transition-colors"
-                              >
-                                <td className="px-5 py-2 text-gray-600" style={{ paddingLeft: "4.5rem" }}>
-                                  {item.label}
-                                  {lineItemTooltips[item.label] && (
-                                    <span
-                                      className="ml-1.5 text-[10px] text-gray-400 border border-gray-200 rounded-full px-1.5 py-px cursor-help"
-                                      title={lineItemTooltips[item.label]}
-                                    >
-                                      ?
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-2 text-gray-400 text-xs hidden sm:table-cell">
-                                  {item.objectCode || ""}
-                                </td>
-                                {displayedYears.map((y) => (
-                                  <td
-                                    key={y}
-                                    className={`px-4 py-2 text-right tabular-nums ${
-                                      (item.amounts[y] || 0) === 0 ? "text-gray-300" : "text-gray-700"
-                                    }`}
-                                  >
-                                    {(item.amounts[y] || 0) === 0
-                                      ? "—"
-                                      : formatCurrency(item.amounts[y])}
+                        {!deptCollapsed && (
+                          <>
+                            {/* Flat items (no categories) */}
+                            {dept.items.map((item) => (
+                              (!searching || itemMatches(item)) && (
+                                <tr key={item.id} className="border-t border-gray-50 hover:bg-gray-50/60 transition-colors">
+                                  <td className="px-5 py-2 text-gray-600" style={{ paddingLeft: "4.5rem" }}>
+                                    {item.label}
+                                    {lineItemTooltips[item.label] && (
+                                      <span className="ml-1.5 text-[10px] text-gray-400 border border-gray-200 rounded-full px-1.5 py-px cursor-help" title={lineItemTooltips[item.label]}>?</span>
+                                    )}
                                   </td>
-                                ))}
-                              </tr>
+                                  <td className="px-4 py-2 text-gray-400 text-xs hidden sm:table-cell">{item.objectCode || ""}</td>
+                                  {displayYears.map((y) => (
+                                    <td key={y} className={`px-4 py-2 text-right tabular-nums ${(item.amounts[y] || 0) === 0 ? "text-gray-300" : "text-gray-700"}`}>
+                                      {(item.amounts[y] || 0) === 0 ? "—" : formatCurrency(item.amounts[y])}
+                                    </td>
+                                  ))}
+                                </tr>
+                              )
                             ))}
-                        </tbody>
-                      );
-                    })}
+
+                            {/* Category 1 groups */}
+                            {dept.categories.map((cat1) => {
+                              const cat1Key = `${deptKey}|${cat1.name}`;
+                              const cat1Collapsed = !searching && collapsedCat1s.has(cat1Key);
+                              const cat1Matches = cat1.name.toLowerCase().includes(q);
+                              const cat1ItemsMatch = cat1.items.some(itemMatches) ||
+                                cat1.subCategories.some((c2) => c2.name.toLowerCase().includes(q) || c2.items.some(itemMatches));
+                              if (searching && !cat1Matches && !cat1ItemsMatch) return null;
+
+                              return (
+                                <tbody key={cat1Key}>
+                                  <tr
+                                    className="border-t border-gray-100 cursor-pointer hover:bg-gray-50"
+                                    style={{ backgroundColor: tint(townColor, 0.03) }}
+                                    onClick={() => !searching && setCollapsedCat1s(toggle(collapsedCat1s, cat1Key))}
+                                  >
+                                    <td className="px-5 py-2 font-medium text-gray-700" style={{ paddingLeft: "4rem" }}>
+                                      <span className="inline-flex items-center gap-2">
+                                        <span
+                                          className="text-gray-300 text-xs flex-shrink-0 transition-transform duration-150"
+                                          style={{ display: "inline-block", transform: cat1Collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}
+                                        >▾</span>
+                                        {cat1.name}
+                                      </span>
+                                    </td>
+                                    <td className="hidden sm:table-cell" />
+                                    {displayYears.map((y) => (
+                                      <td key={y} className="px-4 py-2 text-right tabular-nums font-medium text-gray-600">
+                                        {formatCurrency(cat1.amounts[y] || 0)}
+                                      </td>
+                                    ))}
+                                  </tr>
+
+                                  {!cat1Collapsed && (
+                                    <>
+                                      {/* Cat1 direct items */}
+                                      {cat1.items.map((item) => (
+                                        (!searching || itemMatches(item)) && (
+                                          <tr key={item.id} className="border-t border-gray-50 hover:bg-gray-50/60">
+                                            <td className="px-5 py-1.5 text-gray-500 text-xs" style={{ paddingLeft: "5.5rem" }}>{item.label}</td>
+                                            <td className="px-4 py-1.5 text-gray-400 text-xs hidden sm:table-cell">{item.objectCode || ""}</td>
+                                            {displayYears.map((y) => (
+                                              <td key={y} className={`px-4 py-1.5 text-right tabular-nums text-xs ${(item.amounts[y] || 0) === 0 ? "text-gray-300" : "text-gray-600"}`}>
+                                                {(item.amounts[y] || 0) === 0 ? "—" : formatCurrency(item.amounts[y])}
+                                              </td>
+                                            ))}
+                                          </tr>
+                                        )
+                                      ))}
+
+                                      {/* Cat2 subgroups */}
+                                      {cat1.subCategories.map((cat2) => {
+                                        if (searching && !cat2.name.toLowerCase().includes(q) && !cat2.items.some(itemMatches)) return null;
+                                        return (
+                                          <tbody key={cat2.name}>
+                                            <tr className="border-t border-gray-50 bg-gray-50/30">
+                                              <td className="px-5 py-1.5 text-gray-500 font-medium text-xs" style={{ paddingLeft: "5.5rem" }}>{cat2.name}</td>
+                                              <td className="hidden sm:table-cell" />
+                                              {displayYears.map((y) => (
+                                                <td key={y} className="px-4 py-1.5 text-right tabular-nums font-medium text-gray-500 text-xs">
+                                                  {formatCurrency(cat2.amounts[y] || 0)}
+                                                </td>
+                                              ))}
+                                            </tr>
+                                            {cat2.items.map((item) => (
+                                              (!searching || itemMatches(item)) && (
+                                                <tr key={item.id} className="border-t border-gray-50 hover:bg-gray-50/60">
+                                                  <td className="px-5 py-1.5 text-gray-400 text-xs" style={{ paddingLeft: "7rem" }}>{item.label}</td>
+                                                  <td className="px-4 py-1.5 text-gray-300 text-xs hidden sm:table-cell">{item.objectCode || ""}</td>
+                                                  {displayYears.map((y) => (
+                                                    <td key={y} className={`px-4 py-1.5 text-right tabular-nums text-xs ${(item.amounts[y] || 0) === 0 ? "text-gray-200" : "text-gray-500"}`}>
+                                                      {(item.amounts[y] || 0) === 0 ? "—" : formatCurrency(item.amounts[y])}
+                                                    </td>
+                                                  ))}
+                                                </tr>
+                                              )
+                                            ))}
+                                          </tbody>
+                                        );
+                                      })}
+                                    </>
+                                  )}
+                                </tbody>
+                              );
+                            })}
+                          </>
+                        )}
+                      </tbody>
+                    );
+                  })}
                 </tbody>
               );
             })}
 
-            {/* Grand total footer */}
-            <tr className="border-t-2 border-gray-300 bg-gray-50">
-              <td className="px-5 py-3 font-bold text-gray-900" colSpan={2}>
-                Total Expenses
-              </td>
-              {displayedYears.map((y) => (
-                <td key={y} className="px-4 py-3 text-right tabular-nums font-bold text-gray-900">
-                  {formatCurrency(
-                    functionGroups.reduce(
-                      (s, fg) =>
-                        s +
-                        fg.departments.reduce(
-                          (ds, d) =>
-                            ds + d.items.reduce((is, item) => is + (item.amounts[y] || 0), 0),
-                          0
-                        ),
-                      0
-                    )
-                  )}
+            {/* Grand total */}
+            <tr className="border-t-2 border-gray-300 bg-gray-50/80">
+              <td className="px-5 py-3 font-bold text-gray-900 text-sm" colSpan={2}>Total Expenses</td>
+              {displayYears.map((y) => (
+                <td key={y} className="px-4 py-3 text-right tabular-nums font-bold text-gray-900 text-sm">
+                  {formatCurrency(grandTotals[y] || 0)}
                 </td>
               ))}
             </tr>
-
-            {searching && functionGroups.every((fg) =>
-              fg.departments.every((d) =>
-                !d.name.toLowerCase().includes(q) &&
-                d.items.every(
-                  (item) =>
-                    !item.label.toLowerCase().includes(q) &&
-                    !(item.objectCode || "").toLowerCase().includes(q)
-                )
-              )
-            ) && (
-              <tr>
-                <td colSpan={2 + displayedYears.length} className="px-5 py-10 text-center text-gray-400 text-sm">
-                  No items match &ldquo;{query}&rdquo;
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
       </div>
