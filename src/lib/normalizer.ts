@@ -20,6 +20,9 @@ export function normalizeRows(
       });
     } else if (m.targetField === "fiscalYear") {
       fiscalYearColumn = m.sourceColumn;
+    } else if (m.targetField === "spendingType") {
+      // spendingType is stored in category1
+      fieldMap.set("category1", m.sourceColumn);
     } else {
       fieldMap.set(m.targetField, m.sourceColumn);
     }
