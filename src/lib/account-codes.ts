@@ -1,79 +1,149 @@
 /**
- * Account Code Auto-Categorization
+ * Account Code Dictionary
  *
- * Towns define their own account number structure via the admin panel.
- * Rules are stored as JSON on the Town record and applied at upload time.
+ * A flexible system for any municipality to define their account number structure.
+ * Stored as JSON in Town.accountCodeRules.
  *
- * The structure lets any town define:
- *  - How their account code is segmented (separator + segment positions)
- *  - Which segment drives "spending type" (category1)
- *  - Which segment drives "subcategory" (category2), optionally scoped to a department
- *  - The value→label mapping for each segment
+ * Concepts:
+ *  - The account code is split into named "segments" by a separator character
+ *  - Each segment has a name (e.g. "Fund", "Department", "Object Code")
+ *  - Within a segment, individual code values map to human labels
+ *  - Code values can also be assigned to a "group" (e.g. "51110" is in group "Salaries")
+ *  - The admin chooses which segment drives category1 (spending type) and category2 (subcategory)
+ *  - Optionally, category2 can be scoped to certain department name patterns
  */
 
-export interface AccountSegmentRule {
-  /** Which segment index (0-based) to read, after splitting by separator */
-  segmentIndex: number;
-  /** How many characters from the start of the segment to use as the key (0 = whole segment) */
-  prefixLength: number;
-  /** value (or prefix) → human label */
-  mapping: Record<string, string>;
+// ── Types ──────────────────────────────────────────────────────────────────
+
+export interface CodeEntry {
+  /** The raw code value in the account string */
+  code: string;
+  /** Human-readable label for this code */
+  label: string;
+  /** Optional group this code belongs to (e.g. "Salaries & Wages") */
+  group?: string;
 }
 
-export interface AccountCodeRules {
-  /** Character used to split the account code. Common: "-", ".", "" (fixed-width) */
-  separator: string;
-  /** Rule for deriving spending type (stored as category1) */
-  spendingTypeRule?: AccountSegmentRule;
-  /** Rule for deriving subcategory (stored as category2) */
-  subcategoryRule?: AccountSegmentRule;
+export interface AccountSegment {
+  /** 0-based index after splitting by separator */
+  index: number;
+  /** Admin-assigned name for this segment, e.g. "Object Code", "Program" */
+  name: string;
   /**
-   * Optional: only apply subcategoryRule when the department name contains
-   * one of these strings (case-insensitive). Leave empty to apply to all.
+   * How many leading characters to use as the lookup key.
+   * 0 = use the entire segment value.
+   * e.g. prefixLength=2 turns "51110" into key "51"
    */
-  subcategoryDepartmentFilter?: string[];
+  prefixLength: number;
+  /** Known code entries for this segment */
+  codes: CodeEntry[];
 }
 
-/** Parse the JSON rules string stored on the Town record */
-export function parseAccountCodeRules(rulesJson: string): AccountCodeRules | null {
-  if (!rulesJson || rulesJson.trim() === "") return null;
+export interface AccountCodeConfig {
+  /** Character separating segments. Common: "-", ".", "_" */
+  separator: string;
+  /** Named segments in order */
+  segments: AccountSegment[];
+  /**
+   * Which segment index drives spending type (stored as category1).
+   * null = don't auto-derive category1.
+   */
+  spendingTypeSegment: number | null;
+  /**
+   * Which segment index drives subcategory (stored as category2).
+   * null = don't auto-derive category2.
+   */
+  subcategorySegment: number | null;
+  /**
+   * If set, only apply subcategorySegment when the department name
+   * contains one of these strings (case-insensitive).
+   * Empty array = apply to all departments.
+   */
+  subcategoryDepartmentFilter: string[];
+  /**
+   * Whether these rules also apply to revenue account codes.
+   */
+  applyToRevenues: boolean;
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+export function emptyConfig(): AccountCodeConfig {
+  return {
+    separator: "-",
+    segments: [],
+    spendingTypeSegment: null,
+    subcategorySegment: null,
+    subcategoryDepartmentFilter: [],
+    applyToRevenues: false,
+  };
+}
+
+export function parseAccountCodeConfig(json: string): AccountCodeConfig | null {
+  if (!json || json.trim() === "") return null;
   try {
-    return JSON.parse(rulesJson) as AccountCodeRules;
+    return JSON.parse(json) as AccountCodeConfig;
   } catch {
     return null;
   }
 }
 
-/** Apply rules to a single account code string, returning category1 and category2 */
-export function applyAccountCodeRules(
+/**
+ * Look up a code value in a segment's code list.
+ * Respects prefixLength — if prefixLength=2, "51110" matches entry with code "51".
+ * Returns the matching CodeEntry or null.
+ */
+export function lookupCode(segment: AccountSegment, rawValue: string): CodeEntry | null {
+  const key = segment.prefixLength > 0
+    ? rawValue.slice(0, segment.prefixLength)
+    : rawValue;
+  return segment.codes.find((c) => c.code === key) ?? null;
+}
+
+/**
+ * Parse an account code string into its segment values.
+ */
+export function parseAccountCode(
+  accountCode: string,
+  config: AccountCodeConfig
+): string[] {
+  return config.separator ? accountCode.split(config.separator) : [accountCode];
+}
+
+/**
+ * Apply config to a single account code, returning category1 and category2.
+ * Uses "group" if available, otherwise falls back to "label".
+ */
+export function applyAccountCodeConfig(
   accountCode: string | null,
   department: string | null,
-  rules: AccountCodeRules
+  config: AccountCodeConfig
 ): { category1: string | null; category2: string | null } {
   if (!accountCode) return { category1: null, category2: null };
 
-  const parts = rules.separator
-    ? accountCode.split(rules.separator)
-    : [accountCode];
+  const parts = parseAccountCode(accountCode, config);
 
-  const resolveLabel = (rule: AccountSegmentRule): string | null => {
-    const segment = parts[rule.segmentIndex];
+  const resolve = (segmentIndex: number | null): string | null => {
+    if (segmentIndex === null) return null;
+    const segment = config.segments.find((s) => s.index === segmentIndex);
     if (!segment) return null;
-    const key = rule.prefixLength > 0 ? segment.slice(0, rule.prefixLength) : segment;
-    return rule.mapping[key] ?? null;
+    const raw = parts[segment.index];
+    if (!raw) return null;
+    const entry = lookupCode(segment, raw);
+    return entry ? (entry.group || entry.label) : null;
   };
 
-  const category1 = rules.spendingTypeRule ? resolveLabel(rules.spendingTypeRule) : null;
+  const category1 = resolve(config.spendingTypeSegment);
 
   let category2: string | null = null;
-  if (rules.subcategoryRule) {
-    const filters = rules.subcategoryDepartmentFilter ?? [];
+  if (config.subcategorySegment !== null) {
+    const filters = config.subcategoryDepartmentFilter ?? [];
     const deptOk =
       filters.length === 0 ||
       (department != null &&
         filters.some((f) => department.toLowerCase().includes(f.toLowerCase())));
     if (deptOk) {
-      category2 = resolveLabel(rules.subcategoryRule);
+      category2 = resolve(config.subcategorySegment);
     }
   }
 
@@ -81,8 +151,7 @@ export function applyAccountCodeRules(
 }
 
 /**
- * Detect the likely separator and segment count from sample account codes.
- * Returns a best-guess structure for the admin UI to pre-populate.
+ * Detect separator and segment count from sample account codes.
  */
 export function detectAccountStructure(sampleCodes: string[]): {
   separator: string;
@@ -102,9 +171,20 @@ export function detectAccountStructure(sampleCodes: string[]): {
     }
   }
 
-  const samples = sampleCodes
-    .slice(0, 5)
-    .map((c) => c.split(bestSep));
+  return {
+    separator: bestSep,
+    segmentCount: Math.round(bestCount),
+    samples: sampleCodes.slice(0, 5).map((c) => c.split(bestSep)),
+  };
+}
 
-  return { separator: bestSep, segmentCount: Math.round(bestCount), samples };
+// Legacy compatibility — older code used AccountCodeRules
+export type AccountCodeRules = AccountCodeConfig;
+export const parseAccountCodeRules = parseAccountCodeConfig;
+export function applyAccountCodeRules(
+  accountCode: string | null,
+  department: string | null,
+  config: AccountCodeConfig
+) {
+  return applyAccountCodeConfig(accountCode, department, config);
 }
