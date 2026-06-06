@@ -106,6 +106,30 @@ export default function AccountCodesPage() {
     });
   };
 
+  // Bulk version — adds all entries in a single state update to avoid stale closure
+  const addCodes = (segIdx: number, entries: Array<{ code: string; label: string; group: string }>) => {
+    if (!entries.length) return;
+    setConfig(c => ({
+      ...c,
+      segments: c.segments.map(s => {
+        if (s.index !== segIdx) return s;
+        const existing = new Map(s.codes.map(e => [e.code, e]));
+        for (const entry of entries) {
+          if (!entry.code) continue;
+          existing.set(entry.code, {
+            code: entry.code,
+            label: entry.label || entry.code,
+            ...(entry.group ? { group: entry.group } : {}),
+          });
+        }
+        return {
+          ...s,
+          codes: [...existing.values()].sort((a, b) => a.code.localeCompare(b.code)),
+        };
+      }),
+    }));
+  };
+
   const removeCode = (segIdx: number, code: string) => {
     const seg = config.segments.find(s => s.index === segIdx);
     if (!seg) return;
@@ -412,9 +436,7 @@ export default function AccountCodesPage() {
                     </div>
                   )}
                   <AddCodeRow onAdd={(code, label, group) => addCode(activeSeg.index, code, label, group)} />
-                  <BulkImportRow onImport={(entries) => {
-                    entries.forEach(e => addCode(activeSeg.index, e.code, e.label, e.group));
-                  }} />
+                  <BulkImportRow onImport={(entries) => addCodes(activeSeg.index, entries)} />
                 </div>
               </div>
             )}
