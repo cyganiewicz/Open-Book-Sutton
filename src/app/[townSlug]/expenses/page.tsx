@@ -209,6 +209,13 @@ export default async function ExpensesPage({
               objectCode: row.objectCode,
               amounts,
             };
+          }).sort((a, b) => {
+            switch (catSort) {
+              case "alpha_asc":  return a.label.localeCompare(b.label);
+              case "alpha_desc": return b.label.localeCompare(a.label);
+              case "total_asc":  return (a.amounts[currentYear] || 0) - (b.amounts[currentYear] || 0);
+              default:           return (b.amounts[currentYear] || 0) - (a.amounts[currentYear] || 0);
+            }
           });
           const amtsByYear: Record<string, number> = {};
           for (const y of tableYears) {
