@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { groupAndSum, toChartData, detectCurrentAndPreviousYear } from "@/lib/aggregator";
+import { groupAndSum, detectCurrentAndPreviousYear } from "@/lib/aggregator";
 import { formatCurrency, abbreviateCurrency, formatPercent, calculateChange } from "@/lib/format";
 import {
   parseAccountCodeConfig,
@@ -8,9 +8,7 @@ import {
   type HierarchyLevel,
   type GroupField,
 } from "@/lib/account-codes";
-import SummaryTiles from "@/components/portal/SummaryTiles";
-import PieChart from "@/components/portal/PieChart";
-import BarChart from "@/components/portal/BarChart";
+import ExpenseHeader from "@/components/portal/ExpenseHeader";
 import DynamicExpenseTable from "@/components/portal/DynamicExpenseTable";
 import ExportButton from "@/components/portal/ExportButton";
 import type { SummaryTile } from "@/types";
@@ -216,21 +214,32 @@ export function buildHierarchyV2(
   const isLastLevel = levelIndex === levels.length - 1;
 
   // Helper: build leaf rows from a set of rows
+  // Match rows across fiscal years by account code + line item description
+  // (not by ID, since each fiscal year upload creates new row IDs)
   const makeLeafRows = (rows: BudgetRowLike[]) =>
-    rows.map(row => ({
-      id: row.id,
-      label: row.lineItem || row.objectCode || "",
-      objectCode: row.objectCode,
-      amounts: Object.fromEntries(
-        tableYears.map(y => [
-          y,
-          allYearRows
-            .filter(r => r.id === row.id && r.fiscalYear === y &&
-              (y === currentYear ? r.amountType === "budget" : r.amountType === "budget" || r.amountType === "actual"))
-            .reduce((s, r) => s + r.amount, 0),
-        ])
-      ),
-    }));
+    rows.map(row => {
+      const acct = row.objectCode || "";
+      const desc = row.lineItem || "";
+      return {
+        id: row.id,
+        label: row.lineItem || row.objectCode || "",
+        objectCode: row.objectCode,
+        amounts: Object.fromEntries(
+          tableYears.map(y => [
+            y,
+            allYearRows
+              .filter(r =>
+                r.objectCode === acct &&
+                r.lineItem === desc &&
+                r.fiscalYear === y &&
+                (y === currentYear
+                  ? r.amountType === "budget"
+                  : r.amountType === "budget" || r.amountType === "actual"))
+              .reduce((s, r) => s + r.amount, 0),
+          ])
+        ),
+      };
+    });
 
   // Helper: sum amounts for a set of rows across all years
   const sumAmounts = (filter: (r: BudgetRowLike) => boolean): Record<string, number> =>
@@ -338,56 +347,15 @@ export default async function ExpensesPage({
   const currentTotal = current.reduce((s, r) => s + r.amount, 0);
   const prevTotal = prev.reduce((s, r) => s + r.amount, 0);
 
-  // ── KPI tiles ──────────────────────────────────────────────────────────
-  const tiles: SummaryTile[] = [
-    { label: "Total Budget", value: abbreviateCurrency(currentTotal) },
-  ];
-  if (prevTotal > 0) {
-    const change = calculateChange(prevTotal, currentTotal);
-    tiles.push({
-      label: "vs Prior Year",
-      value: formatCurrency(change.absolute),
-      change: formatPercent(change.percent),
-      changeType: change.absolute >= 0 ? "positive" : "negative",
-    });
-  }
+  // ── Tiles for header ───────────────────────────────────────────────────
   const byFunction = groupAndSum(current, "functionArea");
   const topFn = Object.entries(byFunction).sort((a, b) => b[1] - a[1])[0];
-  if (topFn) {
-    tiles.push({ label: "Largest Function", value: topFn[0], change: abbreviateCurrency(topFn[1]), changeType: "neutral" });
-  }
-  // Spending type: use objectCode prefix mapping for town-wide totals
-  // This avoids the issue of category1 being used for location in some depts
-  const OBJECT_SPENDING_MAP: Record<string, string> = {
-    "51": "Salaries & Wages", "52": "Employee Benefits",
-    "53": "Purchased Services", "54": "Supplies & Materials",
-    "55": "Supplies & Materials", "57": "Other Charges & Expenses",
-    "58": "Capital Outlay", "59": "Debt Service",
-    "61": "Special Ed Tuition", "62": "Special Ed Tuition", "63": "Special Ed Tuition",
-  };
-  const bySpendingType: Record<string, number> = {};
-  for (const row of current) {
-    // Try objectCode first (last segment of account), then fall back to category1
-    const obj = row.objectCode || "";
-    const prefix = obj.slice(0, 2);
-    const type = OBJECT_SPENDING_MAP[prefix] || row.category1 || null;
-    if (type) bySpendingType[type] = (bySpendingType[type] || 0) + row.amount;
-  }
-  const spendingTypeEntries = Object.entries(bySpendingType).sort((a, b) => b[1] - a[1]);
-  for (const [type, amount] of spendingTypeEntries.slice(0, 3)) {
-    const pct = currentTotal > 0 ? (amount / currentTotal) * 100 : 0;
-    tiles.push({ label: type, value: abbreviateCurrency(amount), change: `${pct.toFixed(1)}% of budget`, changeType: "neutral" });
-  }
+  const tiles: SummaryTile[] = [
+    { label: "Total Budget", value: abbreviateCurrency(currentTotal) },
+    ...(topFn ? [{ label: "Largest Function", value: topFn[0], sub: abbreviateCurrency(topFn[1]) }] : []),
+  ];
 
-  // ── Charts ─────────────────────────────────────────────────────────────
-  const byFunctionChart = toChartData(byFunction);
-  const bySpendingTypeChart = spendingTypeEntries.length > 0 ? toChartData(bySpendingType) : null;
   const years = allYears.length > 0 ? allYears : [currentYear];
-  const functions: string[] = [...new Set(current.map(r => r.functionArea || "Other"))];
-  const trendSeries = functions.slice(0, 8).map(fn => ({
-    label: fn,
-    data: years.map(y => allRows.filter(r => r.functionArea === fn && r.fiscalYear === y).reduce((s, r) => s + r.amount, 0)),
-  }));
 
   // ── Build dynamic hierarchy from portal organization levels ────────────
   const tableYears = allYears.length > 0 ? allYears : [currentYear];
@@ -436,20 +404,15 @@ export default async function ExpensesPage({
         <ExportButton data={exportData} filename={`${town.slug}-expenses-fy${currentYear}`} />
       </div>
 
-      <SummaryTiles tiles={tiles} tooltips={categoryTooltips} townColor={town.primaryColor} />
-
-      {/* Charts - pie charts side by side on top, bar chart full width below */}
-      <div className={`grid gap-4 ${bySpendingTypeChart ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2"}`}>
-        <PieChart data={byFunctionChart} title={`FY${currentYear} by Function Area`} townColor={town.primaryColor} />
-        {bySpendingTypeChart ? (
-          <PieChart data={bySpendingTypeChart} title={`FY${currentYear} by Spending Type`} townColor={town.primaryColor} />
-        ) : (
-          <BarChart categories={years.map(y => `FY${y}`)} series={trendSeries} title="Trend by Function" stacked />
-        )}
-      </div>
-      {bySpendingTypeChart && (
-        <BarChart categories={years.map(y => `FY${y}`)} series={trendSeries} title="Multi-Year Expense Trend by Function" stacked />
-      )}
+      <ExpenseHeader
+        tiles={tiles}
+        hierarchy={hierarchy}
+        years={years}
+        currentYear={currentYear}
+        townColor={town.primaryColor}
+        totalBudget={currentTotal}
+        prevTotal={prevTotal}
+      />
 
       <DynamicExpenseTable
         hierarchy={hierarchy}
