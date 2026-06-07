@@ -54,9 +54,13 @@ export function normalizeRows(
     let category1 = get(row, "category1");
     let category2 = get(row, "category2");
 
-    // Auto-categorize from account code if configured and not already explicitly mapped
-    if (useRules && accountCodeConfig && objectCode && (!category1 || !category2)) {
+    // Auto-derive fields from account code if configured
+    // Fills in any fields not explicitly mapped via columns
+    let functionArea = get(row, "functionArea");
+    if (useRules && accountCodeConfig && objectCode) {
       const derived = applyAccountCodeConfig(objectCode, department, accountCodeConfig);
+      if (!functionArea) functionArea = derived.functionArea;
+      if (!department) department = derived.department;
       if (!category1) category1 = derived.category1;
       if (!category2) category2 = derived.category2;
     }
@@ -66,7 +70,7 @@ export function normalizeRows(
       fundName: get(row, "fundName"),
       department,
       departmentCode: get(row, "departmentCode"),
-      functionArea: get(row, "functionArea"),
+      functionArea,
       lineItem: get(row, "lineItem"),
       objectCode,
       category1,
