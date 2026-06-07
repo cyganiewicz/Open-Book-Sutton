@@ -1,9 +1,15 @@
+import React from "react";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { groupAndSum, detectCurrentAndPreviousYear } from "@/lib/aggregator";
 import { formatCurrency, abbreviateCurrency } from "@/lib/format";
-import { parseAccountCodeConfig, DEFAULT_EXPENSE_LEVELS, DEFAULT_REVENUE_LEVELS } from "@/lib/account-codes";
+import {
+  parseAccountCodeConfig,
+  DEFAULT_EXPENSE_LEVELS,
+  DEFAULT_REVENUE_LEVELS,
+} from "@/lib/account-codes";
 import { applySortOrder } from "@/lib/portal-sort";
+import { buildHierarchyV2, type HierarchyNode } from "@/app/[townSlug]/expenses/page";
 import PrintButton from "@/components/portal/PrintButton";
 
 export default async function BudgetBookPage({
@@ -60,21 +66,57 @@ export default async function BudgetBookPage({
   const revenuesByCategory = groupAndSum(currentRevenues, "category1");
   const capitalByDept = groupAndSum(currentCapital, "department");
 
-  const expFnGroups = new Map<string, Map<string, typeof currentExpenses>>();
-  for (const row of currentExpenses) {
-    const fn = row.functionArea || "Other";
-    const dept = row.department || "Other";
-    if (!expFnGroups.has(fn)) expFnGroups.set(fn, new Map());
-    const deptMap = expFnGroups.get(fn)!;
-    if (!deptMap.has(dept)) deptMap.set(dept, []);
-    deptMap.get(dept)!.push(row);
-  }
+  // Build dynamic expense hierarchy using portal organization settings
+  const expHierarchy = buildHierarchyV2(
+    currentExpenses as Parameters<typeof buildHierarchyV2>[0],
+    allExpenses as Parameters<typeof buildHierarchyV2>[1],
+    expLevels.length > 1 ? expLevels.slice(0, -1) : expLevels,
+    0,
+    [currentYear],
+    currentYear,
+    () => true
+  );
 
   const revCatGroups = new Map<string, typeof currentRevenues>();
   for (const row of currentRevenues) {
     const cat = row.category1 || "Other";
     if (!revCatGroups.has(cat)) revCatGroups.set(cat, []);
     revCatGroups.get(cat)!.push(row);
+  }
+
+  // Recursive renderer for budget book (print-optimized, no collapse)
+  function renderHierarchy(nodes: HierarchyNode[], depth: number): React.ReactNode {
+    return nodes.map(node => (
+      <div key={node.key} className={depth === 0 ? "mb-8" : depth === 1 ? "mb-4 ml-4" : "ml-8 mb-2"}>
+        {depth === 0 && (
+          <h3 className="text-lg font-semibold mt-6 mb-2" style={{ color: town.primaryColor }}>
+            {node.key} — {formatCurrency(node.amounts[currentYear] || 0)}
+          </h3>
+        )}
+        {depth === 1 && (
+          <h4 className="text-sm font-semibold text-gray-700 mb-1">
+            {node.key} — {formatCurrency(node.amounts[currentYear] || 0)}
+          </h4>
+        )}
+        {depth >= 2 && !node.isLeaf && (
+          <p className="text-xs font-semibold text-gray-600 mb-1 mt-2">{node.key} — {formatCurrency(node.amounts[currentYear] || 0)}</p>
+        )}
+        {node.isLeaf && node.rows && node.rows.length > 0 ? (
+          <table className="w-full text-xs">
+            <tbody>
+              {node.rows.map(row => (
+                <tr key={row.id} className="border-b border-gray-50">
+                  <td className="py-1 text-gray-600">{row.label || "—"}</td>
+                  <td className="py-1 text-right tabular-nums w-32">{formatCurrency(row.amounts[currentYear] || 0)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : !node.isLeaf ? (
+          renderHierarchy(node.children, depth + 1)
+        ) : null}
+      </div>
+    ));
   }
 
   return (
@@ -183,50 +225,7 @@ export default async function BudgetBookPage({
           <h2 className="text-2xl font-semibold mb-4 pb-2 border-b-2" style={{ borderColor: town.primaryColor }}>
             Detailed Expense Budget
           </h2>
-          {applySortOrder(
-              [...expFnGroups.entries()],
-              fnSort,
-              ([fn]) => fn,
-              ([, deptMap]) => [...deptMap.values()].flat().reduce((s, r) => s + r.amount, 0)
-            ).map(([fn, deptMap]) => {
-            const fnTotal = [...deptMap.values()].flat().reduce((s, r) => s + r.amount, 0);
-            return (
-              <div key={fn} className="mb-8">
-                <h3 className="text-lg font-semibold mt-6 mb-2" style={{ color: town.primaryColor }}>
-                  {fn} — {formatCurrency(fnTotal)}
-                </h3>
-                {applySortOrder(
-                    [...deptMap.entries()],
-                    deptSort,
-                    ([dept]) => dept,
-                    ([, rows]) => rows.reduce((s, r) => s + r.amount, 0)
-                  ).map(([dept, rows]) => {
-                  const deptTotal = rows.reduce((s, r) => s + r.amount, 0);
-                  return (
-                    <div key={dept} className="mb-4">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-1 ml-4">
-                        {dept} — {formatCurrency(deptTotal)}
-                      </h4>
-                      <table className="w-full text-xs ml-8">
-                        <tbody>
-                          {rows.map((row) => (
-                            <tr key={row.id} className="border-b border-gray-50">
-                              <td className="py-1 text-gray-600">
-                                {row.lineItem || row.objectCode || "—"}
-                              </td>
-                              <td className="py-1 text-right tabular-nums w-32">
-                                {formatCurrency(row.amount)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
+          {renderHierarchy(expHierarchy, 0)}
         </section>
 
         {/* Revenue Summary */}
