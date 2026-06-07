@@ -23,7 +23,18 @@ export interface HierarchyNode {
   children: HierarchyNode[];
   isLeaf: boolean;
   rows?: { id: string; label: string; objectCode: string | null; amounts: Record<string, number> }[];
+  /** Spending type subtotals for this node (sum by object code prefix) */
+  spendingTypeTotals?: Record<string, Record<string, number>>; // type → year → amount
 }
+
+/** Map object code prefix to spending type label */
+export const OBJECT_SPENDING_MAP: Record<string, string> = {
+  "51": "Salaries & Wages", "52": "Employee Benefits",
+  "53": "Purchased Services", "54": "Supplies & Materials",
+  "55": "Supplies & Materials", "57": "Other Charges & Expenses",
+  "58": "Capital Outlay", "59": "Debt Service",
+  "61": "Special Ed Tuition", "62": "Special Ed Tuition", "63": "Special Ed Tuition",
+};
 
 // ── Build hierarchy recursively ──────────────────────────────────────────────
 
@@ -156,6 +167,39 @@ function buildHierarchy(
 }
 
 // Better approach: proper recursive hierarchy with correct year amounts
+/** Recursively annotate nodes with spending type totals */
+export function annotateSpendingTypes(
+  nodes: HierarchyNode[],
+  tableYears: string[]
+): HierarchyNode[] {
+  return nodes.map(node => {
+    // Collect all leaf rows under this node
+    const collectRows = (n: HierarchyNode): HierarchyNode["rows"] => {
+      if (n.isLeaf) return n.rows || [];
+      return n.children.flatMap(c => collectRows(c));
+    };
+
+    const allRows = collectRows(node);
+    const spendingTypeTotals: Record<string, Record<string, number>> = {};
+
+    for (const row of allRows || []) {
+      const prefix = (row.objectCode || "").slice(0, 2);
+      const type = OBJECT_SPENDING_MAP[prefix];
+      if (!type) continue;
+      if (!spendingTypeTotals[type]) spendingTypeTotals[type] = {};
+      for (const y of tableYears) {
+        spendingTypeTotals[type][y] = (spendingTypeTotals[type][y] || 0) + (row.amounts[y] || 0);
+      }
+    }
+
+    return {
+      ...node,
+      spendingTypeTotals: Object.keys(spendingTypeTotals).length > 0 ? spendingTypeTotals : undefined,
+      children: node.isLeaf ? [] : annotateSpendingTypes(node.children, tableYears),
+    };
+  });
+}
+
 export function buildHierarchyV2(
   currentRows: BudgetRowLike[],
   allYearRows: BudgetRowLike[],
@@ -347,21 +391,21 @@ export default async function ExpensesPage({
   // ── Build dynamic hierarchy from portal organization levels ────────────
   const tableYears = allYears.length > 0 ? allYears : [currentYear];
 
-  // The "grouping" levels are all but the last; the last shows line items
-  // If only 1 level, it's the top-level group and rows are line items
-  const groupingLevels = expLevels.length > 1 ? expLevels.slice(0, -1) : expLevels;
+  // Use ALL configured levels for grouping; line items always appear as leaves
+  // under the deepest level that has a value for that row
   const allRowsTyped = allRows as BudgetRowLike[];
   const currentTyped = current as BudgetRowLike[];
 
-  const hierarchy = buildHierarchyV2(
+  const hierarchyRaw = buildHierarchyV2(
     currentTyped,
     allRowsTyped,
-    groupingLevels,
+    expLevels,
     0,
     tableYears,
     currentYear,
     () => true
   );
+  const hierarchy = annotateSpendingTypes(hierarchyRaw, tableYears);
 
   // Export
   const exportData = current.map(r => {
