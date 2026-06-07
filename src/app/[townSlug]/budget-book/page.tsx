@@ -9,7 +9,12 @@ import {
   DEFAULT_REVENUE_LEVELS,
 } from "@/lib/account-codes";
 import { applySortOrder } from "@/lib/portal-sort";
-import { buildHierarchyV2, type HierarchyNode } from "@/app/[townSlug]/expenses/page";
+import {
+  buildHierarchyV2,
+  annotateSpendingTypes,
+  type HierarchyNode,
+  OBJECT_SPENDING_MAP,
+} from "@/app/[townSlug]/expenses/page";
 import PrintButton from "@/components/portal/PrintButton";
 
 export default async function BudgetBookPage({
@@ -67,15 +72,16 @@ export default async function BudgetBookPage({
   const capitalByDept = groupAndSum(currentCapital, "department");
 
   // Build dynamic expense hierarchy using portal organization settings
-  const expHierarchy = buildHierarchyV2(
+  const expHierarchyRaw = buildHierarchyV2(
     currentExpenses as Parameters<typeof buildHierarchyV2>[0],
     allExpenses as Parameters<typeof buildHierarchyV2>[1],
-    expLevels.length > 1 ? expLevels.slice(0, -1) : expLevels,
+    expLevels,
     0,
     [currentYear],
     currentYear,
     () => true
   );
+  const expHierarchy = annotateSpendingTypes(expHierarchyRaw, [currentYear]);
 
   const revCatGroups = new Map<string, typeof currentRevenues>();
   for (const row of currentRevenues) {
@@ -86,57 +92,99 @@ export default async function BudgetBookPage({
 
   // Recursive renderer for budget book (print-optimized, no collapse)
   const primaryColor = town.primaryColor;
+  // Collect all leaf rows under a node
+  function collectLeafRows(node: HierarchyNode): NonNullable<HierarchyNode["rows"]> {
+    if (node.isLeaf) return node.rows || [];
+    return node.children.flatMap(c => collectLeafRows(c));
+  }
+
+  // Render spending type summary table for a node
+  function renderSpendingTypes(node: HierarchyNode): React.ReactNode {
+    const totals = node.spendingTypeTotals;
+    if (!totals || Object.keys(totals).length === 0) {
+      // Fall back: show direct rows if no spending type data
+      const rows = collectLeafRows(node);
+      if (rows.length === 0) return null;
+      return (
+        <table className="w-full text-xs mt-1">
+          <tbody>
+            {rows.map(row => (
+              <tr key={row.id} className="border-b border-gray-50">
+                <td className="py-1 text-gray-600">{row.label || "—"}</td>
+                <td className="py-1 text-right tabular-nums w-32">{formatCurrency(row.amounts[currentYear] || 0)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    }
+    const entries = Object.entries(totals).sort((a,b) =>
+      (b[1][currentYear]||0) - (a[1][currentYear]||0)
+    );
+    return (
+      <table className="w-full text-xs mt-1">
+        <tbody>
+          {entries.map(([type, yearAmts]) => (
+            <tr key={type} className="border-b border-gray-50">
+              <td className="py-1 text-gray-600">{type}</td>
+              <td className="py-1 text-right tabular-nums w-32">{formatCurrency(yearAmts[currentYear] || 0)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+
   function renderHierarchy(nodes: HierarchyNode[], depth: number): React.ReactNode {
     const indentClass = ["", "ml-4", "ml-8", "ml-12", "ml-16"][Math.min(depth, 4)];
     return nodes.map((node, i) => {
-      // _direct: rows without this level's field — render as leaf table inline
       if (node.key === "_direct") {
-        return node.rows && node.rows.length > 0 ? (
-          <table key={`_direct_${i}`} className={`w-full text-xs ${indentClass}`}>
+        // Rows without this level's field — show spending type summary
+        const rows = collectLeafRows(node);
+        if (rows.length === 0) return null;
+        const directTotals: Record<string, number> = {};
+        for (const row of rows) {
+          const prefix = (row.objectCode || "").slice(0, 2);
+          const type = OBJECT_SPENDING_MAP[prefix] || "Other";
+          directTotals[type] = (directTotals[type] || 0) + (row.amounts[currentYear] || 0);
+        }
+        return (
+          <table key={`_direct_${i}`} className={`w-full text-xs ${indentClass} mt-1`}>
             <tbody>
-              {node.rows.map(row => (
-                <tr key={row.id} className="border-b border-gray-50">
-                  <td className="py-1 text-gray-600">{row.label || "—"}</td>
-                  <td className="py-1 text-gray-400 text-xs px-2">{row.objectCode || ""}</td>
-                  <td className="py-1 text-right tabular-nums w-32">{formatCurrency(row.amounts[currentYear] || 0)}</td>
+              {Object.entries(directTotals).sort((a,b)=>b[1]-a[1]).map(([type, amt]) => (
+                <tr key={type} className="border-b border-gray-50">
+                  <td className="py-1 text-gray-600">{type}</td>
+                  <td className="py-1 text-right tabular-nums w-32">{formatCurrency(amt)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        ) : null;
+        );
       }
+
+      const isDeepLeaf = node.isLeaf || node.children.every(c => c.isLeaf || c.key === "_direct");
+
       return (
-        <div key={node.key} className={depth === 0 ? "mb-8" : depth === 1 ? `mb-4 ${indentClass}` : `mb-2 ${indentClass}`}>
+        <div key={node.key + i} className={depth === 0 ? "mb-8" : depth === 1 ? `mb-4 ${indentClass}` : `mb-2 ${indentClass}`}>
           {depth === 0 && (
-            <h3 className="text-lg font-semibold mt-6 mb-2" style={{ color: primaryColor }}>
-              {node.key} — {formatCurrency(node.amounts[currentYear] || 0)}
+            <h3 className="text-lg font-semibold mt-6 mb-2 border-b pb-1" style={{ color: primaryColor, borderColor: primaryColor + "40" }}>
+              {node.key} <span className="font-normal text-base">{formatCurrency(node.amounts[currentYear] || 0)}</span>
             </h3>
           )}
           {depth === 1 && (
-            <h4 className="text-sm font-semibold text-gray-700 mb-1">
-              {node.key} — {formatCurrency(node.amounts[currentYear] || 0)}
+            <h4 className="text-sm font-semibold text-gray-800 mb-1 mt-3">
+              {node.key} <span className="font-normal text-gray-500">{formatCurrency(node.amounts[currentYear] || 0)}</span>
             </h4>
           )}
-          {depth >= 2 && !node.isLeaf && (
-            <p className="text-xs font-semibold text-gray-600 mb-1 mt-2">
+          {depth >= 2 && (
+            <p className="text-xs font-semibold text-gray-700 mb-1 mt-2">
               {node.key} — {formatCurrency(node.amounts[currentYear] || 0)}
             </p>
           )}
-          {node.isLeaf && node.rows && node.rows.length > 0 ? (
-            <table className="w-full text-xs">
-              <tbody>
-                {node.rows.map(row => (
-                  <tr key={row.id} className="border-b border-gray-50">
-                    <td className="py-1 text-gray-600">{row.label || "—"}</td>
-                    <td className="py-1 text-gray-400 text-xs px-2">{row.objectCode || ""}</td>
-                    <td className="py-1 text-right tabular-nums w-32">{formatCurrency(row.amounts[currentYear] || 0)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : !node.isLeaf ? (
-            renderHierarchy(node.children, depth + 1)
-          ) : null}
+          {isDeepLeaf
+            ? renderSpendingTypes(node)
+            : renderHierarchy(node.children, depth + 1)
+          }
         </div>
       );
     });
