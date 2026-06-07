@@ -89,6 +89,10 @@ export interface AccountCodeConfig {
   separator: string;
   segments: AccountSegment[];
 
+  /** Which segment drives Function Area (functionArea field) */
+  functionAreaSegment: number | null;
+  /** Which segment drives Department (department field) */
+  departmentSegment: number | null;
   /** Which segment drives Spending Type (category1) */
   spendingTypeSegment: number | null;
   /** Which segment drives Subcategory (category2) */
@@ -119,6 +123,8 @@ export function emptyConfig(): AccountCodeConfig {
   return {
     separator: "-",
     segments: [],
+    functionAreaSegment: null,
+    departmentSegment: null,
     spendingTypeSegment: null,
     subcategorySegment: null,
     subcategoryDepartmentFilter: [],
@@ -185,14 +191,23 @@ export function parseAccountCode(accountCode: string, config: AccountCodeConfig)
 // ── Auto-categorization ────────────────────────────────────────────────────
 
 /**
- * Derive category1 and category2 from an account code using the config.
+ * Derive functionArea, department, category1, and category2 from an account
+ * code using the config. Pass in already-known department to restrict
+ * subcategory derivation by department filter.
  */
 export function applyAccountCodeConfig(
   accountCode: string | null,
-  department: string | null,
+  existingDepartment: string | null,
   config: AccountCodeConfig
-): { category1: string | null; category2: string | null } {
-  if (!accountCode) return { category1: null, category2: null };
+): {
+  functionArea: string | null;
+  department: string | null;
+  category1: string | null;
+  category2: string | null;
+} {
+  if (!accountCode) {
+    return { functionArea: null, department: null, category1: null, category2: null };
+  }
 
   const parts = parseAccountCode(accountCode, config);
 
@@ -205,19 +220,36 @@ export function applyAccountCodeConfig(
     return resolveSegmentValue(seg, raw);
   };
 
+  const functionArea = resolve(config.functionAreaSegment ?? null);
+  const department = resolve(config.departmentSegment ?? null);
   const category1 = resolve(config.spendingTypeSegment);
 
+  // Use derived department if available, otherwise fall back to existing
+  const deptForFilter = department || existingDepartment;
   let category2: string | null = null;
   if (config.subcategorySegment !== null) {
     const filters = config.subcategoryDepartmentFilter ?? [];
     const deptOk =
       filters.length === 0 ||
-      (department != null &&
-        filters.some((f) => department.toLowerCase().includes(f.toLowerCase())));
+      (deptForFilter != null &&
+        filters.some((f) => deptForFilter.toLowerCase().includes(f.toLowerCase())));
     if (deptOk) category2 = resolve(config.subcategorySegment);
   }
 
-  return { category1, category2 };
+  return { functionArea, department, category1, category2 };
+}
+
+/**
+ * Returns which fields are automatically covered by the account code config.
+ * Used by the upload UI to skip/relax requirements.
+ */
+export function getCoveredFields(config: AccountCodeConfig): Set<string> {
+  const covered = new Set<string>();
+  if (config.functionAreaSegment !== null) covered.add("functionArea");
+  if (config.departmentSegment !== null) covered.add("department");
+  if (config.spendingTypeSegment !== null) covered.add("category1");
+  if (config.subcategorySegment !== null) covered.add("category2");
+  return covered;
 }
 
 // ── Sort utility ───────────────────────────────────────────────────────────
