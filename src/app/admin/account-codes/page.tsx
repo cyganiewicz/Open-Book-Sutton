@@ -8,13 +8,16 @@ import {
   type CodeEntry,
   type HierarchyLevel,
   type SortOrder,
+  type GroupField,
   SORT_LABELS,
+  GROUP_FIELD_LABELS,
   DEFAULT_EXPENSE_LEVELS,
   DEFAULT_REVENUE_LEVELS,
   emptyConfig,
   parseAccountCodeConfig,
   detectAccountStructure,
   applyAccountCodeConfig,
+  getCoveredFields,
 } from "@/lib/account-codes";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -162,7 +165,7 @@ export default function AccountCodesPage() {
       portalOrganization: {
         expenseLevels: c.portalOrganization?.expenseLevels ?? DEFAULT_EXPENSE_LEVELS,
         revenueLevels: c.portalOrganization?.revenueLevels ?? DEFAULT_REVENUE_LEVELS,
-        [kind]: [...(c.portalOrganization?.[kind] ?? []), { segmentIndex: null, name: "", sort: "total_desc" as SortOrder }],
+        [kind]: [...(c.portalOrganization?.[kind] ?? []), { dataField: "category1" as GroupField, name: "", sort: "total_desc" as SortOrder, skipIfEmpty: true }],
       },
     }));
   };
@@ -530,15 +533,14 @@ export default function AccountCodesPage() {
 
                       {/* Segment source */}
                       <div className="flex-1">
-                        <select value={level.segmentIndex ?? ""}
-                          onChange={e => updLevel(kind, idx, { segmentIndex: e.target.value === "" ? null : parseInt(e.target.value) })}
+                        <select value={level.dataField ?? "functionArea"}
+                          onChange={e => updLevel(kind, idx, { dataField: e.target.value as GroupField })}
                           className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                          <option value="">Built-in field</option>
-                          {config.segments.map(s => (
-                            <option key={s.index} value={s.index}>Seg {s.index}{s.name ? ` — ${s.name}` : ""}</option>
+                          {Object.entries(GROUP_FIELD_LABELS).map(([field, label]) => (
+                            <option key={field} value={field}>{label}</option>
                           ))}
                         </select>
-                        <p className="text-xs text-gray-400 mt-0.5 px-1">Data source for this level</p>
+                        <p className="text-xs text-gray-400 mt-0.5 px-1">Which data field to group by</p>
                       </div>
 
                       {/* Sort */}
@@ -551,6 +553,12 @@ export default function AccountCodesPage() {
                         <p className="text-xs text-gray-400 mt-0.5 px-1">Sort order</p>
                       </div>
 
+                      <label className="flex items-center gap-1 text-xs text-gray-500 whitespace-nowrap cursor-pointer">
+                        <input type="checkbox" checked={level.skipIfEmpty ?? false}
+                          onChange={e => updLevel(kind, idx, { skipIfEmpty: e.target.checked })}
+                          className="h-3.5 w-3.5 rounded border-gray-300" />
+                        Skip if empty
+                      </label>
                       <button onClick={() => removeLevel(kind, idx)} className="text-gray-300 hover:text-red-400 text-lg leading-none ml-1">×</button>
                     </div>
                   ))}
