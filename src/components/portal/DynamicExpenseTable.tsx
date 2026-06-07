@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { formatCurrency, abbreviateCurrency } from "@/lib/format";
 import type { HierarchyNode } from "@/app/[townSlug]/expenses/page";
+import { OBJECT_SPENDING_MAP } from "@/app/[townSlug]/expenses/page";
 
 interface DynamicExpenseTableProps {
   hierarchy: HierarchyNode[];
@@ -23,6 +24,53 @@ function tint(hex: string, opacity: number) {
 // Visual depth styles
 const INDENT_REM = [1.25, 2.75, 4.25, 5.75, 7.25];
 const getIndent = (depth: number) => `${INDENT_REM[Math.min(depth, INDENT_REM.length - 1)]}rem`;
+
+// Spending type subtotal rows
+function SpendingTypeTotals({
+  totals, displayYears, depth, townColor
+}: {
+  totals: Record<string, Record<string, number>>;
+  displayYears: string[];
+  depth: number;
+  townColor: string;
+}) {
+  const r = parseInt(townColor.slice(1,3),16);
+  const g = parseInt(townColor.slice(3,5),16);
+  const b = parseInt(townColor.slice(5,7),16);
+  const bg = `rgba(${r},${g},${b},0.04)`;
+  const indent = `${Math.min(depth, 4) * 1.25 + 0.5}rem`;
+
+  // Sort by total descending
+  const entries = Object.entries(totals).sort((a, b) =>
+    Object.values(b[1]).reduce((s,v)=>s+v,0) - Object.values(a[1]).reduce((s,v)=>s+v,0)
+  );
+  if (entries.length === 0) return null;
+
+  return (
+    <>
+      <tr className="border-t border-dashed border-gray-200" style={{ backgroundColor: bg }}>
+        <td className="py-1.5 pr-3 text-gray-400 text-xs italic" style={{ paddingLeft: indent }}>
+          Spending type subtotals:
+        </td>
+        <td className="hidden sm:table-cell" />
+        {displayYears.map(y => <td key={y} />)}
+      </tr>
+      {entries.map(([type, yearAmts]) => (
+        <tr key={type} className="border-t border-gray-50" style={{ backgroundColor: bg }}>
+          <td className="py-1 pr-3 text-gray-500 text-xs" style={{ paddingLeft: `calc(${indent} + 0.5rem)` }}>
+            {type}
+          </td>
+          <td className="hidden sm:table-cell" />
+          {displayYears.map(y => (
+            <td key={y} className="px-3 py-1 text-right tabular-nums text-xs text-gray-500 whitespace-nowrap">
+              {(yearAmts[y] || 0) > 0 ? formatCurrency(yearAmts[y]) : "—"}
+            </td>
+          ))}
+        </tr>
+      ))}
+    </>
+  );
+}
 
 // Recursive node renderer
 function NodeRow({
@@ -121,6 +169,16 @@ function NodeRow({
         <LeafRow key={row.id} row={row} depth={depth + 1}
           displayYears={displayYears} lineItemTooltips={lineItemTooltips} />
       ))}
+
+      {/* Spending type subtotal rows — shown after children for non-leaf group nodes */}
+      {!effectiveCollapsed && !node.isLeaf && node.spendingTypeTotals && depth >= 1 && (
+        <SpendingTypeTotals
+          totals={node.spendingTypeTotals}
+          displayYears={displayYears}
+          depth={depth + 1}
+          townColor={townColor}
+        />
+      )}
     </>
   );
 }
