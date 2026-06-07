@@ -1,19 +1,242 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { parseAccountCodeConfig, DEFAULT_EXPENSE_LEVELS } from "@/lib/account-codes";
-import { applySortOrder } from "@/lib/portal-sort";
-import {
-  groupAndSum,
-  toChartData,
-  detectCurrentAndPreviousYear,
-} from "@/lib/aggregator";
+import { groupAndSum, toChartData, detectCurrentAndPreviousYear } from "@/lib/aggregator";
 import { formatCurrency, abbreviateCurrency, formatPercent, calculateChange } from "@/lib/format";
+import {
+  parseAccountCodeConfig,
+  DEFAULT_EXPENSE_LEVELS,
+  type HierarchyLevel,
+  type GroupField,
+} from "@/lib/account-codes";
 import SummaryTiles from "@/components/portal/SummaryTiles";
 import PieChart from "@/components/portal/PieChart";
 import BarChart from "@/components/portal/BarChart";
-import ExpenseTable from "@/components/portal/ExpenseTable";
+import DynamicExpenseTable from "@/components/portal/DynamicExpenseTable";
 import ExportButton from "@/components/portal/ExportButton";
 import type { SummaryTile } from "@/types";
+
+// ── Types for the dynamic hierarchy ─────────────────────────────────────────
+
+export interface HierarchyNode {
+  key: string;        // the group value (e.g. "Public Safety")
+  amounts: Record<string, number>;
+  children: HierarchyNode[];
+  isLeaf: boolean;
+  rows?: { id: string; label: string; objectCode: string | null; amounts: Record<string, number> }[];
+}
+
+// ── Build hierarchy recursively ──────────────────────────────────────────────
+
+type BudgetRowLike = {
+  id: string;
+  functionArea: string | null;
+  department: string | null;
+  category1: string | null;
+  category2: string | null;
+  objectCode: string | null;
+  lineItem: string | null;
+  fiscalYear: string;
+  amount: number;
+  amountType: string;
+};
+
+function getField(row: BudgetRowLike, field: GroupField): string {
+  const v = row[field as keyof BudgetRowLike];
+  return (v != null && v !== "") ? String(v) : "";
+}
+
+function sortNodes(
+  nodes: HierarchyNode[],
+  sort: HierarchyLevel["sort"],
+  currentYear: string
+): HierarchyNode[] {
+  return [...nodes].sort((a, b) => {
+    switch (sort) {
+      case "alpha_asc":  return a.key.localeCompare(b.key);
+      case "alpha_desc": return b.key.localeCompare(a.key);
+      case "total_asc":  return (a.amounts[currentYear] || 0) - (b.amounts[currentYear] || 0);
+      case "total_desc":
+      default:           return (b.amounts[currentYear] || 0) - (a.amounts[currentYear] || 0);
+    }
+  });
+}
+
+function buildHierarchy(
+  rows: BudgetRowLike[],
+  levels: HierarchyLevel[],
+  levelIndex: number,
+  tableYears: string[],
+  currentYear: string,
+  allYearRows: BudgetRowLike[]
+): HierarchyNode[] {
+  if (levelIndex >= levels.length || rows.length === 0) return [];
+
+  const level = levels[levelIndex];
+  const isLastGroupLevel = levelIndex === levels.length - 1;
+
+  // Group rows by this level's field
+  const groups = new Map<string, BudgetRowLike[]>();
+  for (const row of rows) {
+    const val = getField(row, level.dataField);
+    if (!val && level.skipIfEmpty) {
+      // Skip this level for this row — treat as if at next level
+      continue;
+    }
+    const key = val || "(Other)";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(row);
+  }
+
+  // Rows that skipped this level (empty field + skipIfEmpty)
+  const skippedRows = level.skipIfEmpty
+    ? rows.filter(r => !getField(r, level.dataField))
+    : [];
+
+  // Build nodes
+  const nodes: HierarchyNode[] = [];
+  for (const [key, groupRows] of groups) {
+    // Compute amounts across all years
+    const amounts: Record<string, number> = {};
+    for (const y of tableYears) {
+      const yRows = allYearRows.filter(r => {
+        // Match same group key for this year's rows
+        const v = getField(r, level.dataField);
+        const k = v || "(Other)";
+        return k === key && r.fiscalYear === y &&
+          (y === currentYear ? r.amountType === "budget" : r.amountType === "budget" || r.amountType === "actual");
+      });
+      // But we need ancestor context — use groupRows filtered by year instead
+      amounts[y] = 0;
+    }
+    // Better: compute amounts from groupRows (current year subset) plus year lookups
+    for (const y of tableYears) {
+      // Find matching rows for this year by tracing the same path
+      // For simplicity, sum from allYearRows where this field matches
+      amounts[y] = 0; // will be summed below
+    }
+
+    if (isLastGroupLevel) {
+      // Leaf group — show individual rows
+      const leafAmounts: Record<string, number> = {};
+      for (const y of tableYears) {
+        leafAmounts[y] = allYearRows
+          .filter(r => getField(r, level.dataField) === key &&
+            r.fiscalYear === y &&
+            (y === currentYear ? r.amountType === "budget" : r.amountType === "budget" || r.amountType === "actual"))
+          .reduce((s, r) => s + r.amount, 0);
+      }
+      nodes.push({
+        key,
+        amounts: leafAmounts,
+        isLeaf: true,
+        children: [],
+        rows: groupRows.map(row => ({
+          id: row.id,
+          label: row.lineItem || row.objectCode || "",
+          objectCode: row.objectCode,
+          amounts: {} // filled below
+        }))
+      });
+    } else {
+      const children = buildHierarchy(groupRows, levels, levelIndex + 1, tableYears, currentYear, allYearRows);
+      const nodeAmounts: Record<string, number> = {};
+      for (const y of tableYears) {
+        nodeAmounts[y] = children.reduce((s, c) => s + (c.amounts[y] || 0), 0);
+      }
+      nodes.push({ key, amounts: nodeAmounts, isLeaf: false, children, rows: [] });
+    }
+  }
+
+  // Append skipped rows as direct leaf nodes at this level
+  for (const row of skippedRows) {
+    // They'll be handled by the parent level as pass-through
+  }
+
+  return sortNodes(nodes, level.sort, currentYear);
+}
+
+// Better approach: proper recursive hierarchy with correct year amounts
+export function buildHierarchyV2(
+  currentRows: BudgetRowLike[],
+  allYearRows: BudgetRowLike[],
+  levels: HierarchyLevel[],
+  levelIndex: number,
+  tableYears: string[],
+  currentYear: string,
+  ancestorFilter: (r: BudgetRowLike) => boolean
+): HierarchyNode[] {
+  if (levelIndex >= levels.length || currentRows.length === 0) return [];
+
+  const level = levels[levelIndex];
+  const isLastLevel = levelIndex === levels.length - 1;
+
+  // Partition: rows that have a value at this level vs those that skip it
+  const withValue = currentRows.filter(r => getField(r, level.dataField) !== "");
+  const withoutValue = level.skipIfEmpty
+    ? currentRows.filter(r => getField(r, level.dataField) === "")
+    : [];
+
+  // Group rows-with-value by this field
+  const groups = new Map<string, BudgetRowLike[]>();
+  for (const row of withValue) {
+    const key = getField(row, level.dataField);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(row);
+  }
+
+  const nodes: HierarchyNode[] = [];
+
+  for (const [key, groupRows] of groups) {
+    // Year totals: filter allYearRows by ancestor path + this key
+    const nodeFilter = (r: BudgetRowLike) =>
+      ancestorFilter(r) && getField(r, level.dataField) === key;
+
+    const amounts: Record<string, number> = {};
+    for (const y of tableYears) {
+      amounts[y] = allYearRows
+        .filter(r => nodeFilter(r) && r.fiscalYear === y &&
+          (y === currentYear ? r.amountType === "budget" : r.amountType === "budget" || r.amountType === "actual"))
+        .reduce((s, r) => s + r.amount, 0);
+    }
+
+    if (isLastLevel) {
+      // Show line items
+      const leafRows = groupRows.map(row => {
+        const rowAmounts: Record<string, number> = {};
+        for (const y of tableYears) {
+          rowAmounts[y] = allYearRows
+            .filter(r => r.id === row.id && r.fiscalYear === y &&
+              (y === currentYear ? r.amountType === "budget" : r.amountType === "budget" || r.amountType === "actual"))
+            .reduce((s, r) => s + r.amount, 0);
+        }
+        return {
+          id: row.id,
+          label: row.lineItem || row.objectCode || "",
+          objectCode: row.objectCode,
+          amounts: rowAmounts,
+        };
+      });
+      nodes.push({ key, amounts, isLeaf: true, children: [], rows: leafRows });
+    } else {
+      const children = buildHierarchyV2(
+        groupRows, allYearRows, levels, levelIndex + 1, tableYears, currentYear, nodeFilter
+      );
+      nodes.push({ key, amounts, isLeaf: false, children, rows: [] });
+    }
+  }
+
+  // Rows without a value at this level: pass them directly to next level
+  // They appear as children of a virtual "(skipped)" node or are merged up
+  if (withoutValue.length > 0 && !isLastLevel) {
+    const passThrough = buildHierarchyV2(
+      withoutValue, allYearRows, levels, levelIndex + 1, tableYears, currentYear, ancestorFilter
+    );
+    nodes.push(...passThrough);
+  }
+
+  return sortNodes(nodes, level.sort, currentYear);
+}
+
 
 export default async function ExpensesPage({
   params,
@@ -24,12 +247,8 @@ export default async function ExpensesPage({
   const town = await prisma.town.findUnique({ where: { slug: townSlug } });
   if (!town) return notFound();
 
-  // Load sort preferences from account code config
   const acConfig = parseAccountCodeConfig(town.accountCodeRules || "");
   const expLevels = acConfig?.portalOrganization?.expenseLevels ?? DEFAULT_EXPENSE_LEVELS;
-  const fnSort   = expLevels[0]?.sort ?? "total_desc";
-  const deptSort = expLevels[1]?.sort ?? "total_desc";
-  const catSort  = expLevels[2]?.sort ?? "total_desc";
 
   const tooltipRows = await prisma.tooltip.findMany({ where: { townId: town.id } });
   const categoryTooltips: Record<string, string> = {};
@@ -50,21 +269,16 @@ export default async function ExpensesPage({
     (r) => r.fiscalYear === currentYear && r.amountType === "budget"
   );
   const prev = prevYear
-    ? allRows.filter(
-        (r) =>
-          r.fiscalYear === prevYear &&
-          (r.amountType === "budget" || r.amountType === "actual")
-      )
+    ? allRows.filter(r => r.fiscalYear === prevYear && (r.amountType === "budget" || r.amountType === "actual"))
     : [];
 
   const currentTotal = current.reduce((s, r) => s + r.amount, 0);
   const prevTotal = prev.reduce((s, r) => s + r.amount, 0);
 
-  // ── KPI tiles ─────────────────────────────────────────────────────────────
+  // ── KPI tiles ──────────────────────────────────────────────────────────
   const tiles: SummaryTile[] = [
     { label: "Total Budget", value: abbreviateCurrency(currentTotal) },
   ];
-
   if (prevTotal > 0) {
     const change = calculateChange(prevTotal, currentTotal);
     tiles.push({
@@ -74,190 +288,65 @@ export default async function ExpensesPage({
       changeType: change.absolute >= 0 ? "positive" : "negative",
     });
   }
-
-  // Top function area
   const byFunction = groupAndSum(current, "functionArea");
   const topFn = Object.entries(byFunction).sort((a, b) => b[1] - a[1])[0];
   if (topFn) {
-    tiles.push({
-      label: "Largest Function",
-      value: topFn[0],
-      change: abbreviateCurrency(topFn[1]),
-      changeType: "neutral",
-    });
+    tiles.push({ label: "Largest Function", value: topFn[0], change: abbreviateCurrency(topFn[1]), changeType: "neutral" });
   }
-
-  // Spending type breakdown tiles (if mapped)
-  const bySpendingType = groupAndSum(
-    current.filter((r) => r.category1),
-    "category1"
-  );
+  const bySpendingType = groupAndSum(current.filter(r => r.category1), "category1");
   const spendingTypeEntries = Object.entries(bySpendingType).sort((a, b) => b[1] - a[1]);
   for (const [type, amount] of spendingTypeEntries.slice(0, 3)) {
     const pct = currentTotal > 0 ? (amount / currentTotal) * 100 : 0;
-    tiles.push({
-      label: type,
-      value: abbreviateCurrency(amount),
-      change: `${pct.toFixed(1)}% of budget`,
-      changeType: "neutral",
-    });
+    tiles.push({ label: type, value: abbreviateCurrency(amount), change: `${pct.toFixed(1)}% of budget`, changeType: "neutral" });
   }
 
-  // ── Chart data ──────────────────────────────────────────────────────────
+  // ── Charts ─────────────────────────────────────────────────────────────
   const byFunctionChart = toChartData(byFunction);
-  const bySpendingTypeChart =
-    spendingTypeEntries.length > 0 ? toChartData(bySpendingType) : null;
-
+  const bySpendingTypeChart = spendingTypeEntries.length > 0 ? toChartData(bySpendingType) : null;
   const years = allYears.length > 0 ? allYears : [currentYear];
-  const functions: string[] = [
-    ...new Set(current.map((r) => r.functionArea || "Other")),
-  ];
-  const trendSeries = functions.slice(0, 8).map((fn) => ({
+  const functions: string[] = [...new Set(current.map(r => r.functionArea || "Other"))];
+  const trendSeries = functions.slice(0, 8).map(fn => ({
     label: fn,
-    data: years.map((y) =>
-      allRows
-        .filter((r) => r.functionArea === fn && r.fiscalYear === y)
-        .reduce((s, r) => s + r.amount, 0)
-    ),
+    data: years.map(y => allRows.filter(r => r.functionArea === fn && r.fiscalYear === y).reduce((s, r) => s + r.amount, 0)),
   }));
 
-  // ── Build table data: fn → dept → line items ─────────────────────────────
+  // ── Build dynamic hierarchy from portal organization levels ────────────
   const tableYears = allYears.length > 0 ? allYears : [currentYear];
 
-  type LineItem = {
-    id: string;
-    label: string;
-    objectCode: string | null;
-    amounts: Record<string, number>;
-  };
-  type Department = {
-    name: string;
-    amounts: Record<string, number>;
-    categories: never[];
-    items: LineItem[];
-  };
-  type FunctionGroup = {
-    name: string;
-    amounts: Record<string, number>;
-    departments: Department[];
-  };
+  // The "grouping" levels are all but the last; the last shows line items
+  // If only 1 level, it's the top-level group and rows are line items
+  const groupingLevels = expLevels.length > 1 ? expLevels.slice(0, -1) : expLevels;
+  const allRowsTyped = allRows as BudgetRowLike[];
+  const currentTyped = current as BudgetRowLike[];
 
-  // Aggregate line totals per year
-  const lineTotalsByYear = new Map<string, Map<string, number>>();
-  const deptTotalsByYear = new Map<string, Map<string, number>>();
-  const fnTotalsByYear = new Map<string, Map<string, number>>();
-
-  for (const year of tableYears) {
-    const yr = allRows.filter(
-      (r) =>
-        r.fiscalYear === year &&
-        (year === currentYear
-          ? r.amountType === "budget"
-          : r.amountType === "budget" || r.amountType === "actual")
-    );
-    const lm = new Map<string, number>();
-    const dm = new Map<string, number>();
-    const fm = new Map<string, number>();
-    for (const row of yr) {
-      const fn = row.functionArea || "Other";
-      const dept = row.department || "Other";
-      const lineKey = `${fn}||${dept}||${row.objectCode || ""}||${row.lineItem || ""}`;
-      lm.set(lineKey, (lm.get(lineKey) || 0) + row.amount);
-      dm.set(`${fn}||${dept}`, (dm.get(`${fn}||${dept}`) || 0) + row.amount);
-      fm.set(fn, (fm.get(fn) || 0) + row.amount);
-    }
-    lineTotalsByYear.set(year, lm);
-    deptTotalsByYear.set(year, dm);
-    fnTotalsByYear.set(year, fm);
-  }
-
-  const curFnMap = fnTotalsByYear.get(currentYear) || new Map<string, number>();
-  const curDeptMap = deptTotalsByYear.get(currentYear) || new Map<string, number>();
-
-  // Build function groups sorted by current total desc
-  const fnGroups = new Map<string, typeof current>();
-  for (const row of current) {
-    const fn = row.functionArea || "Other";
-    if (!fnGroups.has(fn)) fnGroups.set(fn, []);
-    fnGroups.get(fn)!.push(row);
-  }
-
-  const functionData: FunctionGroup[] = [...fnGroups.keys()]
-    .sort((a, b) => { switch(fnSort){case 'alpha_asc':return a.localeCompare(b);case 'alpha_desc':return b.localeCompare(a);case 'total_asc':return (curFnMap.get(a)||0)-(curFnMap.get(b)||0);default:return (curFnMap.get(b)||0)-(curFnMap.get(a)||0);} })
-    .map((fn) => {
-      const fnRows = fnGroups.get(fn)!;
-      const deptMap = new Map<string, typeof current>();
-      for (const row of fnRows) {
-        const dept = row.department || "Other";
-        if (!deptMap.has(dept)) deptMap.set(dept, []);
-        deptMap.get(dept)!.push(row);
-      }
-
-      const departments: Department[] = [...deptMap.keys()]
-        .sort((a, b) => { switch(deptSort){case 'alpha_asc':return a.localeCompare(b);case 'alpha_desc':return b.localeCompare(a);case 'total_asc':return (curDeptMap.get(`${fn}||${a}`)||0)-(curDeptMap.get(`${fn}||${b}`)||0);default:return (curDeptMap.get(`${fn}||${b}`)||0)-(curDeptMap.get(`${fn}||${a}`)||0);} })
-        .map((dept) => {
-          const deptRows = deptMap.get(dept)!;
-          const items: LineItem[] = deptRows.map((row) => {
-            const lineKey = `${fn}||${dept}||${row.objectCode || ""}||${row.lineItem || ""}`;
-            const amounts: Record<string, number> = {};
-            for (const y of tableYears) {
-              amounts[y] = lineTotalsByYear.get(y)?.get(lineKey) || 0;
-            }
-            return {
-              id: row.id,
-              label: row.lineItem || row.objectCode || "",
-              objectCode: row.objectCode,
-              amounts,
-            };
-          }).sort((a, b) => {
-            switch (catSort) {
-              case "alpha_asc":  return a.label.localeCompare(b.label);
-              case "alpha_desc": return b.label.localeCompare(a.label);
-              case "total_asc":  return (a.amounts[currentYear] || 0) - (b.amounts[currentYear] || 0);
-              default:           return (b.amounts[currentYear] || 0) - (a.amounts[currentYear] || 0);
-            }
-          });
-          const amtsByYear: Record<string, number> = {};
-          for (const y of tableYears) {
-            amtsByYear[y] = deptTotalsByYear.get(y)?.get(`${fn}||${dept}`) || 0;
-          }
-          return {
-            name: dept,
-            amounts: amtsByYear,
-            categories: [] as never[],
-            items,
-          };
-        });
-
-      const fnAmts: Record<string, number> = {};
-      for (const y of tableYears) { fnAmts[y] = fnTotalsByYear.get(y)?.get(fn) || 0; }
-      return {
-        name: fn,
-        amounts: fnAmts,
-        departments,
-      };
-    });
+  const hierarchy = buildHierarchyV2(
+    currentTyped,
+    allRowsTyped,
+    groupingLevels,
+    0,
+    tableYears,
+    currentYear,
+    () => true
+  );
 
   // Export
-  const exportData = current.map((r) => {
-    const lineKey = `${r.functionArea || "Other"}||${r.department || "Other"}||${r.objectCode || ""}||${r.lineItem || ""}`;
-    const yearCols: Record<string, string> = {};
-    for (const y of tableYears) {
-      yearCols[`FY${y}`] = formatCurrency(lineTotalsByYear.get(y)?.get(lineKey) || 0);
-    }
-    return {
+  const exportData = current.map(r => {
+    const row: Record<string, string> = {
       "Function Area": r.functionArea || "",
       Department: r.department || "",
-      "Spending Type": r.category1 || "",
+      Category: r.category1 || "",
+      Subcategory: r.category2 || "",
       "Line Item": r.lineItem || "",
       Account: r.objectCode || "",
-      ...yearCols,
     };
+    for (const y of tableYears) row[`FY${y}`] = formatCurrency(r.amount);
+    return row;
   });
+
+  const levelNames = expLevels.map(l => l.name);
 
   return (
     <div className="space-y-8">
-      {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Expenses</h1>
@@ -265,40 +354,22 @@ export default async function ExpensesPage({
             FY{currentYear} adopted budget · {current.length.toLocaleString()} line items
           </p>
         </div>
-        <ExportButton
-          data={exportData}
-          filename={`${town.slug}-expenses-fy${currentYear}`}
-        />
+        <ExportButton data={exportData} filename={`${town.slug}-expenses-fy${currentYear}`} />
       </div>
 
-      {/* KPI tiles */}
       <SummaryTiles tiles={tiles} tooltips={categoryTooltips} townColor={town.primaryColor} />
 
-      {/* Charts */}
-      <div className={`grid gap-4 ${bySpendingTypeChart ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3" : "grid-cols-1 md:grid-cols-2"}`}>
-        <PieChart
-          data={byFunctionChart}
-          title={`FY${currentYear} by Function Area`}
-          townColor={town.primaryColor}
-        />
+      <div className={`grid gap-4 ${bySpendingTypeChart ? "grid-cols-1 md:grid-cols-3" : "grid-cols-1 md:grid-cols-2"}`}>
+        <PieChart data={byFunctionChart} title={`FY${currentYear} by Function Area`} townColor={town.primaryColor} />
         {bySpendingTypeChart && (
-          <PieChart
-            data={bySpendingTypeChart}
-            title={`FY${currentYear} by Spending Type`}
-            townColor={town.primaryColor}
-          />
+          <PieChart data={bySpendingTypeChart} title={`FY${currentYear} by Spending Type`} townColor={town.primaryColor} />
         )}
-        <BarChart
-          categories={years.map((y) => `FY${y}`)}
-          series={trendSeries}
-          title="Multi-Year Trend by Function"
-          stacked
-        />
+        <BarChart categories={years.map(y => `FY${y}`)} series={trendSeries} title="Trend by Function" stacked />
       </div>
 
-      {/* Expense table */}
-      <ExpenseTable
-        functionGroups={functionData}
+      <DynamicExpenseTable
+        hierarchy={hierarchy}
+        levelNames={levelNames}
         years={tableYears}
         currentYear={currentYear}
         townColor={town.primaryColor}
