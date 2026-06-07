@@ -289,7 +289,7 @@ export default function ExpenseHeader({
           <div className="h-52">
             <Bar data={barData} options={{
               responsive: true, maintainAspectRatio: false,
-              onClick: (_, elements) => {
+              onClick: (_event: unknown, elements: { datasetIndex: number }[]) => {
                 if (elements.length > 0) {
                   const label = filteredTrendData[elements[0].datasetIndex]?.label;
                   if (label) setSelectedNode(prev => prev === label ? null : label);
