@@ -57,7 +57,7 @@ export default function AccountCodesPage() {
   // Preview
   const [previewCode, setPreviewCode] = useState("");
   const [previewDept, setPreviewDept] = useState("");
-  const [previewResult, setPreviewResult] = useState<{ category1: string|null; category2: string|null }|null>(null);
+  const [previewResult, setPreviewResult] = useState<{ functionArea: string|null; department: string|null; category1: string|null; category2: string|null }|null>(null);
 
   // Tab
   const [tab, setTab] = useState<"segments"|"organization">("segments");
@@ -90,6 +90,8 @@ export default function AccountCodesPage() {
     setConfig(c => ({
       ...c,
       segments: c.segments.filter(s => s.index !== index),
+      functionAreaSegment: c.functionAreaSegment === index ? null : c.functionAreaSegment,
+      departmentSegment: c.departmentSegment === index ? null : c.departmentSegment,
       spendingTypeSegment: c.spendingTypeSegment === index ? null : c.spendingTypeSegment,
       subcategorySegment: c.subcategorySegment === index ? null : c.subcategorySegment,
     }));
@@ -311,6 +313,8 @@ export default function AccountCodesPage() {
                       <span className="text-xs opacity-50 mr-1">Seg {i}</span>
                       {seg?.name || <span className="italic">unnamed</span>}
                       {seg?.codes.length ? <span className="ml-1.5 text-[10px] bg-gray-100 text-gray-500 rounded px-1">{seg.codes.length} codes</span> : null}
+                      {config.functionAreaSegment === i && <span className="ml-1 text-[10px] bg-green-100 text-green-700 rounded px-1">Fn</span>}
+                      {config.departmentSegment === i && <span className="ml-1 text-[10px] bg-orange-100 text-orange-700 rounded px-1">Dept</span>}
                       {config.spendingTypeSegment === i && <span className="ml-1 text-[10px] bg-blue-100 text-blue-600 rounded px-1">Type</span>}
                       {config.subcategorySegment === i && <span className="ml-1 text-[10px] bg-purple-100 text-purple-600 rounded px-1">Sub</span>}
                     </button>
@@ -348,14 +352,33 @@ export default function AccountCodesPage() {
                 </div>
 
                 {/* Classification role */}
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">What does this segment drive?</p>
                 <div className="grid grid-cols-2 gap-3">
+                  <label className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${config.functionAreaSegment === activeSeg.index ? "border-green-400 bg-green-50" : "border-gray-200 hover:border-gray-300"}`}>
+                    <input type="checkbox" checked={config.functionAreaSegment === activeSeg.index}
+                      onChange={e => upd({ functionAreaSegment: e.target.checked ? activeSeg.index : null })}
+                      className="h-4 w-4 rounded border-gray-300" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Function Area</p>
+                      <p className="text-xs text-gray-400">Top-level grouping (e.g. Public Safety, Education)</p>
+                    </div>
+                  </label>
+                  <label className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${config.departmentSegment === activeSeg.index ? "border-orange-400 bg-orange-50" : "border-gray-200 hover:border-gray-300"}`}>
+                    <input type="checkbox" checked={config.departmentSegment === activeSeg.index}
+                      onChange={e => upd({ departmentSegment: e.target.checked ? activeSeg.index : null })}
+                      className="h-4 w-4 rounded border-gray-300" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Department</p>
+                      <p className="text-xs text-gray-400">Second-level grouping within function areas</p>
+                    </div>
+                  </label>
                   <label className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${config.spendingTypeSegment === activeSeg.index ? "border-blue-400 bg-blue-50" : "border-gray-200 hover:border-gray-300"}`}>
                     <input type="checkbox" checked={config.spendingTypeSegment === activeSeg.index}
                       onChange={e => upd({ spendingTypeSegment: e.target.checked ? activeSeg.index : null })}
                       className="h-4 w-4 rounded border-gray-300" />
                     <div>
                       <p className="text-sm font-medium text-gray-700">Spending Type</p>
-                      <p className="text-xs text-gray-400">Drives the spending type pie chart + KPI tiles</p>
+                      <p className="text-xs text-gray-400">Drives spending type pie chart + KPI tiles</p>
                     </div>
                   </label>
                   <label className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${config.subcategorySegment === activeSeg.index ? "border-purple-400 bg-purple-50" : "border-gray-200 hover:border-gray-300"}`}>
@@ -364,7 +387,7 @@ export default function AccountCodesPage() {
                       className="h-4 w-4 rounded border-gray-300" />
                     <div>
                       <p className="text-sm font-medium text-gray-700">Subcategory</p>
-                      <p className="text-xs text-gray-400">Second-level grouping within departments</p>
+                      <p className="text-xs text-gray-400">Third-level grouping (e.g. school programs)</p>
                     </div>
                   </label>
                 </div>
@@ -462,8 +485,10 @@ export default function AccountCodesPage() {
             <button onClick={handlePreview} className="px-4 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-900">Test</button>
             {previewResult && (
               <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm space-y-1.5">
-                <p><span className="text-gray-500 inline-block w-36">Spending Type:</span>{previewResult.category1 ? <strong>{previewResult.category1}</strong> : <em className="text-gray-400">no match</em>}</p>
-                <p><span className="text-gray-500 inline-block w-36">Subcategory:</span>{previewResult.category2 ? <strong>{previewResult.category2}</strong> : <em className="text-gray-400">no match</em>}</p>
+                <p><span className="text-gray-500 inline-block w-36">Function Area:</span>{previewResult.functionArea ? <strong className="text-green-700">{previewResult.functionArea}</strong> : <em className="text-gray-400">no match</em>}</p>
+                <p><span className="text-gray-500 inline-block w-36">Department:</span>{previewResult.department ? <strong className="text-orange-700">{previewResult.department}</strong> : <em className="text-gray-400">no match</em>}</p>
+                <p><span className="text-gray-500 inline-block w-36">Spending Type:</span>{previewResult.category1 ? <strong className="text-blue-700">{previewResult.category1}</strong> : <em className="text-gray-400">no match</em>}</p>
+                <p><span className="text-gray-500 inline-block w-36">Subcategory:</span>{previewResult.category2 ? <strong className="text-purple-700">{previewResult.category2}</strong> : <em className="text-gray-400">no match</em>}</p>
               </div>
             )}
           </section>
