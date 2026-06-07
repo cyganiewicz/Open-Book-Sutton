@@ -8,31 +8,18 @@ import {
   type HierarchyLevel,
   type GroupField,
 } from "@/lib/account-codes";
+import {
+  type HierarchyNode,
+  type SummaryTile,
+  OBJECT_SPENDING_MAP,
+} from "@/lib/expense-types";
 import ExpenseHeader from "@/components/portal/ExpenseHeader";
 import DynamicExpenseTable from "@/components/portal/DynamicExpenseTable";
 import ExportButton from "@/components/portal/ExportButton";
-import type { SummaryTile } from "@/types";
 
 // ── Types for the dynamic hierarchy ─────────────────────────────────────────
 
-export interface HierarchyNode {
-  key: string;        // the group value (e.g. "Public Safety")
-  amounts: Record<string, number>;
-  children: HierarchyNode[];
-  isLeaf: boolean;
-  rows?: { id: string; label: string; objectCode: string | null; amounts: Record<string, number> }[];
-  /** Spending type subtotals for this node (sum by object code prefix) */
-  spendingTypeTotals?: Record<string, Record<string, number>>; // type → year → amount
-}
-
-/** Map object code prefix to spending type label */
-export const OBJECT_SPENDING_MAP: Record<string, string> = {
-  "51": "Salaries & Wages", "52": "Employee Benefits",
-  "53": "Purchased Services", "54": "Supplies & Materials",
-  "55": "Supplies & Materials", "57": "Other Charges & Expenses",
-  "58": "Capital Outlay", "59": "Debt Service",
-  "61": "Special Ed Tuition", "62": "Special Ed Tuition", "63": "Special Ed Tuition",
-};
+// HierarchyNode and OBJECT_SPENDING_MAP are imported from @/lib/expense-types
 
 // ── Build hierarchy recursively ──────────────────────────────────────────────
 
