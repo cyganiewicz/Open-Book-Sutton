@@ -224,9 +224,13 @@ export default function DynamicExpenseTable({
   const [yearOffset, setYearOffset] = useState(Math.max(0, years.length - MAX_VISIBLE_YEARS));
   const [query, setQuery] = useState("");
   const [allCollapsed, setAllCollapsed] = useState(false);
-  const [yearMenuOpen, setYearMenuOpen] = useState(false);
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  // Which individual year columns to show (default: all visible)
+  const [hiddenYears, setHiddenYears] = useState<Set<string>>(new Set());
 
-  const displayYears = years.slice(yearOffset, yearOffset + MAX_VISIBLE_YEARS);
+  const displayYears = years
+    .slice(yearOffset, yearOffset + MAX_VISIBLE_YEARS)
+    .filter(y => !hiddenYears.has(y));
   const canScrollLeft = yearOffset > 0;
   const canScrollRight = yearOffset + MAX_VISIBLE_YEARS < years.length;
   const colCount = 2 + displayYears.length;
@@ -277,25 +281,57 @@ export default function DynamicExpenseTable({
         />
 
         {/* Year navigation */}
-        {years.length > MAX_VISIBLE_YEARS && (
-          <div className="flex items-center gap-1 border border-gray-200 rounded-lg bg-white overflow-hidden">
-            <button
-              onClick={() => setYearOffset(o => Math.max(0, o - 1))}
-              disabled={!canScrollLeft}
-              className="px-2.5 py-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors border-r border-gray-200"
-              title="Earlier years"
-            >◀</button>
-            <span className="px-3 py-2 text-xs text-gray-600 font-medium whitespace-nowrap">
-              FY{displayYears[0]} – FY{displayYears[displayYears.length - 1]}
-            </span>
-            <button
-              onClick={() => setYearOffset(o => Math.min(years.length - MAX_VISIBLE_YEARS, o + 1))}
-              disabled={!canScrollRight}
-              className="px-2.5 py-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors border-l border-gray-200"
-              title="Later years"
-            >▶</button>
-          </div>
-        )}
+        <div className="flex items-center gap-1 border border-gray-200 rounded-lg bg-white overflow-hidden">
+          <button
+            onClick={() => setYearOffset(o => Math.max(0, o - 1))}
+            disabled={!canScrollLeft}
+            className="px-2.5 py-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors border-r border-gray-200"
+            title="Earlier years"
+          >◀</button>
+          <span className="px-3 py-2 text-xs text-gray-600 font-medium whitespace-nowrap">
+            {years.length > 1
+              ? `FY${years[yearOffset]} – FY${years[Math.min(yearOffset + MAX_VISIBLE_YEARS - 1, years.length - 1)]}`
+              : `FY${years[0]}`}
+          </span>
+          <button
+            onClick={() => setYearOffset(o => Math.min(years.length - MAX_VISIBLE_YEARS, o + 1))}
+            disabled={!canScrollRight}
+            className="px-2.5 py-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors border-l border-gray-200"
+            title="Later years"
+          >▶</button>
+        </div>
+
+        {/* Column filter */}
+        <div className="relative">
+          <button onClick={() => setFilterMenuOpen(o => !o)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white hover:bg-gray-50">
+            <span className="text-gray-600">Columns</span>
+            {hiddenYears.size > 0 && <span className="text-[10px] bg-blue-100 text-blue-600 rounded px-1">{hiddenYears.size} hidden</span>}
+          </button>
+          {filterMenuOpen && (
+            <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[10rem]">
+              <p className="px-3 pb-1 text-xs text-gray-400 font-medium uppercase tracking-wide">Show/hide years</p>
+              {years.slice(yearOffset, yearOffset + MAX_VISIBLE_YEARS).map(y => (
+                <label key={y} className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 cursor-pointer">
+                  <input type="checkbox" checked={!hiddenYears.has(y)}
+                    onChange={() => setHiddenYears(prev => {
+                      const next = new Set(prev);
+                      next.has(y) ? next.delete(y) : next.add(y);
+                      return next;
+                    })}
+                    className="h-4 w-4 rounded border-gray-300" />
+                  <span className="text-gray-700">FY{y}</span>
+                </label>
+              ))}
+              {hiddenYears.size > 0 && (
+                <button onClick={() => setHiddenYears(new Set())}
+                  className="w-full text-left px-3 py-1.5 text-xs text-blue-600 hover:bg-gray-50 border-t border-gray-100 mt-1">
+                  Show all
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
         <button
           onClick={() => setAllCollapsed(c => !c)}
