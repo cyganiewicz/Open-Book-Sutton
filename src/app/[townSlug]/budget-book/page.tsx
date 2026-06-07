@@ -85,11 +85,12 @@ export default async function BudgetBookPage({
   }
 
   // Recursive renderer for budget book (print-optimized, no collapse)
+  const primaryColor = town.primaryColor;
   function renderHierarchy(nodes: HierarchyNode[], depth: number): React.ReactNode {
     return nodes.map(node => (
       <div key={node.key} className={depth === 0 ? "mb-8" : depth === 1 ? "mb-4 ml-4" : "ml-8 mb-2"}>
         {depth === 0 && (
-          <h3 className="text-lg font-semibold mt-6 mb-2" style={{ color: town.primaryColor }}>
+          <h3 className="text-lg font-semibold mt-6 mb-2" style={{ color: primaryColor }}>
             {node.key} — {formatCurrency(node.amounts[currentYear] || 0)}
           </h3>
         )}
