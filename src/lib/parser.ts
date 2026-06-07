@@ -34,7 +34,7 @@ export function parseCSV(content: string): ParsedFile {
 export function parseExcel(buffer: ArrayBuffer): ParsedFile {
   let workbook: XLSX.WorkBook;
   try {
-    workbook = XLSX.read(buffer, { type: "array" });
+    workbook = XLSX.read(buffer, { type: "array", cellFormula: false, cellNF: false });
   } catch {
     throw new Error("Could not read Excel file. It may be corrupted or in an unsupported format.");
   }
