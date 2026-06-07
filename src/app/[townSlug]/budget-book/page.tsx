@@ -12,9 +12,8 @@ import { applySortOrder } from "@/lib/portal-sort";
 import {
   buildHierarchyV2,
   annotateSpendingTypes,
-  type HierarchyNode,
-  OBJECT_SPENDING_MAP,
 } from "@/app/[townSlug]/expenses/page";
+import { type HierarchyNode, OBJECT_SPENDING_MAP } from "@/lib/expense-types";
 import PrintButton from "@/components/portal/PrintButton";
 
 export default async function BudgetBookPage({
