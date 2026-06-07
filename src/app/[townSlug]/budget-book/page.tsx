@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { groupAndSum, detectCurrentAndPreviousYear } from "@/lib/aggregator";
 import { formatCurrency, abbreviateCurrency } from "@/lib/format";
+import { parseAccountCodeConfig, DEFAULT_EXPENSE_LEVELS, DEFAULT_REVENUE_LEVELS } from "@/lib/account-codes";
+import { applySortOrder } from "@/lib/portal-sort";
 import PrintButton from "@/components/portal/PrintButton";
 
 export default async function BudgetBookPage({
@@ -13,14 +15,22 @@ export default async function BudgetBookPage({
   const town = await prisma.town.findUnique({ where: { slug: townSlug } });
   if (!town || !town.published) return notFound();
 
+  // Load portal organization settings
+  const acConfig = parseAccountCodeConfig(town.accountCodeRules || "");
+  const expLevels = acConfig?.portalOrganization?.expenseLevels ?? DEFAULT_EXPENSE_LEVELS;
+  const revLevels = acConfig?.portalOrganization?.revenueLevels ?? DEFAULT_REVENUE_LEVELS;
+  const fnSort   = expLevels[0]?.sort ?? "total_desc";
+  const deptSort = expLevels[1]?.sort ?? "total_desc";
+  const catSort  = expLevels[2]?.sort ?? "total_desc";
+  const revCatSort = revLevels[0]?.sort ?? "total_desc";
+  const revSubSort = revLevels[1]?.sort ?? "total_desc";
+
   const allExpenses = await prisma.budgetRow.findMany({
     where: { townId: town.id, dataCategory: "expenses" },
-    orderBy: [{ functionArea: "asc" }, { department: "asc" }, { lineItem: "asc" }],
   });
 
   const allRevenues = await prisma.budgetRow.findMany({
     where: { townId: town.id, dataCategory: "revenues" },
-    orderBy: [{ category1: "asc" }, { category2: "asc" }],
   });
 
   const allCapital = await prisma.budgetRow.findMany({
@@ -142,7 +152,14 @@ export default async function BudgetBookPage({
             </thead>
             <tbody>
               {Object.entries(expensesByFunction)
-                .sort((a, b) => b[1] - a[1])
+                .sort((a, b) => {
+                  switch (fnSort) {
+                    case "alpha_asc":  return a[0].localeCompare(b[0]);
+                    case "alpha_desc": return b[0].localeCompare(a[0]);
+                    case "total_asc":  return a[1] - b[1];
+                    default:           return b[1] - a[1];
+                  }
+                })
                 .map(([fn, amount]) => (
                   <tr key={fn} className="border-b border-gray-100">
                     <td className="py-2">{fn}</td>
@@ -166,14 +183,24 @@ export default async function BudgetBookPage({
           <h2 className="text-2xl font-semibold mb-4 pb-2 border-b-2" style={{ borderColor: town.primaryColor }}>
             Detailed Expense Budget
           </h2>
-          {[...expFnGroups.entries()].map(([fn, deptMap]) => {
+          {applySortOrder(
+              [...expFnGroups.entries()],
+              fnSort,
+              ([fn]) => fn,
+              ([, deptMap]) => [...deptMap.values()].flat().reduce((s, r) => s + r.amount, 0)
+            ).map(([fn, deptMap]) => {
             const fnTotal = [...deptMap.values()].flat().reduce((s, r) => s + r.amount, 0);
             return (
               <div key={fn} className="mb-8">
                 <h3 className="text-lg font-semibold mt-6 mb-2" style={{ color: town.primaryColor }}>
                   {fn} — {formatCurrency(fnTotal)}
                 </h3>
-                {[...deptMap.entries()].map(([dept, rows]) => {
+                {applySortOrder(
+                    [...deptMap.entries()],
+                    deptSort,
+                    ([dept]) => dept,
+                    ([, rows]) => rows.reduce((s, r) => s + r.amount, 0)
+                  ).map(([dept, rows]) => {
                   const deptTotal = rows.reduce((s, r) => s + r.amount, 0);
                   return (
                     <div key={dept} className="mb-4">
@@ -217,7 +244,14 @@ export default async function BudgetBookPage({
             </thead>
             <tbody>
               {Object.entries(revenuesByCategory)
-                .sort((a, b) => b[1] - a[1])
+                .sort((a, b) => {
+                  switch (revCatSort) {
+                    case "alpha_asc":  return a[0].localeCompare(b[0]);
+                    case "alpha_desc": return b[0].localeCompare(a[0]);
+                    case "total_asc":  return a[1] - b[1];
+                    default:           return b[1] - a[1];
+                  }
+                })
                 .map(([cat, amount]) => (
                   <tr key={cat} className="border-b border-gray-100">
                     <td className="py-2">{cat}</td>
@@ -241,7 +275,12 @@ export default async function BudgetBookPage({
           <h2 className="text-2xl font-semibold mb-4 pb-2 border-b-2" style={{ borderColor: town.primaryColor }}>
             Detailed Revenue Budget
           </h2>
-          {[...revCatGroups.entries()].map(([cat, rows]) => {
+          {applySortOrder(
+              [...revCatGroups.entries()],
+              revCatSort,
+              ([cat]) => cat,
+              ([, rows]) => rows.reduce((s, r) => s + r.amount, 0)
+            ).map(([cat, rows]) => {
             const catTotal = rows.reduce((s, r) => s + r.amount, 0);
             return (
               <div key={cat} className="mb-6">
