@@ -49,7 +49,7 @@ export function normalizeRows(
   const results: NormalizedRow[] = [];
 
   for (const row of rawRows) {
-    const department = get(row, "department");
+    let department = get(row, "department");
     const objectCode = get(row, "objectCode");
     let category1 = get(row, "category1");
     let category2 = get(row, "category2");
