@@ -170,7 +170,36 @@ export function buildHierarchyV2(
   const level = levels[levelIndex];
   const isLastLevel = levelIndex === levels.length - 1;
 
-  // Partition: rows that have a value at this level vs those that skip it
+  // Helper: build leaf rows from a set of rows
+  const makeLeafRows = (rows: BudgetRowLike[]) =>
+    rows.map(row => ({
+      id: row.id,
+      label: row.lineItem || row.objectCode || "",
+      objectCode: row.objectCode,
+      amounts: Object.fromEntries(
+        tableYears.map(y => [
+          y,
+          allYearRows
+            .filter(r => r.id === row.id && r.fiscalYear === y &&
+              (y === currentYear ? r.amountType === "budget" : r.amountType === "budget" || r.amountType === "actual"))
+            .reduce((s, r) => s + r.amount, 0),
+        ])
+      ),
+    }));
+
+  // Helper: sum amounts for a set of rows across all years
+  const sumAmounts = (filter: (r: BudgetRowLike) => boolean): Record<string, number> =>
+    Object.fromEntries(
+      tableYears.map(y => [
+        y,
+        allYearRows
+          .filter(r => filter(r) && r.fiscalYear === y &&
+            (y === currentYear ? r.amountType === "budget" : r.amountType === "budget" || r.amountType === "actual"))
+          .reduce((s, r) => s + r.amount, 0),
+      ])
+    );
+
+  // Partition: rows that have a value at this level vs those that don't
   const withValue = currentRows.filter(r => getField(r, level.dataField) !== "");
   const withoutValue = level.skipIfEmpty
     ? currentRows.filter(r => getField(r, level.dataField) === "")
@@ -187,36 +216,12 @@ export function buildHierarchyV2(
   const nodes: HierarchyNode[] = [];
 
   for (const [key, groupRows] of groups) {
-    // Year totals: filter allYearRows by ancestor path + this key
     const nodeFilter = (r: BudgetRowLike) =>
       ancestorFilter(r) && getField(r, level.dataField) === key;
-
-    const amounts: Record<string, number> = {};
-    for (const y of tableYears) {
-      amounts[y] = allYearRows
-        .filter(r => nodeFilter(r) && r.fiscalYear === y &&
-          (y === currentYear ? r.amountType === "budget" : r.amountType === "budget" || r.amountType === "actual"))
-        .reduce((s, r) => s + r.amount, 0);
-    }
+    const amounts = sumAmounts(nodeFilter);
 
     if (isLastLevel) {
-      // Show line items
-      const leafRows = groupRows.map(row => {
-        const rowAmounts: Record<string, number> = {};
-        for (const y of tableYears) {
-          rowAmounts[y] = allYearRows
-            .filter(r => r.id === row.id && r.fiscalYear === y &&
-              (y === currentYear ? r.amountType === "budget" : r.amountType === "budget" || r.amountType === "actual"))
-            .reduce((s, r) => s + r.amount, 0);
-        }
-        return {
-          id: row.id,
-          label: row.lineItem || row.objectCode || "",
-          objectCode: row.objectCode,
-          amounts: rowAmounts,
-        };
-      });
-      nodes.push({ key, amounts, isLeaf: true, children: [], rows: leafRows });
+      nodes.push({ key, amounts, isLeaf: true, children: [], rows: makeLeafRows(groupRows) });
     } else {
       const children = buildHierarchyV2(
         groupRows, allYearRows, levels, levelIndex + 1, tableYears, currentYear, nodeFilter
@@ -225,13 +230,26 @@ export function buildHierarchyV2(
     }
   }
 
-  // Rows without a value at this level: pass them directly to next level
-  // They appear as children of a virtual "(skipped)" node or are merged up
-  if (withoutValue.length > 0 && !isLastLevel) {
-    const passThrough = buildHierarchyV2(
-      withoutValue, allYearRows, levels, levelIndex + 1, tableYears, currentYear, ancestorFilter
-    );
-    nodes.push(...passThrough);
+  // Rows WITHOUT a value at this skippable level:
+  // Instead of bubbling them up as siblings, skip THIS level for them
+  // and go directly to the next level — but keep them as direct children
+  // of the PARENT node (not mixed with this level's groups).
+  // We do this by recursing with levelIndex+1 and merging into nodes.
+  if (withoutValue.length > 0) {
+    if (isLastLevel) {
+      // At the deepest level: just show them as leaf rows directly
+      const amounts = sumAmounts(r => withoutValue.some(w => w.id === r.id));
+      if (withoutValue.length > 0) {
+        nodes.push({ key: "_direct", amounts, isLeaf: true, children: [], rows: makeLeafRows(withoutValue) });
+      }
+    } else {
+      // Skip this level for these rows — recurse to next level
+      // but merge the resulting nodes directly here rather than nesting them
+      const skipped = buildHierarchyV2(
+        withoutValue, allYearRows, levels, levelIndex + 1, tableYears, currentYear, ancestorFilter
+      );
+      nodes.push(...skipped);
+    }
   }
 
   return sortNodes(nodes, level.sort, currentYear);
@@ -293,7 +311,23 @@ export default async function ExpensesPage({
   if (topFn) {
     tiles.push({ label: "Largest Function", value: topFn[0], change: abbreviateCurrency(topFn[1]), changeType: "neutral" });
   }
-  const bySpendingType = groupAndSum(current.filter(r => r.category1), "category1");
+  // Spending type: use objectCode prefix mapping for town-wide totals
+  // This avoids the issue of category1 being used for location in some depts
+  const OBJECT_SPENDING_MAP: Record<string, string> = {
+    "51": "Salaries & Wages", "52": "Employee Benefits",
+    "53": "Purchased Services", "54": "Supplies & Materials",
+    "55": "Supplies & Materials", "57": "Other Charges & Expenses",
+    "58": "Capital Outlay", "59": "Debt Service",
+    "61": "Special Ed Tuition", "62": "Special Ed Tuition", "63": "Special Ed Tuition",
+  };
+  const bySpendingType: Record<string, number> = {};
+  for (const row of current) {
+    // Try objectCode first (last segment of account), then fall back to category1
+    const obj = row.objectCode || "";
+    const prefix = obj.slice(0, 2);
+    const type = OBJECT_SPENDING_MAP[prefix] || row.category1 || null;
+    if (type) bySpendingType[type] = (bySpendingType[type] || 0) + row.amount;
+  }
   const spendingTypeEntries = Object.entries(bySpendingType).sort((a, b) => b[1] - a[1]);
   for (const [type, amount] of spendingTypeEntries.slice(0, 3)) {
     const pct = currentTotal > 0 ? (amount / currentTotal) * 100 : 0;
@@ -359,13 +393,18 @@ export default async function ExpensesPage({
 
       <SummaryTiles tiles={tiles} tooltips={categoryTooltips} townColor={town.primaryColor} />
 
-      <div className={`grid gap-4 ${bySpendingTypeChart ? "grid-cols-1 md:grid-cols-3" : "grid-cols-1 md:grid-cols-2"}`}>
+      {/* Charts - pie charts side by side on top, bar chart full width below */}
+      <div className={`grid gap-4 ${bySpendingTypeChart ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2"}`}>
         <PieChart data={byFunctionChart} title={`FY${currentYear} by Function Area`} townColor={town.primaryColor} />
-        {bySpendingTypeChart && (
+        {bySpendingTypeChart ? (
           <PieChart data={bySpendingTypeChart} title={`FY${currentYear} by Spending Type`} townColor={town.primaryColor} />
+        ) : (
+          <BarChart categories={years.map(y => `FY${y}`)} series={trendSeries} title="Trend by Function" stacked />
         )}
-        <BarChart categories={years.map(y => `FY${y}`)} series={trendSeries} title="Trend by Function" stacked />
       </div>
+      {bySpendingTypeChart && (
+        <BarChart categories={years.map(y => `FY${y}`)} series={trendSeries} title="Multi-Year Expense Trend by Function" stacked />
+      )}
 
       <DynamicExpenseTable
         hierarchy={hierarchy}
