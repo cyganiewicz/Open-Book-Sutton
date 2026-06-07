@@ -254,7 +254,7 @@ export default function ExpenseHeader({
               responsive: true, maintainAspectRatio: false,
               plugins: {
                 legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 }, padding: 8 } },
-                tooltip: { callbacks: { label: ctx => ` ${abbreviateCurrency(ctx.parsed as number)}` } },
+                tooltip: { callbacks: { label: (ctx: { parsed: number }) => ` ${abbreviateCurrency(ctx.parsed)}` } },
               },
             }} />
           </div>
@@ -297,7 +297,7 @@ export default function ExpenseHeader({
               },
               plugins: {
                 legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 }, padding: 8 } },
-                tooltip: { callbacks: { label: ctx => ` ${abbreviateCurrency(ctx.parsed.y)}` } },
+                tooltip: { callbacks: { label: (ctx: { parsed: { y: number } }) => ` ${abbreviateCurrency(ctx.parsed.y)}` } },
               },
               scales: {
                 x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
