@@ -116,13 +116,15 @@ const CATEGORY_REQUIREMENTS: Record<
 
 function getMappingErrors(
   category: DataCategory,
-  mappings: DetectedMapping[]
+  mappings: DetectedMapping[],
+  coveredFields: Set<string> = new Set()
 ): string[] {
   const errors: string[] = [];
   const req = CATEGORY_REQUIREMENTS[category];
   const mappedFields = new Set(mappings.map((m) => m.targetField));
 
   for (const r of req.required) {
+    if (coveredFields.has(r.field)) continue; // auto-covered by account code rules
     if (!mappedFields.has(r.field)) {
       errors.push(`Missing required mapping: ${r.label} (${r.reason}).`);
     }
@@ -277,6 +279,7 @@ export default function UploadPage() {
   const [mappings, setMappings] = useState<DetectedMapping[]>([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [coveredFields, setCoveredFields] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
     []
@@ -286,6 +289,21 @@ export default function UploadPage() {
     rowsCreated: number;
     townSlug: string;
   } | null>(null);
+
+  // Load account code config to know which fields are auto-covered
+  useEffect(() => {
+    fetch("/api/towns")
+      .then(r => r.json())
+      .then(towns => {
+        if (towns.length > 0 && towns[0].accountCodeRules) {
+          import("@/lib/account-codes").then(({ parseAccountCodeConfig, getCoveredFields }) => {
+            const cfg = parseAccountCodeConfig(towns[0].accountCodeRules);
+            if (cfg) setCoveredFields(getCoveredFields(cfg));
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Auto-detect town if no townId provided
   useEffect(() => {
@@ -394,7 +412,7 @@ export default function UploadPage() {
   };
 
   const mappingErrors =
-    uploadResult && category ? getMappingErrors(category, mappings) : [];
+    uploadResult && category ? getMappingErrors(category, mappings, coveredFields) : [];
 
   const handleConfirmMapping = async () => {
     if (!uploadResult) return;
@@ -709,6 +727,25 @@ export default function UploadPage() {
               </div>
             )}
 
+            {coveredFields.size > 0 && (
+              <div className="mb-4 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 flex gap-3">
+                <span className="text-lg leading-none">⚙️</span>
+                <div>
+                  <p className="font-medium">Account code rules are active</p>
+                  <p className="text-blue-700 mt-0.5">
+                    Your account code dictionary will automatically derive{" "}
+                    {[...coveredFields].map(f => ({
+                      functionArea: "Function Area",
+                      department: "Department",
+                      category1: "Spending Type",
+                      category2: "Subcategory",
+                    }[f] || f)).join(", ")} from the mapped account number column.
+                    You don&apos;t need to map those columns separately.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {category &&
               CATEGORY_REQUIREMENTS[category].required.length > 0 && (
                 <div className="mb-4">
@@ -722,8 +759,9 @@ export default function UploadPage() {
                     </p>
                     <ul className="list-disc list-inside space-y-1 mb-3">
                       {CATEGORY_REQUIREMENTS[category].required.map((r) => (
-                        <li key={r.label}>
+                        <li key={r.label} className={coveredFields.has(r.field) ? "opacity-50 line-through" : ""}>
                           <strong>{r.label}</strong> — {r.reason}
+                          {coveredFields.has(r.field) && <span className="no-underline not-italic text-blue-600 ml-1">(auto from account code)</span>}
                         </li>
                       ))}
                     </ul>
