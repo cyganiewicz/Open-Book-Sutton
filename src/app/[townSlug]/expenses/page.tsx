@@ -174,7 +174,8 @@ export function annotateSpendingTypes(
 ): HierarchyNode[] {
   return nodes.map(node => {
     // Collect all leaf rows under this node
-    const collectRows = (n: HierarchyNode): HierarchyNode["rows"] => {
+    type LeafRow = { id: string; label: string; objectCode: string | null; amounts: Record<string, number> };
+    const collectRows = (n: HierarchyNode): LeafRow[] => {
       if (n.isLeaf) return n.rows || [];
       return n.children.flatMap(c => collectRows(c));
     };
