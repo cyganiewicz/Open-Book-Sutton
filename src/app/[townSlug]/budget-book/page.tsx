@@ -87,37 +87,59 @@ export default async function BudgetBookPage({
   // Recursive renderer for budget book (print-optimized, no collapse)
   const primaryColor = town.primaryColor;
   function renderHierarchy(nodes: HierarchyNode[], depth: number): React.ReactNode {
-    return nodes.map(node => (
-      <div key={node.key} className={depth === 0 ? "mb-8" : depth === 1 ? "mb-4 ml-4" : "ml-8 mb-2"}>
-        {depth === 0 && (
-          <h3 className="text-lg font-semibold mt-6 mb-2" style={{ color: primaryColor }}>
-            {node.key} — {formatCurrency(node.amounts[currentYear] || 0)}
-          </h3>
-        )}
-        {depth === 1 && (
-          <h4 className="text-sm font-semibold text-gray-700 mb-1">
-            {node.key} — {formatCurrency(node.amounts[currentYear] || 0)}
-          </h4>
-        )}
-        {depth >= 2 && !node.isLeaf && (
-          <p className="text-xs font-semibold text-gray-600 mb-1 mt-2">{node.key} — {formatCurrency(node.amounts[currentYear] || 0)}</p>
-        )}
-        {node.isLeaf && node.rows && node.rows.length > 0 ? (
-          <table className="w-full text-xs">
+    const indentClass = ["", "ml-4", "ml-8", "ml-12", "ml-16"][Math.min(depth, 4)];
+    return nodes.map((node, i) => {
+      // _direct: rows without this level's field — render as leaf table inline
+      if (node.key === "_direct") {
+        return node.rows && node.rows.length > 0 ? (
+          <table key={`_direct_${i}`} className={`w-full text-xs ${indentClass}`}>
             <tbody>
               {node.rows.map(row => (
                 <tr key={row.id} className="border-b border-gray-50">
                   <td className="py-1 text-gray-600">{row.label || "—"}</td>
+                  <td className="py-1 text-gray-400 text-xs px-2">{row.objectCode || ""}</td>
                   <td className="py-1 text-right tabular-nums w-32">{formatCurrency(row.amounts[currentYear] || 0)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        ) : !node.isLeaf ? (
-          renderHierarchy(node.children, depth + 1)
-        ) : null}
-      </div>
-    ));
+        ) : null;
+      }
+      return (
+        <div key={node.key} className={depth === 0 ? "mb-8" : depth === 1 ? `mb-4 ${indentClass}` : `mb-2 ${indentClass}`}>
+          {depth === 0 && (
+            <h3 className="text-lg font-semibold mt-6 mb-2" style={{ color: primaryColor }}>
+              {node.key} — {formatCurrency(node.amounts[currentYear] || 0)}
+            </h3>
+          )}
+          {depth === 1 && (
+            <h4 className="text-sm font-semibold text-gray-700 mb-1">
+              {node.key} — {formatCurrency(node.amounts[currentYear] || 0)}
+            </h4>
+          )}
+          {depth >= 2 && !node.isLeaf && (
+            <p className="text-xs font-semibold text-gray-600 mb-1 mt-2">
+              {node.key} — {formatCurrency(node.amounts[currentYear] || 0)}
+            </p>
+          )}
+          {node.isLeaf && node.rows && node.rows.length > 0 ? (
+            <table className="w-full text-xs">
+              <tbody>
+                {node.rows.map(row => (
+                  <tr key={row.id} className="border-b border-gray-50">
+                    <td className="py-1 text-gray-600">{row.label || "—"}</td>
+                    <td className="py-1 text-gray-400 text-xs px-2">{row.objectCode || ""}</td>
+                    <td className="py-1 text-right tabular-nums w-32">{formatCurrency(row.amounts[currentYear] || 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : !node.isLeaf ? (
+            renderHierarchy(node.children, depth + 1)
+          ) : null}
+        </div>
+      );
+    });
   }
 
   return (
