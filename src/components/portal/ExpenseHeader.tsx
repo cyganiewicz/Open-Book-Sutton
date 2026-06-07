@@ -301,7 +301,7 @@ export default function ExpenseHeader({
               },
               scales: {
                 x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
-                y: { stacked: true, ticks: { font: { size: 10 }, callback: v => abbreviateCurrency(Number(v)) }, grid: { color: "#f3f4f6" } },
+                y: { stacked: true, ticks: { font: { size: 10 }, callback: (v: number | string) => abbreviateCurrency(Number(v)) }, grid: { color: "#f3f4f6" } },
               },
               cursor: "pointer",
             } as any} />
