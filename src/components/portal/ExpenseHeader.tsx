@@ -8,8 +8,7 @@ import {
   ArcElement, Tooltip, Legend, type ChartData,
 } from "chart.js";
 import { formatCurrency, abbreviateCurrency } from "@/lib/format";
-import type { HierarchyNode } from "@/app/[townSlug]/expenses/page";
-import { OBJECT_SPENDING_MAP } from "@/app/[townSlug]/expenses/page";
+import { type HierarchyNode, OBJECT_SPENDING_MAP } from "@/lib/expense-types";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
@@ -19,13 +18,7 @@ const COLORS = [
   "#6366f1","#14b8a6","#f59e0b","#ef4444","#8b5cf6",
 ];
 
-interface SummaryTile {
-  label: string;
-  value: string;
-  sub?: string;
-  positive?: boolean;
-  negative?: boolean;
-}
+import { type SummaryTile } from "@/lib/expense-types";
 
 interface ExpenseHeaderProps {
   tiles: SummaryTile[];
