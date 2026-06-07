@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { getSessionFromCookie } from "@/lib/auth";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/svg+xml", "image/webp"];
 const MAX_SIZE = 2 * 1024 * 1024; // 2MB — keep it small since stored in DB
 
 export async function POST(request: Request) {
-  const session = await getSession();
+  const session = await getSessionFromCookie();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
