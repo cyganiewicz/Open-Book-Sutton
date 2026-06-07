@@ -59,16 +59,44 @@ export interface AccountSegment {
 
 // ── Portal organization settings ──────────────────────────────────────────
 
+/**
+ * The BudgetRow fields that can be used as grouping levels.
+ * These map directly to database column names.
+ */
+export type GroupField =
+  | "functionArea"
+  | "department"
+  | "category1"
+  | "category2"
+  | "objectCode"
+  | "fundCode"
+  | "fundName";
+
+export const GROUP_FIELD_LABELS: Record<GroupField, string> = {
+  functionArea: "Function Area",
+  department:   "Department",
+  category1:    "Category / Spending Type",
+  category2:    "Subcategory / Location",
+  objectCode:   "Object Code",
+  fundCode:     "Fund Code",
+  fundName:     "Fund Name",
+};
+
 export interface HierarchyLevel {
   /**
-   * Which segment index (from AccountCodeConfig.segments) provides
-   * the label for this level. null = use the raw field (functionArea, department, etc.)
+   * Which BudgetRow field to group by at this level.
+   * Rows with the same value for this field are grouped together.
    */
-  segmentIndex: number | null;
+  dataField: GroupField;
   /** Display name shown in the portal for this level */
   name: string;
   /** Sort order for items at this level */
   sort: SortOrder;
+  /**
+   * If true, this level is skipped for rows where dataField is null/empty.
+   * Those rows fall through to the next level.
+   */
+  skipIfEmpty?: boolean;
 }
 
 export interface PortalOrganization {
@@ -109,14 +137,14 @@ export interface AccountCodeConfig {
 // ── Default / empty values ─────────────────────────────────────────────────
 
 export const DEFAULT_EXPENSE_LEVELS: HierarchyLevel[] = [
-  { segmentIndex: null, name: "Function Area", sort: "total_desc" },
-  { segmentIndex: null, name: "Department",    sort: "total_desc" },
-  { segmentIndex: null, name: "Category",      sort: "total_desc" },
+  { dataField: "functionArea", name: "Function Area", sort: "total_desc" },
+  { dataField: "department",   name: "Department",    sort: "total_desc" },
+  { dataField: "category1",    name: "Category",      sort: "total_desc", skipIfEmpty: true },
 ];
 
 export const DEFAULT_REVENUE_LEVELS: HierarchyLevel[] = [
-  { segmentIndex: null, name: "Category",    sort: "total_desc" },
-  { segmentIndex: null, name: "Subcategory", sort: "total_desc" },
+  { dataField: "category1", name: "Category",    sort: "total_desc" },
+  { dataField: "category2", name: "Subcategory", sort: "total_desc", skipIfEmpty: true },
 ];
 
 export function emptyConfig(): AccountCodeConfig {
