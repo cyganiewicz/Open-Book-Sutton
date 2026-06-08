@@ -1,17 +1,17 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Line, Pie } from "react-chartjs-2";
+import { Bar, Pie } from "react-chartjs-2";
 import {
   Chart as ChartJS,
-  CategoryScale, LinearScale, PointElement, LineElement,
-  ArcElement, Tooltip, Legend, Filler,
+  CategoryScale, LinearScale, BarElement,
+  ArcElement, Tooltip, Legend,
 } from "chart.js";
 import { abbreviateCurrency } from "@/lib/format";
 import { type HierarchyNode, type SummaryTile, fallbackSpendingType } from "@/lib/expense-types";
 import { resolveSpendingType, type AccountSegment, type AccountCodeConfig } from "@/lib/account-codes";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler);
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
 const COLORS = [
   "#4f46e5","#059669","#d97706","#dc2626","#7c3aed",
@@ -121,18 +121,17 @@ export default function ExpenseHeader({
     }
   }, [hierarchy, drillFn, currentYear]);
 
-  const lineData = {
+  // Horizontal stacked bar: one bar per fiscal year, segments = groups (functions/departments)
+  // Transposed: labels = years, datasets = groups
+  const barData = {
     labels: displayYears.map(y => `FY${y}`),
     datasets: trendGroups.map((g, i) => ({
       label: g.label,
       data: displayYears.map(y => g.amounts[y] || 0),
+      backgroundColor: COLORS[i % COLORS.length] + "dd",
       borderColor: COLORS[i % COLORS.length],
-      backgroundColor: COLORS[i % COLORS.length] + "22",
-      borderWidth: 2.5,
-      pointRadius: 4,
-      pointHoverRadius: 6,
-      tension: 0.3,
-      fill: false,
+      borderWidth: 0,
+      borderRadius: 2,
     })),
   };
 
@@ -268,7 +267,8 @@ export default function ExpenseHeader({
             <p className="text-xs text-gray-400 mb-2">Click a function bar to see its departments</p>
           )}
           <div className="h-56">
-            <Line data={lineData} options={{
+            <Bar data={barData} options={{
+              indexAxis: "y",
               responsive: true,
               maintainAspectRatio: false,
               onClick: (_event: unknown, elements: { datasetIndex: number }[]) => {
@@ -278,19 +278,23 @@ export default function ExpenseHeader({
                 }
               },
               plugins: {
-                legend: { position: "bottom", labels: { boxWidth: 12, usePointStyle: true, pointStyle: "circle", font: { size: 10 }, padding: 8 } },
-                tooltip: { callbacks: { label: (ctx: { parsed: { y: number }; dataset: { label: string } }) =>
-                  ` ${ctx.dataset.label}: ${abbreviateCurrency(ctx.parsed.y)}` } },
-              },
-              scales: {
-                x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-                y: {
-                  ticks: { font: { size: 10 }, callback: (v: number | string) => abbreviateCurrency(Number(v)) },
-                  grid: { color: "#f3f4f6" },
-                  beginAtZero: true,
+                legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 }, padding: 8 } },
+                tooltip: {
+                  callbacks: {
+                    label: (ctx: { parsed: { x: number }; dataset: { label: string } }) =>
+                      ` ${ctx.dataset.label}: ${abbreviateCurrency(ctx.parsed.x)}`,
+                  },
                 },
               },
-            } as Parameters<typeof Line>[0]["options"]} />
+              scales: {
+                x: {
+                  stacked: true,
+                  ticks: { font: { size: 10 }, callback: (v: number | string) => abbreviateCurrency(Number(v)) },
+                  grid: { color: "#f3f4f6" },
+                },
+                y: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
+              },
+            } as Parameters<typeof Bar>[0]["options"]} />
           </div>
         </div>
       </div>
