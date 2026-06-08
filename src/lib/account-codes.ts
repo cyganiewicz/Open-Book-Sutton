@@ -113,6 +113,22 @@ export interface PortalOrganization {
 
 // ── Top-level config ───────────────────────────────────────────────────────
 
+/**
+ * Separate configuration for revenue account codes.
+ * Revenue accounts often have a completely different structure from expenses,
+ * so they get their own segment dictionary.
+ */
+export interface RevenueCodeConfig {
+  /** Separator character (e.g. "-") */
+  separator: string;
+  /** Named segment definitions for revenue accounts */
+  segments: AccountSegment[];
+  /** Which segment index drives category1 (e.g. "Taxes and Excise") */
+  categorySegment: number | null;
+  /** Which segment index drives category2 (e.g. "Real Estate Tax") */
+  subcategorySegment: number | null;
+}
+
 export interface AccountCodeConfig {
   separator: string;
   segments: AccountSegment[];
@@ -127,8 +143,11 @@ export interface AccountCodeConfig {
   subcategorySegment: number | null;
   /** Restrict subcategory derivation to departments matching these strings */
   subcategoryDepartmentFilter: string[];
-  /** Apply these rules when processing revenue uploads too */
+  /** @deprecated Use revenueConfig instead */
   applyToRevenues: boolean;
+
+  /** Separate revenue account code configuration */
+  revenueConfig?: RevenueCodeConfig;
 
   /** Portal hierarchy and sort configuration */
   portalOrganization?: PortalOrganization;
@@ -157,6 +176,12 @@ export function emptyConfig(): AccountCodeConfig {
     subcategorySegment: null,
     subcategoryDepartmentFilter: [],
     applyToRevenues: false,
+    revenueConfig: {
+      separator: "-",
+      segments: [],
+      categorySegment: null,
+      subcategorySegment: null,
+    },
     portalOrganization: {
       expenseLevels: DEFAULT_EXPENSE_LEVELS,
       revenueLevels: DEFAULT_REVENUE_LEVELS,
@@ -360,6 +385,38 @@ export function resolveSpendingType(
   // Find matching code entry
   const entry = seg.codes.find(c => c.code === key);
   return entry ? (entry.group || entry.label) : null;
+}
+
+/**
+ * Resolve category1 and category2 from a revenue account code
+ * using the town's RevenueCodeConfig.
+ *
+ * e.g. "0001-100-146-0000-00-0-00-41200" with categorySegment=7, prefixLength=3
+ *   → parts[7] = "41200" → key = "412" → group = "Taxes and Excise"
+ */
+export function resolveRevenueCategory(
+  accountCode: string | null,
+  config: RevenueCodeConfig | null | undefined
+): { category1: string | null; category2: string | null } {
+  if (!accountCode || !config) return { category1: null, category2: null };
+
+  const parts = config.separator ? accountCode.split(config.separator) : [accountCode];
+
+  function lookup(segIdx: number | null): string | null {
+    if (segIdx === null || segIdx === undefined) return null;
+    const seg = config.segments.find(s => s.index === segIdx);
+    if (!seg) return null;
+    const raw = parts[seg.index];
+    if (!raw) return null;
+    const key = seg.prefixLength > 0 ? raw.slice(0, seg.prefixLength) : raw;
+    const entry = seg.codes.find(c => c.code === key);
+    return entry ? (entry.group || entry.label) : null;
+  }
+
+  return {
+    category1: lookup(config.categorySegment),
+    category2: lookup(config.subcategorySegment),
+  };
 }
 
 // ── Legacy compatibility ───────────────────────────────────────────────────
