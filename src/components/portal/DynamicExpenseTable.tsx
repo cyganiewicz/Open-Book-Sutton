@@ -72,28 +72,26 @@ function NodeRow({
     <>
       {/* Group header */}
       {isTopLevel ? (
-        <tr>
-          <td colSpan={colCount} className="p-0 border-t border-gray-100">
-            <button
-              onClick={() => setCollapsed(c => !c)}
-              className="w-full flex items-center text-left hover:opacity-95 transition-opacity px-5 py-3 gap-2"
-              style={{ backgroundColor: townColor }}
-            >
-              <span className="text-white/60 text-xs transition-transform duration-150 flex-shrink-0"
+        <tr
+          className="cursor-pointer hover:opacity-95 transition-opacity border-t border-gray-100"
+          style={{ backgroundColor: townColor }}
+          onClick={() => setCollapsed(c => !c)}
+        >
+          <td className="px-5 py-3" colSpan={2}>
+            <span className="inline-flex items-center gap-2">
+              <span className="text-white/60 text-xs flex-shrink-0 transition-transform duration-150"
                 style={{ display: "inline-block", transform: effectiveCollapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</span>
-              <span className="text-white font-semibold text-sm flex-1 truncate">{node.key}</span>
-              <span className="flex items-center gap-6 ml-auto flex-shrink-0">
-                {displayYears.filter(y => y !== currentYear).map(y => (
-                  <span key={y} className="text-white/60 text-xs tabular-nums hidden md:inline">
-                    FY{y}: {abbreviateCurrency(node.amounts[y] || 0)}
-                  </span>
-                ))}
-                <span className="text-white/90 text-sm font-medium tabular-nums">
-                  {abbreviateCurrency(node.amounts[currentYear] || 0)}
-                </span>
-              </span>
-            </button>
+              <span className="text-white font-semibold text-sm">{node.key}</span>
+            </span>
           </td>
+          {displayYears.map(y => (
+            <td key={y} className="px-3 py-3 text-right tabular-nums whitespace-nowrap"
+              style={{ color: y === currentYear ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.6)",
+                       fontWeight: y === currentYear ? "600" : "400",
+                       fontSize: y === currentYear ? "0.9rem" : "0.8rem" }}>
+              {formatCurrency(node.amounts[y] || 0)}
+            </td>
+          ))}
         </tr>
       ) : (
         <tr
