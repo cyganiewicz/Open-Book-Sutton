@@ -1,17 +1,17 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Bar, Pie } from "react-chartjs-2";
+import { Line, Pie } from "react-chartjs-2";
 import {
   Chart as ChartJS,
-  CategoryScale, LinearScale, BarElement,
-  ArcElement, Tooltip, Legend,
+  CategoryScale, LinearScale, PointElement, LineElement,
+  ArcElement, Tooltip, Legend, Filler,
 } from "chart.js";
 import { abbreviateCurrency } from "@/lib/format";
 import { type HierarchyNode, type SummaryTile, fallbackSpendingType } from "@/lib/expense-types";
 import { resolveSpendingType, type AccountSegment, type AccountCodeConfig } from "@/lib/account-codes";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler);
 
 const COLORS = [
   "#4f46e5","#059669","#d97706","#dc2626","#7c3aed",
@@ -121,13 +121,18 @@ export default function ExpenseHeader({
     }
   }, [hierarchy, drillFn, currentYear]);
 
-  const barData = {
+  const lineData = {
     labels: displayYears.map(y => `FY${y}`),
     datasets: trendGroups.map((g, i) => ({
       label: g.label,
       data: displayYears.map(y => g.amounts[y] || 0),
-      backgroundColor: COLORS[i % COLORS.length] + "cc",
-      borderRadius: 3,
+      borderColor: COLORS[i % COLORS.length],
+      backgroundColor: COLORS[i % COLORS.length] + "22",
+      borderWidth: 2.5,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      tension: 0.3,
+      fill: false,
     })),
   };
 
@@ -263,31 +268,29 @@ export default function ExpenseHeader({
             <p className="text-xs text-gray-400 mb-2">Click a function bar to see its departments</p>
           )}
           <div className="h-56">
-            <Bar data={barData} options={{
+            <Line data={lineData} options={{
               responsive: true,
               maintainAspectRatio: false,
               onClick: (_event: unknown, elements: { datasetIndex: number }[]) => {
                 if (elements.length > 0 && drillFn === null) {
-                  // Clicking top level: drill into that function's departments
                   const fnLabel = trendGroups[elements[0].datasetIndex]?.label;
                   if (fnLabel) setDrillFn(fnLabel);
                 }
               },
               plugins: {
-                legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 }, padding: 6 } },
+                legend: { position: "bottom", labels: { boxWidth: 12, usePointStyle: true, pointStyle: "circle", font: { size: 10 }, padding: 8 } },
                 tooltip: { callbacks: { label: (ctx: { parsed: { y: number }; dataset: { label: string } }) =>
                   ` ${ctx.dataset.label}: ${abbreviateCurrency(ctx.parsed.y)}` } },
               },
               scales: {
-                x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
+                x: { grid: { display: false }, ticks: { font: { size: 10 } } },
                 y: {
-                  stacked: true,
                   ticks: { font: { size: 10 }, callback: (v: number | string) => abbreviateCurrency(Number(v)) },
                   grid: { color: "#f3f4f6" },
+                  beginAtZero: true,
                 },
               },
-              cursor: drillFn === null ? "pointer" : "default",
-            } as Parameters<typeof Bar>[0]["options"]} />
+            } as Parameters<typeof Line>[0]["options"]} />
           </div>
         </div>
       </div>
