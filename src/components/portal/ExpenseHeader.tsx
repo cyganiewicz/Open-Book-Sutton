@@ -32,7 +32,7 @@ interface ExpenseHeaderProps {
 }
 
 // Collect all leaf rows from hierarchy
-function collectLeaves(nodes: HierarchyNode[]) {
+function collectLeaves(nodes: HierarchyNode[]): { id: string; label: string; objectCode: string | null; amounts: Record<string, number> }[] {
   return nodes.flatMap(n => {
     if (n.key === "_direct" || n.isLeaf) return n.rows || [];
     return collectLeaves(n.children);
