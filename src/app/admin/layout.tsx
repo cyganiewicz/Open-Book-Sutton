@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -21,7 +22,6 @@ export default async function AdminLayout({
     { href: "/admin/setup", label: "Settings" },
     { href: "/admin/upload", label: "Upload" },
     { href: "/admin/data", label: "Data" },
-    { href: "/admin/account-codes", label: "Account Codes" },
     { href: "/admin/tooltips", label: "Tooltips" },
     { href: "/admin/links", label: "Links" },
     { href: "/admin/documents", label: "PDFs" },
