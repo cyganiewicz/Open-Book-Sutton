@@ -1,6 +1,6 @@
 import type { ColumnMappingInput, NormalizedRow } from "@/types";
 import { parseAmount } from "./format";
-import { type AccountCodeConfig, applyAccountCodeConfig } from "./account-codes";
+import { type AccountCodeConfig, applyAccountCodeConfig, resolveRevenueCategory } from "./account-codes";
 
 export function normalizeRows(
   rawRows: Record<string, string>[],
@@ -37,14 +37,11 @@ export function normalizeRows(
     return str.trim() ? str.trim() : null;
   };
 
-  // Whether account code rules apply to this data category
-  const applyRules = (cat: string | undefined) => {
-    if (!accountCodeConfig) return false;
-    if (cat === "expenses") return true;
-    if (cat === "revenues") return accountCodeConfig.applyToRevenues;
-    return false;
-  };
-  const useRules = applyRules(dataCategory);
+  const useExpenseRules = dataCategory === "expenses" && !!accountCodeConfig;
+  const useRevenueRules = dataCategory === "revenues" &&
+    !!accountCodeConfig?.revenueConfig &&
+    (accountCodeConfig.revenueConfig.categorySegment !== null ||
+     accountCodeConfig.revenueConfig.subcategorySegment !== null);
 
   const results: NormalizedRow[] = [];
 
@@ -55,12 +52,18 @@ export function normalizeRows(
     let category2 = get(row, "category2");
 
     // Auto-derive fields from account code if configured
-    // Fills in any fields not explicitly mapped via columns
     let functionArea = get(row, "functionArea");
-    if (useRules && accountCodeConfig && objectCode) {
+
+    if (useExpenseRules && accountCodeConfig && objectCode) {
+      // Expenses: derive functionArea, department, spending type, subcategory
       const derived = applyAccountCodeConfig(objectCode, department, accountCodeConfig);
       if (!functionArea) functionArea = derived.functionArea;
       if (!department) department = derived.department;
+      if (!category1) category1 = derived.category1;
+      if (!category2) category2 = derived.category2;
+    } else if (useRevenueRules && accountCodeConfig?.revenueConfig && objectCode) {
+      // Revenues: use separate revenue segment dictionary to derive category1 & category2
+      const derived = resolveRevenueCategory(objectCode, accountCodeConfig.revenueConfig);
       if (!category1) category1 = derived.category1;
       if (!category2) category2 = derived.category2;
     }
