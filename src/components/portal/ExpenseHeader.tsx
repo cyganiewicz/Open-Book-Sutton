@@ -8,8 +8,8 @@ import {
   ArcElement, Tooltip, Legend,
 } from "chart.js";
 import { abbreviateCurrency } from "@/lib/format";
-import { type HierarchyNode, type SummaryTile, OBJECT_SPENDING_MAP } from "@/lib/expense-types";
-import type { AccountSegment } from "@/lib/account-codes";
+import { type HierarchyNode, type SummaryTile, fallbackSpendingType } from "@/lib/expense-types";
+import { resolveSpendingType, type AccountSegment, type AccountCodeConfig } from "@/lib/account-codes";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
@@ -46,22 +46,14 @@ function getSpendingType(
   spendingTypeSegIdx: number | null
 ): string | null {
   if (!objectCode) return null;
-
   if (spendingTypeSegIdx !== null) {
-    // Use the configured segment
-    const seg = segments.find(s => s.index === spendingTypeSegIdx);
-    if (seg) {
-      const key = seg.prefixLength > 0
-        ? objectCode.slice(0, seg.prefixLength)
-        : objectCode;
-      const entry = seg.codes.find(c => c.code === key);
-      if (entry) return entry.group || entry.label;
-    }
+    // Use resolveSpendingType which correctly handles full account strings
+    const cfg = { segments, spendingTypeSegment: spendingTypeSegIdx, separator: "-" } as AccountCodeConfig;
+    const resolved = resolveSpendingType(objectCode, cfg);
+    if (resolved) return resolved;
   }
-
-  // Fall back to built-in object code prefix map
-  const prefix = objectCode.slice(0, 2);
-  return OBJECT_SPENDING_MAP[prefix] || null;
+  // No config or no match — fallback using last segment prefix
+  return fallbackSpendingType(objectCode, "-");
 }
 
 // Aggregate amounts by spending type from leaf rows
