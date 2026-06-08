@@ -13,7 +13,8 @@ import {
   buildHierarchyV2,
   annotateSpendingTypes,
 } from "@/app/[townSlug]/expenses/page";
-import { type HierarchyNode, OBJECT_SPENDING_MAP } from "@/lib/expense-types";
+import { type HierarchyNode, fallbackSpendingType } from "@/lib/expense-types";
+import { resolveSpendingType } from "@/lib/account-codes";
 import PrintButton from "@/components/portal/PrintButton";
 
 export default async function BudgetBookPage({
@@ -146,22 +147,10 @@ export default async function BudgetBookPage({
         const rows = collectLeafRows(node);
         if (rows.length === 0) return null;
         const directTotals: Record<string, number> = {};
-        const segs = acConfig?.segments ?? [];
-        const stIdx = acConfig?.spendingTypeSegment ?? null;
         for (const row of rows) {
-          let type: string | null = null;
-          if (stIdx !== null) {
-            const seg = segs.find((s: import("@/lib/account-codes").AccountSegment) => s.index === stIdx);
-            if (seg) {
-              const key = seg.prefixLength > 0 ? (row.objectCode || "").slice(0, seg.prefixLength) : (row.objectCode || "");
-              const entry = seg.codes.find((c: { code: string; label: string; group?: string }) => c.code === key);
-              if (entry) type = entry.group || entry.label;
-            }
-          }
-          if (!type) {
-            const prefix = (row.objectCode || "").slice(0, 2);
-            type = OBJECT_SPENDING_MAP[prefix] || "Other";
-          }
+          const type = resolveSpendingType(row.objectCode, acConfig ?? null)
+            || fallbackSpendingType(row.objectCode, "-")
+            || "Other";
           directTotals[type] = (directTotals[type] || 0) + (row.amounts[currentYear] || 0);
         }
         return (
