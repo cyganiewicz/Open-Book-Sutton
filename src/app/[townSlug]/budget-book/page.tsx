@@ -80,7 +80,11 @@ export default async function BudgetBookPage({
     currentYear,
     () => true
   );
-  const expHierarchy = annotateSpendingTypes(expHierarchyRaw, [currentYear]);
+  const expHierarchy = annotateSpendingTypes(
+    expHierarchyRaw, [currentYear],
+    acConfig?.segments ?? [],
+    acConfig?.spendingTypeSegment ?? null
+  );
 
   const revCatGroups = new Map<string, typeof currentRevenues>();
   for (const row of currentRevenues) {
@@ -142,9 +146,22 @@ export default async function BudgetBookPage({
         const rows = collectLeafRows(node);
         if (rows.length === 0) return null;
         const directTotals: Record<string, number> = {};
+        const segs = acConfig?.segments ?? [];
+        const stIdx = acConfig?.spendingTypeSegment ?? null;
         for (const row of rows) {
-          const prefix = (row.objectCode || "").slice(0, 2);
-          const type = OBJECT_SPENDING_MAP[prefix] || "Other";
+          let type: string | null = null;
+          if (stIdx !== null) {
+            const seg = segs.find((s: import("@/lib/account-codes").AccountSegment) => s.index === stIdx);
+            if (seg) {
+              const key = seg.prefixLength > 0 ? (row.objectCode || "").slice(0, seg.prefixLength) : (row.objectCode || "");
+              const entry = seg.codes.find((c: { code: string; label: string; group?: string }) => c.code === key);
+              if (entry) type = entry.group || entry.label;
+            }
+          }
+          if (!type) {
+            const prefix = (row.objectCode || "").slice(0, 2);
+            type = OBJECT_SPENDING_MAP[prefix] || "Other";
+          }
           directTotals[type] = (directTotals[type] || 0) + (row.amounts[currentYear] || 0);
         }
         return (
