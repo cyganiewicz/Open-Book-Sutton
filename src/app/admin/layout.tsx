@@ -22,6 +22,7 @@ export default async function AdminLayout({
     { href: "/admin/setup", label: "Settings" },
     { href: "/admin/upload", label: "Upload" },
     { href: "/admin/data", label: "Data" },
+    { href: "/admin/account-codes", label: "Account Codes" },
     { href: "/admin/tooltips", label: "Tooltips" },
     { href: "/admin/links", label: "Links" },
     { href: "/admin/documents", label: "PDFs" },
