@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import HelpBox from "@/components/admin/HelpBox";
 import {
   type AccountCodeConfig,
+  type RevenueCodeConfig,
   type AccountSegment,
   type CodeEntry,
   type HierarchyLevel,
@@ -17,6 +18,7 @@ import {
   parseAccountCodeConfig,
   detectAccountStructure,
   applyAccountCodeConfig,
+  resolveRevenueCategory,
   getCoveredFields,
 } from "@/lib/account-codes";
 
@@ -28,17 +30,15 @@ function blankSegment(index: number): AccountSegment {
 
 const MA_MUNIS_PRESETS: CodeEntry[] = [
   { code: "51", label: "51xxx — Salaries",           group: "Salaries & Wages" },
-  { code: "52", label: "52xxx — Benefits",            group: "Employee Benefits" },
+  { code: "52", label: "52xxx — Purchased Services",  group: "Purchased Services" },
   { code: "53", label: "53xxx — Purchased Services",  group: "Purchased Services" },
   { code: "54", label: "54xxx — Supplies",            group: "Supplies & Materials" },
   { code: "55", label: "55xxx — Supplies",            group: "Supplies & Materials" },
+  { code: "56", label: "56xxx — Intergovernmental",   group: "Intergovernmental" },
   { code: "57", label: "57xxx — Other Charges",       group: "Other Charges & Expenses" },
   { code: "58", label: "58xxx — Capital Outlay",      group: "Capital Outlay" },
   { code: "59", label: "59xxx — Debt Service",        group: "Debt Service" },
-  { code: "61", label: "61xxx — Spec Ed Tuition",     group: "Special Ed Tuition" },
-  { code: "62", label: "62xxx — Spec Ed Tuition",     group: "Special Ed Tuition" },
-  { code: "63", label: "63xxx — Spec Ed Tuition",     group: "Special Ed Tuition" },
-];
+  ];
 
 const SORT_OPTIONS: SortOrder[] = ["total_desc","total_asc","alpha_asc","alpha_desc"];
 
@@ -61,9 +61,11 @@ export default function AccountCodesPage() {
   const [previewCode, setPreviewCode] = useState("");
   const [previewDept, setPreviewDept] = useState("");
   const [previewResult, setPreviewResult] = useState<{ functionArea: string|null; department: string|null; category1: string|null; category2: string|null }|null>(null);
+  const [revPreviewCode, setRevPreviewCode] = useState("");
+  const [revPreviewResult, setRevPreviewResult] = useState<{ category1: string|null; category2: string|null }|null>(null);
 
   // Tab
-  const [tab, setTab] = useState<"segments"|"organization">("segments");
+  const [tab, setTab] = useState<"segments"|"revenue-segments"|"organization">("segments");
 
   useEffect(() => {
     fetch("/api/towns").then(r => r.json()).then(towns => {
@@ -158,6 +160,58 @@ export default function AccountCodesPage() {
       },
     }));
   };
+
+  // ── Revenue config mutators ──────────────────────────────────────────────
+  const updRevConfig = (patch: Partial<RevenueCodeConfig>) =>
+    setConfig(c => ({ ...c, revenueConfig: { ...( c.revenueConfig ?? { separator: "-", segments: [], categorySegment: null, subcategorySegment: null }), ...patch } }));
+
+  const updRevSeg = (idx: number, patch: Partial<AccountSegment>) =>
+    setConfig(c => ({
+      ...c,
+      revenueConfig: {
+        ...(c.revenueConfig ?? { separator: "-", segments: [], categorySegment: null, subcategorySegment: null }),
+        segments: (c.revenueConfig?.segments ?? []).map(s => s.index === idx ? { ...s, ...patch } : s),
+      }
+    }));
+
+  const addRevSegment = (index: number) => {
+    const existing = config.revenueConfig?.segments ?? [];
+    if (existing.find(s => s.index === index)) return;
+    setConfig(c => ({
+      ...c,
+      revenueConfig: {
+        ...(c.revenueConfig ?? { separator: "-", segments: [], categorySegment: null, subcategorySegment: null }),
+        segments: [...existing, blankSegment(index)].sort((a,b) => a.index - b.index),
+      }
+    }));
+  };
+
+  const addRevCodes = (segIdx: number, entries: Array<{ code: string; label: string; group: string }>) => {
+    if (!entries.length) return;
+    setConfig(c => ({
+      ...c,
+      revenueConfig: {
+        ...(c.revenueConfig ?? { separator: "-", segments: [], categorySegment: null, subcategorySegment: null }),
+        segments: (c.revenueConfig?.segments ?? []).map(s => {
+          if (s.index !== segIdx) return s;
+          const existing = new Map(s.codes.map(e => [e.code, e]));
+          for (const entry of entries) {
+            if (!entry.code) continue;
+            existing.set(entry.code, { code: entry.code, label: entry.label || entry.code, ...(entry.group ? { group: entry.group } : {}) });
+          }
+          return { ...s, codes: [...existing.values()].sort((a,b) => a.code.localeCompare(b.code)) };
+        }),
+      }
+    }));
+  };
+
+  const handleRevPreview = () => {
+    const result = resolveRevenueCategory(revPreviewCode || null, config.revenueConfig ?? null);
+    setRevPreviewResult(result);
+  };
+
+  const [activeRevSegIdx, setActiveRevSegIdx] = useState<number | null>(null);
+  const activeRevSeg = activeRevSegIdx !== null ? (config.revenueConfig?.segments ?? []).find(s => s.index === activeRevSegIdx) : null;
 
   const addLevel = (kind: "expenseLevels"|"revenueLevels") => {
     setConfig(c => ({
@@ -259,10 +313,14 @@ export default function AccountCodesPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-gray-200">
-        {(["segments","organization"] as const).map(t => (
+        {([
+          ["segments", "Expense Segments"],
+          ["revenue-segments", "Revenue Segments"],
+          ["organization", "Portal Organization"],
+        ] as const).map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab===t ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
-            {t === "segments" ? "Segment Dictionary" : "Portal Organization"}
+            {label}
           </button>
         ))}
       </div>
@@ -492,6 +550,188 @@ export default function AccountCodesPage() {
                 <p><span className="text-gray-500 inline-block w-36">Department:</span>{previewResult.department ? <strong className="text-orange-700">{previewResult.department}</strong> : <em className="text-gray-400">no match</em>}</p>
                 <p><span className="text-gray-500 inline-block w-36">Spending Type:</span>{previewResult.category1 ? <strong className="text-blue-700">{previewResult.category1}</strong> : <em className="text-gray-400">no match</em>}</p>
                 <p><span className="text-gray-500 inline-block w-36">Subcategory:</span>{previewResult.category2 ? <strong className="text-purple-700">{previewResult.category2}</strong> : <em className="text-gray-400">no match</em>}</p>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {/* ── TAB: Revenue Segments ── */}
+      {tab === "revenue-segments" && (
+        <div className="space-y-6">
+          <p className="text-sm text-gray-500">
+            Define the account code structure for <strong>revenue</strong> accounts. Revenue accounts
+            typically have a different structure from expenses. Map which segment drives the revenue
+            category (e.g. "Taxes and Excise") and subcategory (e.g. "Motor Vehicle Excise").
+          </p>
+
+          <HelpBox title="How revenue account codes work" variant="tip">
+            <p className="text-xs text-gray-600">
+              When a revenue file is uploaded with an account number column, the system splits each
+              account by the separator below and looks up the segment you designate as Category.
+              For example, account <code className="bg-gray-100 px-1 rounded">0001-100-146-0000-00-0-00-41200</code> with
+              separator <code className="bg-gray-100 px-1 rounded">-</code> and Category at Segment 7 with prefix length 3
+              gives key <code className="bg-gray-100 px-1 rounded">412</code> → your defined label.
+              If codes already exist in your upload as separate Category/Subcategory columns, those
+              will be used as-is and this dictionary fills in any gaps.
+            </p>
+          </HelpBox>
+
+          {/* Separator */}
+          <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+            <h2 className="font-semibold text-gray-800">Revenue account separator</h2>
+            <div className="flex items-center gap-3">
+              <label className="text-sm text-gray-600">Separator character:</label>
+              <input type="text" value={config.revenueConfig?.separator ?? "-"}
+                onChange={e => updRevConfig({ separator: e.target.value })}
+                className="w-16 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <span className="text-xs text-gray-400">Usually the same as expenses ("-")</span>
+            </div>
+          </section>
+
+          {/* Segment editor */}
+          <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+            <h2 className="font-semibold text-gray-800">Revenue segments</h2>
+            <p className="text-sm text-gray-500">Click a segment to define it. You only need to configure the segment(s) that drive category and subcategory.</p>
+
+            {/* Segment strip */}
+            {(() => {
+              const revSegs = config.revenueConfig?.segments ?? [];
+              const maxIdx = Math.max(...revSegs.map(s => s.index + 1), 8);
+              return (
+                <div className="flex flex-wrap gap-2">
+                  {Array.from({ length: maxIdx }, (_, i) => {
+                    const seg = revSegs.find(s => s.index === i);
+                    const isActive = activeRevSegIdx === i;
+                    return (
+                      <button key={i} onClick={() => { if (!seg) addRevSegment(i); setActiveRevSegIdx(isActive ? null : i); }}
+                        className={`px-3 py-2 rounded-lg border text-sm transition-all ${isActive ? "border-blue-500 bg-blue-50 text-blue-700 font-medium" : seg ? "border-gray-300 bg-white text-gray-700 hover:border-gray-400" : "border-dashed border-gray-200 text-gray-400 hover:border-gray-300"}`}>
+                        <span className="text-xs opacity-50 mr-1">Seg {i}</span>
+                        {seg?.name || <span className="italic">unnamed</span>}
+                        {seg?.codes.length ? <span className="ml-1.5 text-[10px] bg-gray-100 text-gray-500 rounded px-1">{seg.codes.length} codes</span> : null}
+                        {config.revenueConfig?.categorySegment === i && <span className="ml-1 text-[10px] bg-green-100 text-green-700 rounded px-1">Cat</span>}
+                        {config.revenueConfig?.subcategorySegment === i && <span className="ml-1 text-[10px] bg-purple-100 text-purple-600 rounded px-1">Sub</span>}
+                      </button>
+                    );
+                  })}
+                  <button onClick={() => { addRevSegment(maxIdx); setActiveRevSegIdx(maxIdx); }}
+                    className="px-3 py-2 rounded-lg border border-dashed border-gray-200 text-gray-400 text-sm hover:border-gray-300">+ Add</button>
+                </div>
+              );
+            })()}
+
+            {/* Active revenue segment editor */}
+            {activeRevSeg && (
+              <div className="border border-blue-100 rounded-xl p-5 bg-blue-50/20 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium text-gray-800">Revenue Segment {activeRevSeg.index}</h3>
+                  <button onClick={() => { updRevConfig({ segments: (config.revenueConfig?.segments ?? []).filter(s => s.index !== activeRevSeg.index) }); setActiveRevSegIdx(null); }} className="text-xs text-red-400 hover:text-red-600">Remove</button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">Name</label>
+                    <input type="text" value={activeRevSeg.name}
+                      onChange={e => updRevSeg(activeRevSeg.index, { name: e.target.value })}
+                      placeholder="e.g. Revenue Type Code"
+                      className="mt-1 block w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">Prefix length</label>
+                    <input type="number" min={0} max={10} value={activeRevSeg.prefixLength}
+                      onChange={e => updRevSeg(activeRevSeg.index, { prefixLength: parseInt(e.target.value)||0 })}
+                      className="mt-1 block w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <p className="text-xs text-gray-400 mt-1">e.g. 3 → "412" from "41200"</p>
+                  </div>
+                </div>
+
+                {/* Category/Subcategory role */}
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">What does this segment drive?</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${config.revenueConfig?.categorySegment === activeRevSeg.index ? "border-green-400 bg-green-50" : "border-gray-200 hover:border-gray-300"}`}>
+                    <input type="checkbox"
+                      checked={config.revenueConfig?.categorySegment === activeRevSeg.index}
+                      onChange={e => updRevConfig({ categorySegment: e.target.checked ? activeRevSeg.index : null })}
+                      className="h-4 w-4 rounded border-gray-300" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Category</p>
+                      <p className="text-xs text-gray-400">Top-level revenue grouping (e.g. "Taxes and Excise")</p>
+                    </div>
+                  </label>
+                  <label className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${config.revenueConfig?.subcategorySegment === activeRevSeg.index ? "border-purple-400 bg-purple-50" : "border-gray-200 hover:border-gray-300"}`}>
+                    <input type="checkbox"
+                      checked={config.revenueConfig?.subcategorySegment === activeRevSeg.index}
+                      onChange={e => updRevConfig({ subcategorySegment: e.target.checked ? activeRevSeg.index : null })}
+                      className="h-4 w-4 rounded border-gray-300" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Subcategory</p>
+                      <p className="text-xs text-gray-400">Second-level grouping (e.g. "Motor Vehicle Excise")</p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Code table */}
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">Code definitions ({activeRevSeg.codes.length})</p>
+                  {activeRevSeg.codes.length > 0 && (
+                    <div className="border border-gray-200 rounded-lg overflow-hidden mb-3">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 w-24">Code</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Label (specific)</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Group (merged)</th>
+                            <th className="w-8" />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {activeRevSeg.codes.map(entry => (
+                            <tr key={entry.code} className="border-t border-gray-100 hover:bg-gray-50/50">
+                              <td className="px-3 py-1.5"><code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{entry.code}</code></td>
+                              <td className="px-3 py-1.5">
+                                <input type="text" value={entry.label}
+                                  onChange={e => updRevSeg(activeRevSeg.index, { codes: activeRevSeg.codes.map(c => c.code === entry.code ? { ...c, label: e.target.value } : c) })}
+                                  className="w-full border-0 bg-transparent text-sm focus:outline-none focus:bg-white focus:border focus:border-gray-200 focus:rounded px-1" />
+                              </td>
+                              <td className="px-3 py-1.5">
+                                <input type="text" value={entry.group||""}
+                                  onChange={e => updRevSeg(activeRevSeg.index, { codes: activeRevSeg.codes.map(c => c.code === entry.code ? { ...c, group: e.target.value||undefined } : c) })}
+                                  placeholder="e.g. Taxes and Excise"
+                                  className="w-full border-0 bg-transparent text-sm text-gray-500 focus:outline-none focus:bg-white focus:border focus:border-gray-200 focus:rounded px-1 placeholder:text-gray-300" />
+                              </td>
+                              <td className="px-2 text-center">
+                                <button onClick={() => updRevSeg(activeRevSeg.index, { codes: activeRevSeg.codes.filter(c => c.code !== entry.code) })}
+                                  className="text-gray-300 hover:text-red-400 text-lg leading-none">×</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  <AddCodeRow onAdd={(code, label, group) => addRevCodes(activeRevSeg.index, [{ code, label, group }])} />
+                  <BulkImportRow onImport={(entries) => addRevCodes(activeRevSeg.index, entries)} />
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Revenue preview */}
+          <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+            <h2 className="font-semibold text-gray-800">Preview</h2>
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <label className="text-xs text-gray-500 font-medium">Revenue account code</label>
+                <input type="text" value={revPreviewCode} onChange={e => setRevPreviewCode(e.target.value)}
+                  placeholder="0001-100-146-0000-00-0-00-41200"
+                  className="mt-1 block w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <button onClick={handleRevPreview} className="px-4 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-900">Test</button>
+            {revPreviewResult && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm space-y-1.5">
+                <p><span className="text-gray-500 inline-block w-32">Category:</span>{revPreviewResult.category1 ? <strong className="text-green-700">{revPreviewResult.category1}</strong> : <em className="text-gray-400">no match</em>}</p>
+                <p><span className="text-gray-500 inline-block w-32">Subcategory:</span>{revPreviewResult.category2 ? <strong className="text-purple-700">{revPreviewResult.category2}</strong> : <em className="text-gray-400">no match</em>}</p>
               </div>
             )}
           </section>
