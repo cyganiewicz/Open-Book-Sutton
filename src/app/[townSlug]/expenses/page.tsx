@@ -155,10 +155,27 @@ function buildHierarchy(
 /** Recursively annotate nodes with spending type totals */
 export function annotateSpendingTypes(
   nodes: HierarchyNode[],
-  tableYears: string[]
+  tableYears: string[],
+  segments?: import("@/lib/account-codes").AccountSegment[],
+  spendingTypeSegIdx?: number | null
 ): HierarchyNode[] {
+  // Derive spending type from objectCode using configured segment or fallback to prefix map
+  function getType(objectCode: string | null): string | null {
+    if (!objectCode) return null;
+    if (segments && spendingTypeSegIdx !== null && spendingTypeSegIdx !== undefined) {
+      const seg = segments.find(s => s.index === spendingTypeSegIdx);
+      if (seg) {
+        const key = seg.prefixLength > 0 ? objectCode.slice(0, seg.prefixLength) : objectCode;
+        const entry = seg.codes.find(c => c.code === key);
+        if (entry) return entry.group || entry.label;
+      }
+    }
+    // Fallback: built-in object code prefix map
+    const prefix = objectCode.slice(0, 2);
+    return OBJECT_SPENDING_MAP[prefix] || null;
+  }
+
   return nodes.map(node => {
-    // Collect all leaf rows under this node
     type LeafRow = { id: string; label: string; objectCode: string | null; amounts: Record<string, number> };
     const collectRows = (n: HierarchyNode): LeafRow[] => {
       if (n.isLeaf) return n.rows || [];
@@ -169,8 +186,7 @@ export function annotateSpendingTypes(
     const spendingTypeTotals: Record<string, Record<string, number>> = {};
 
     for (const row of allRows || []) {
-      const prefix = (row.objectCode || "").slice(0, 2);
-      const type = OBJECT_SPENDING_MAP[prefix];
+      const type = getType(row.objectCode);
       if (!type) continue;
       if (!spendingTypeTotals[type]) spendingTypeTotals[type] = {};
       for (const y of tableYears) {
@@ -181,7 +197,7 @@ export function annotateSpendingTypes(
     return {
       ...node,
       spendingTypeTotals: Object.keys(spendingTypeTotals).length > 0 ? spendingTypeTotals : undefined,
-      children: node.isLeaf ? [] : annotateSpendingTypes(node.children, tableYears),
+      children: node.isLeaf ? [] : annotateSpendingTypes(node.children, tableYears, segments, spendingTypeSegIdx),
     };
   });
 }
@@ -279,7 +295,13 @@ export function buildHierarchyV2(
   if (withoutValue.length > 0) {
     if (isLastLevel) {
       // At the deepest level: just show them as leaf rows directly
-      const amounts = sumAmounts(r => withoutValue.some(w => w.id === r.id));
+      // Match by field values, not IDs (IDs differ across fiscal year uploads)
+      const amounts = sumAmounts(r =>
+        withoutValue.some(w =>
+          w.objectCode === r.objectCode && w.lineItem === r.lineItem &&
+          w.department === r.department && w.functionArea === r.functionArea
+        )
+      );
       if (withoutValue.length > 0) {
         nodes.push({ key: "_direct", amounts, isLeaf: true, children: [], rows: makeLeafRows(withoutValue) });
       }
@@ -361,7 +383,11 @@ export default async function ExpensesPage({
     currentYear,
     () => true
   );
-  const hierarchy = annotateSpendingTypes(hierarchyRaw, tableYears);
+  const hierarchy = annotateSpendingTypes(
+    hierarchyRaw, tableYears,
+    acConfig?.segments ?? [],
+    acConfig?.spendingTypeSegment ?? null
+  );
 
   // Export
   const exportData = current.map(r => {
@@ -399,6 +425,8 @@ export default async function ExpensesPage({
         townColor={town.primaryColor}
         totalBudget={currentTotal}
         prevTotal={prevTotal}
+        spendingTypeSegmentIndex={acConfig?.spendingTypeSegment ?? null}
+        accountSegments={acConfig?.segments ?? []}
       />
 
       <DynamicExpenseTable
