@@ -11,8 +11,9 @@ import {
 import {
   type HierarchyNode,
   type SummaryTile,
-  OBJECT_SPENDING_MAP,
+  fallbackSpendingType,
 } from "@/lib/expense-types";
+import { resolveSpendingType } from "@/lib/account-codes";
 import ExpenseHeader from "@/components/portal/ExpenseHeader";
 import DynamicExpenseTable from "@/components/portal/DynamicExpenseTable";
 import ExportButton from "@/components/portal/ExportButton";
@@ -159,20 +160,17 @@ export function annotateSpendingTypes(
   segments?: import("@/lib/account-codes").AccountSegment[],
   spendingTypeSegIdx?: number | null
 ): HierarchyNode[] {
-  // Derive spending type from objectCode using configured segment or fallback to prefix map
+  // Resolve spending type using the town's configured account code structure
   function getType(objectCode: string | null): string | null {
     if (!objectCode) return null;
+    // Build a minimal config for resolveSpendingType
     if (segments && spendingTypeSegIdx !== null && spendingTypeSegIdx !== undefined) {
-      const seg = segments.find(s => s.index === spendingTypeSegIdx);
-      if (seg) {
-        const key = seg.prefixLength > 0 ? objectCode.slice(0, seg.prefixLength) : objectCode;
-        const entry = seg.codes.find(c => c.code === key);
-        if (entry) return entry.group || entry.label;
-      }
+      const cfg = { segments, spendingTypeSegment: spendingTypeSegIdx, separator: "-" } as import("@/lib/account-codes").AccountCodeConfig;
+      const resolved = resolveSpendingType(objectCode, cfg);
+      if (resolved) return resolved;
     }
-    // Fallback: built-in object code prefix map
-    const prefix = objectCode.slice(0, 2);
-    return OBJECT_SPENDING_MAP[prefix] || null;
+    // No config or no match — use fallback (last segment prefix)
+    return fallbackSpendingType(objectCode, "-");
   }
 
   return nodes.map(node => {
