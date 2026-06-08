@@ -322,6 +322,46 @@ export function detectAccountStructure(sampleCodes: string[]): {
   };
 }
 
+// ── Spending type resolution ──────────────────────────────────────────────
+
+/**
+ * Resolve the spending type label for a budget row's account code.
+ *
+ * The objectCode stored in the database is the FULL account string
+ * (e.g. "0001-300-300-2210-00-4-00-51110"), not just the last segment.
+ * We split it by the configured separator and read the correct segment.
+ *
+ * Priority:
+ *   1. Config spendingTypeSegment → segment codes/groups defined by admin
+ *   2. Returns null if not configured (caller decides what to show)
+ *
+ * @param accountCode  The full account string stored in objectCode field
+ * @param config       The town's AccountCodeConfig (may be null if not set)
+ * @returns            The spending type label, or null if unresolvable
+ */
+export function resolveSpendingType(
+  accountCode: string | null,
+  config: AccountCodeConfig | null
+): string | null {
+  if (!accountCode || !config) return null;
+  if (config.spendingTypeSegment === null || config.spendingTypeSegment === undefined) return null;
+
+  const seg = config.segments.find(s => s.index === config.spendingTypeSegment);
+  if (!seg) return null;
+
+  // Split the full account string by the configured separator
+  const parts = config.separator ? accountCode.split(config.separator) : [accountCode];
+  const raw = parts[seg.index];
+  if (!raw) return null;
+
+  // Apply prefix length to get the lookup key
+  const key = seg.prefixLength > 0 ? raw.slice(0, seg.prefixLength) : raw;
+
+  // Find matching code entry
+  const entry = seg.codes.find(c => c.code === key);
+  return entry ? (entry.group || entry.label) : null;
+}
+
 // ── Legacy compatibility ───────────────────────────────────────────────────
 export type AccountCodeRules = AccountCodeConfig;
 export const parseAccountCodeRules = parseAccountCodeConfig;
