@@ -1,7 +1,9 @@
 /**
- * Shared types and constants for the expenses hierarchy.
- * This file must have NO server-side imports (no prisma, no fs, etc.)
- * so it can be safely imported by both server and client components.
+ * Shared types for the expenses hierarchy.
+ * NO server-side imports — safe for both server and client components.
+ *
+ * For spending type resolution, use resolveSpendingType() from account-codes.ts.
+ * That function correctly reads the town's configured segment structure.
  */
 
 export interface HierarchyNode {
@@ -26,8 +28,14 @@ export interface SummaryTile {
   negative?: boolean;
 }
 
-/** Map object code prefix to spending type label (MA MUNIS standard) */
-export const OBJECT_SPENDING_MAP: Record<string, string> = {
+/**
+ * MA MUNIS standard object code prefix → spending type label.
+ *
+ * This is a FALLBACK only — used when a town has not configured
+ * a spendingTypeSegment in their Account Code Dictionary.
+ * Always prefer resolveSpendingType() from account-codes.ts.
+ */
+export const MUNIS_FALLBACK_MAP: Record<string, string> = {
   "51": "Salaries & Wages",
   "52": "Employee Benefits",
   "53": "Purchased Services",
@@ -36,4 +44,30 @@ export const OBJECT_SPENDING_MAP: Record<string, string> = {
   "57": "Other Charges & Expenses",
   "58": "Capital Outlay",
   "59": "Debt Service",
+  "595": "Other Financing Uses",
 };
+
+/**
+ * Extract the last segment of a full account string.
+ * e.g. "0001-300-300-2210-00-4-00-51110" → "51110"
+ */
+export function extractObjectSuffix(accountCode: string | null, separator = "-"): string {
+  if (!accountCode) return "";
+  const parts = separator ? accountCode.split(separator) : [accountCode];
+  return parts[parts.length - 1] || accountCode;
+}
+
+/**
+ * Fallback-only spending type lookup using the last segment of the account code
+ * against the MUNIS_FALLBACK_MAP. Only use this when no config is available.
+ */
+export function fallbackSpendingType(accountCode: string | null, separator = "-"): string | null {
+  if (!accountCode) return null;
+  const suffix = extractObjectSuffix(accountCode, separator);
+  const prefix = suffix.slice(0, 3);
+  return MUNIS_FALLBACK_MAP[prefix] || null;
+}
+
+// Keep OBJECT_SPENDING_MAP as an alias for backward compatibility
+// @deprecated — use resolveSpendingType() from account-codes.ts
+export const OBJECT_SPENDING_MAP = MUNIS_FALLBACK_MAP;
