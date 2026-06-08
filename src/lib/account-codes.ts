@@ -403,7 +403,7 @@ export function resolveRevenueCategory(
   const parts = config.separator ? accountCode.split(config.separator) : [accountCode];
 
   function lookup(segIdx: number | null): string | null {
-    if (segIdx === null || segIdx === undefined) return null;
+    if (segIdx === null || segIdx === undefined || !config) return null;
     const seg = config.segments.find(s => s.index === segIdx);
     if (!seg) return null;
     const raw = parts[seg.index];
