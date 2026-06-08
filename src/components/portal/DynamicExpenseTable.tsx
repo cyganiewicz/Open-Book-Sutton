@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { formatCurrency, abbreviateCurrency } from "@/lib/format";
-import { type HierarchyNode, OBJECT_SPENDING_MAP } from "@/lib/expense-types";
+import { type HierarchyNode } from "@/lib/expense-types";
 
 interface DynamicExpenseTableProps {
   hierarchy: HierarchyNode[];
