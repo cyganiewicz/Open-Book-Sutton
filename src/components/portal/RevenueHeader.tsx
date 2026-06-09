@@ -8,6 +8,7 @@ import {
   ArcElement, Tooltip, Legend,
 } from "chart.js";
 import { abbreviateCurrency } from "@/lib/format";
+import { colKey } from "@/lib/expense-types";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
@@ -52,7 +53,7 @@ export default function RevenueHeader({
 
   // Top-level category totals for proportion bar
   const catTotals = useMemo(() =>
-    hierarchy.map(n => ({ label: n.key, amount: n.amounts[currentYear] || 0 }))
+    hierarchy.map(n => ({ label: n.key, amount: n.amounts[colKey(currentYear,'budget')] || n.amounts[colKey(currentYear,'actual')] || 0 }))
       .sort((a, b) => b.amount - a.amount),
     [hierarchy, currentYear]
   );
@@ -62,7 +63,7 @@ export default function RevenueHeader({
     if (drillCat === null) {
       return hierarchy
         .filter(n => n.key !== "_direct")
-        .sort((a, b) => (b.amounts[currentYear] || 0) - (a.amounts[currentYear] || 0))
+        .sort((a, b) => (b.amounts[colKey(currentYear,'budget')] || b.amounts[colKey(currentYear,'actual')] || 0) - (a.amounts[colKey(currentYear,'budget')] || a.amounts[colKey(currentYear,'actual')] || 0))
         .slice(0, 8)
         .map(n => ({ label: n.key, amounts: n.amounts }));
     }
@@ -70,7 +71,7 @@ export default function RevenueHeader({
     if (!catNode) return [];
     return catNode.children
       .filter(n => n.key !== "_direct")
-      .sort((a, b) => (b.amounts[currentYear] || 0) - (a.amounts[currentYear] || 0))
+      .sort((a, b) => (b.amounts[colKey(currentYear,'budget')] || b.amounts[colKey(currentYear,'actual')] || 0) - (a.amounts[colKey(currentYear,'budget')] || a.amounts[colKey(currentYear,'actual')] || 0))
       .slice(0, 10)
       .map(n => ({ label: n.key, amounts: n.amounts }));
   }, [hierarchy, drillCat, currentYear]);
@@ -79,7 +80,7 @@ export default function RevenueHeader({
     labels: displayYears.map(y => `FY${y}`),
     datasets: trendGroups.map((g, i) => ({
       label: g.label,
-      data: displayYears.map(y => g.amounts[y] || 0),
+      data: displayYears.map(y => g.amounts[colKey(y,'budget')] || g.amounts[colKey(y,'actual')] || 0),
       backgroundColor: COLORS[i % COLORS.length] + "dd",
       borderWidth: 0,
       borderRadius: 2,
@@ -94,7 +95,7 @@ export default function RevenueHeader({
     return {
       labels: nodes.map(n => n.key),
       datasets: [{
-        data: nodes.map(n => n.amounts[currentYear] || 0),
+        data: nodes.map(n => n.amounts[colKey(currentYear,'budget')] || n.amounts[colKey(currentYear,'actual')] || 0),
         backgroundColor: COLORS,
         borderWidth: 2,
         borderColor: "#fff",
