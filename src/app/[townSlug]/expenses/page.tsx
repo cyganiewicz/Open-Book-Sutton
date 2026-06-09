@@ -249,7 +249,7 @@ export function buildHierarchyV2(
         y,
         allYearRows
           .filter(r => filter(r) && r.fiscalYear === y &&
-            (y === currentYear ? r.amountType === "budget" : r.amountType === "budget" || r.amountType === "actual"))
+            (y === currentYear ? r.amountType === "budget" : r.amountType === (yearTypes[y] ?? "budget")))
           .reduce((s, r) => s + r.amount, 0),
       ])
     );
@@ -387,6 +387,27 @@ export default async function ExpensesPage({
   // ── Build dynamic hierarchy from portal organization levels ────────────
   const tableYears = allYears.length > 0 ? allYears : [currentYear];
 
+  // For each year, determine which amount type is shown:
+  // currentYear → budget, prior years → actual if exists, else budget
+  const yearTypes: Record<string, "budget" | "actual"> = {};
+  for (const y of tableYears) {
+    if (y === currentYear) {
+      yearTypes[y] = "budget";
+    } else {
+      const hasActual = allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "actual");
+      yearTypes[y] = hasActual ? "actual" : "budget";
+    }
+  }
+
+  // All available year+type combinations for the filter UI
+  const yearTypeOptions: { year: string; type: "budget" | "actual"; label: string }[] = [];
+  for (const y of tableYears) {
+    const hasBudget = allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "budget");
+    const hasActual = allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "actual");
+    if (hasBudget) yearTypeOptions.push({ year: y, type: "budget", label: `FY${y} Budget` });
+    if (hasActual) yearTypeOptions.push({ year: y, type: "actual", label: `FY${y} Actual` });
+  }
+
   // Use ALL configured levels for grouping; line items always appear as leaves
   // under the deepest level that has a value for that row
   const allRowsTyped = allRowsClassified as BudgetRowLike[];
@@ -452,6 +473,8 @@ export default async function ExpensesPage({
         levelNames={levelNames}
         years={tableYears}
         currentYear={currentYear}
+        yearTypes={yearTypes}
+        yearTypeOptions={yearTypeOptions}
         townColor={town.primaryColor}
         lineItemTooltips={lineItemTooltips}
       />
