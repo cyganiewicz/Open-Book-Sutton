@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { detectCurrentAndPreviousYear } from "@/lib/aggregator";
 import { formatCurrency, abbreviateCurrency, calculateChange, formatPercent } from "@/lib/format";
 import { parseAccountCodeConfig, DEFAULT_REVENUE_LEVELS, resolveRevenueCategory } from "@/lib/account-codes";
+import { colKey } from "@/lib/expense-types";
 import ExportButton from "@/components/portal/ExportButton";
 import RevenueHeader, { type RevHierarchyNode } from "@/components/portal/RevenueHeader";
 import RevenueTable from "@/components/portal/RevenueTable";
@@ -52,20 +53,13 @@ export default async function RevenuesPage({
       yearTypes[y] = hasActual ? "actual" : "budget";
     }
   }
-  const availableTypes: Record<string, ("budget" | "actual")[]> = {};
+  const yearTypeOptions: { year: string; type: "budget" | "actual"; label: string; colKey: string }[] = [];
   for (const y of tableYears) {
-    const types: ("budget" | "actual")[] = [];
-    if (allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "budget")) types.push("budget");
-    if (allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "actual")) types.push("actual");
-    availableTypes[y] = types;
+    const hasBudget = allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "budget");
+    const hasActual = allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "actual");
+    if (hasBudget) yearTypeOptions.push({ year: y, type: "budget", label: `FY${y} Budget`, colKey: colKey(y, "budget") });
+    if (hasActual) yearTypeOptions.push({ year: y, type: "actual", label: `FY${y} Actual`, colKey: colKey(y, "actual") });
   }
-  const yearTypeOptions: { year: string; type: "budget" | "actual"; label: string; available: ("budget" | "actual")[] }[] =
-    tableYears.map(y => ({
-      year: y,
-      type: yearTypes[y] ?? "budget",
-      label: `FY${y} ${(yearTypes[y] ?? "budget") === "actual" ? "Actual" : "Budget"}`,
-      available: availableTypes[y] ?? ["budget"],
-    }));
 
   const current = allRowsClassified.filter(r => r.fiscalYear === currentYear && r.amountType === "budget");
   const prev = previousYear
@@ -91,13 +85,12 @@ export default async function RevenuesPage({
   ): Record<string, number> {
     const out: Record<string, number> = {};
     for (const y of tableYears) {
-      out[y] = allRowsClassified
-        .filter(r =>
-          matchFn(r) &&
-          r.fiscalYear === y &&
-          r.amountType === (y === currentYear ? "budget" : (yearTypes[y] ?? "budget"))
-        )
-        .reduce((s, r) => s + r.amount, 0);
+      for (const t of ["budget", "actual"] as const) {
+        const sum = allRowsClassified
+          .filter(r => matchFn(r) && r.fiscalYear === y && r.amountType === t)
+          .reduce((s, r) => s + r.amount, 0);
+        if (sum > 0) out[colKey(y, t)] = sum;
+      }
     }
     return out;
   }
