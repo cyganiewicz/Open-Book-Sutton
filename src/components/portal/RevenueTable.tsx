@@ -8,7 +8,7 @@ interface YearTypeOption {
   year: string;
   type: "budget" | "actual";
   label: string;
-  available?: ("budget" | "actual")[];
+  colKey: string;
 }
 
 interface RevenueTableProps {
@@ -33,11 +33,11 @@ const INDENT_REM = [1.25, 2.75, 4.25, 5.75];
 const getIndent = (depth: number) => `${INDENT_REM[Math.min(depth, INDENT_REM.length - 1)]}rem`;
 
 function NodeRow({
-  node, depth, displayYears, currentYear, townColor, colCount, forceCollapsed, totalRevenue,
+  node, depth, displayCols, currentYear, townColor, colCount, forceCollapsed, totalRevenue,
 }: {
   node: RevHierarchyNode;
   depth: number;
-  displayYears: string[];
+  displayCols: { year: string; type: "budget" | "actual"; colKey: string }[];
   currentYear: string;
   townColor: string;
   colCount: number;
@@ -47,7 +47,7 @@ function NodeRow({
   const [collapsed, setCollapsed] = useState(false);
   const effectiveCollapsed = forceCollapsed || collapsed;
   const isTopLevel = depth === 0;
-  const pct = totalRevenue > 0 ? ((node.amounts[currentYear] || 0) / totalRevenue * 100).toFixed(1) : "0";
+  const pct = totalRevenue > 0 ? ((node.amounts[`${currentYear}:budget`] || 0) / totalRevenue * 100).toFixed(1) : "0";
 
   return (
     <>
@@ -64,14 +64,14 @@ function NodeRow({
               <span className="text-white font-semibold text-sm">{node.key}</span>
             </span>
           </td>
-          {displayYears.map(y => (
-            <td key={y} className="px-3 py-3 text-right tabular-nums whitespace-nowrap"
+          {displayCols.map(col => (
+            <td key={col.colKey} className="px-3 py-3 text-right tabular-nums whitespace-nowrap"
               style={{
-                color: y === currentYear ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.6)",
-                fontWeight: y === currentYear ? "600" : "400",
-                fontSize: y === currentYear ? "0.9rem" : "0.8rem",
+                color: col.year === currentYear && col.type === "budget" ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.6)",
+                fontWeight: col.year === currentYear && col.type === "budget" ? "600" : "400",
+                fontSize: col.year === currentYear && col.type === "budget" ? "0.9rem" : "0.8rem",
               }}>
-              {formatCurrency(node.amounts[y] || 0)}
+              {formatCurrency(node.amounts[col.colKey] || 0)}
             </td>
           ))}
           <td className="px-3 py-3 text-right text-white/60 text-xs whitespace-nowrap">{pct}%</td>
@@ -91,9 +91,9 @@ function NodeRow({
               </span>
             </span>
           </td>
-          {displayYears.map(y => (
-            <td key={y} className="px-3 py-2.5 text-right tabular-nums font-semibold text-gray-700 text-sm whitespace-nowrap">
-              {formatCurrency(node.amounts[y] || 0)}
+          {displayCols.map(col => (
+            <td key={col.colKey} className="px-3 py-2.5 text-right tabular-nums font-semibold text-gray-700 text-sm whitespace-nowrap">
+              {formatCurrency(node.amounts[col.colKey] || 0)}
             </td>
           ))}
           <td className="px-3 py-2.5 text-right text-gray-400 text-xs whitespace-nowrap">{pct}%</td>
@@ -103,7 +103,7 @@ function NodeRow({
       {/* Children */}
       {!effectiveCollapsed && !node.isLeaf && node.children.map(child => (
         <NodeRow key={child.key} node={child} depth={depth + 1}
-          displayYears={displayYears} currentYear={currentYear}
+          displayCols={displayCols} currentYear={currentYear}
           townColor={townColor} colCount={colCount}
           forceCollapsed={false} totalRevenue={totalRevenue} />
       ))}
@@ -114,11 +114,11 @@ function NodeRow({
           <td className="py-2 pr-3 text-gray-600 text-sm" style={{ paddingLeft: getIndent(depth + 1) }}>
             {row.label}
           </td>
-          {displayYears.map(y => (
-            <td key={y} className={`px-3 py-2 text-right tabular-nums text-sm whitespace-nowrap ${
-              (row.amounts[y] || 0) === 0 ? "text-gray-300" : "text-gray-700"
+          {displayCols.map(col => (
+            <td key={col.colKey} className={`px-3 py-2 text-right tabular-nums text-sm whitespace-nowrap ${
+              (row.amounts[col.colKey] || 0) === 0 ? "text-gray-300" : "text-gray-700"
             }`}>
-              {(row.amounts[y] || 0) === 0 ? "—" : formatCurrency(row.amounts[y])}
+              {(row.amounts[col.colKey] || 0) === 0 ? "—" : formatCurrency(row.amounts[col.colKey])}
             </td>
           ))}
           <td className="px-3 py-2 text-right text-gray-300 text-xs">—</td>
@@ -136,23 +136,20 @@ export default function RevenueTable({
   const [yearOffset, setYearOffset] = useState(Math.max(0, years.length - MAX_VISIBLE_YEARS));
   const [query, setQuery] = useState("");
   const [allCollapsed, setAllCollapsed] = useState(false);
-  const [selectedTypes, setSelectedTypes] = useState<Record<string, "budget" | "actual">>({});
-  const [hiddenYears, setHiddenYears] = useState<Set<string>>(new Set());
+  const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set());
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
 
   const windowYears = years.slice(yearOffset, yearOffset + MAX_VISIBLE_YEARS);
-  const displayYears = windowYears.filter(y => !hiddenYears.has(y));
-
-  function effectiveType(y: string): "budget" | "actual" {
-    return selectedTypes[y] ?? yearTypes[y] ?? (y === currentYear ? "budget" : "budget");
-  }
-  const colCount = 1 + displayYears.length + 1;
+  const displayCols = yearTypeOptions.filter(
+    o => windowYears.includes(o.year) && !hiddenCols.has(o.colKey)
+  );
+  const colCount = 1 + displayCols.length + 1;
   const canScrollLeft = yearOffset > 0;
   const canScrollRight = yearOffset + MAX_VISIBLE_YEARS < years.length;
 
   const grandTotals: Record<string, number> = {};
-  for (const y of displayYears) {
-    grandTotals[y] = hierarchy.reduce((s, n) => s + (n.amounts[y] || 0), 0);
+  for (const col of displayCols) {
+    grandTotals[col.colKey] = hierarchy.reduce((s, n) => s + (n.amounts[col.colKey] || 0), 0);
   }
 
   const q = query.toLowerCase().trim();
@@ -200,55 +197,30 @@ export default function RevenueTable({
           <button onClick={() => setFilterMenuOpen(o => !o)}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white hover:bg-gray-50">
             <span className="text-gray-600">Columns</span>
-            {hiddenYears.size > 0 && <span className="text-[10px] bg-blue-100 text-blue-600 rounded px-1">{hiddenYears.size} hidden</span>}
+            {hiddenCols.size > 0 && <span className="text-[10px] bg-blue-100 text-blue-600 rounded px-1">{hiddenCols.size} hidden</span>}
           </button>
           {filterMenuOpen && (
             <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[10rem]">
               <p className="px-3 pb-1 text-xs text-gray-400 font-medium uppercase tracking-wide">Show / hide columns</p>
-              {windowYears.map(y => {
-                const opt = yearTypeOptions.find(o => o.year === y);
-                const available = opt?.available ?? [yearTypes[y] ?? "budget"];
-                const hasBoth = available.includes("budget") && available.includes("actual");
-                const curType = effectiveType(y);
-                return (
-                  <div key={y} className="px-3 py-1.5 hover:bg-gray-50">
-                    <div className="flex items-center gap-2">
-                      <input type="checkbox"
-                        checked={!hiddenYears.has(y)}
-                        onChange={() => setHiddenYears(prev => {
-                          const next = new Set(prev);
-                          next.has(y) ? next.delete(y) : next.add(y);
-                          return next;
-                        })}
-                        className="h-4 w-4 rounded border-gray-300 flex-shrink-0" />
-                      <span className="text-gray-700 text-sm flex-1">FY{y}</span>
-                      {!hasBoth && (
-                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${curType === "actual" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
-                          {curType === "actual" ? "Actual" : "Budget"}
-                        </span>
-                      )}
-                    </div>
-                    {hasBoth && (
-                      <div className="ml-6 mt-1.5 flex gap-1">
-                        <span className="text-xs text-gray-400 mr-1 self-center">Show:</span>
-                        {(["budget","actual"] as const).map(t => (
-                          <button key={t}
-                            onClick={() => setSelectedTypes(prev => ({ ...prev, [y]: t }))}
-                            className={`text-[10px] px-2 py-0.5 rounded font-medium transition-colors ${
-                              curType === t
-                                ? t === "actual" ? "bg-amber-500 text-white" : "bg-blue-600 text-white"
-                                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                            }`}>
-                            {t === "actual" ? "Actual" : "Budget"}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              {hiddenYears.size > 0 && (
-                <button onClick={() => setHiddenYears(new Set())}
+              <p className="px-3 pb-1 text-xs text-gray-400 font-medium uppercase tracking-wide">Show / hide columns</p>
+              {yearTypeOptions.filter(o => windowYears.includes(o.year)).map(opt => (
+                <label key={opt.colKey} className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 cursor-pointer">
+                  <input type="checkbox"
+                    checked={!hiddenCols.has(opt.colKey)}
+                    onChange={() => setHiddenCols(prev => {
+                      const next = new Set(prev);
+                      next.has(opt.colKey) ? next.delete(opt.colKey) : next.add(opt.colKey);
+                      return next;
+                    })}
+                    className="h-4 w-4 rounded border-gray-300" />
+                  <span className="text-gray-700">{opt.label}</span>
+                  <span className={`ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded ${opt.type === "actual" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
+                    {opt.type === "actual" ? "Actual" : "Budget"}
+                  </span>
+                </label>
+              ))}
+              {hiddenCols.size > 0 && (
+                <button onClick={() => setHiddenCols(new Set())}
                   className="w-full text-left px-3 py-1.5 text-xs text-blue-600 hover:bg-gray-50 border-t border-gray-100 mt-1">
                   Show all
                 </button>
@@ -275,37 +247,34 @@ export default function RevenueTable({
           <thead>
             <tr className="border-b-2 border-gray-200 bg-gray-50">
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Source</th>
-              {displayYears.map(y => {
-                const type = effectiveType(y);
-                return (
-                  <th key={y} className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
-                    style={{ minWidth: "130px", color: y === currentYear ? townColor : "#9ca3af" }}>
-                    FY{y}
-                    <span className={`ml-1.5 normal-case font-medium text-[10px] px-1.5 py-0.5 rounded ${
-                      type === "actual" ? "bg-amber-100 text-amber-700"
-                      : y === currentYear ? "bg-blue-100 text-blue-700"
-                      : "bg-gray-100 text-gray-500"
-                    }`}>
-                      {type === "actual" ? "Actual" : "Budget"}
-                    </span>
-                  </th>
-                );
-              })}
+              {displayCols.map(col => (
+                <th key={col.colKey} className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
+                  style={{ minWidth: "130px", color: col.year === currentYear && col.type === "budget" ? townColor : "#9ca3af" }}>
+                  FY{col.year}
+                  <span className={`ml-1.5 normal-case font-medium text-[10px] px-1.5 py-0.5 rounded ${
+                    col.type === "actual" ? "bg-amber-100 text-amber-700"
+                    : col.year === currentYear ? "bg-blue-100 text-blue-700"
+                    : "bg-gray-100 text-gray-500"
+                  }`}>
+                    {col.type === "actual" ? "Actual" : "Budget"}
+                  </span>
+                </th>
+              ))}
               <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400 w-16">%</th>
             </tr>
           </thead>
           <tbody key={`${allCollapsed}-${yearOffset}`}>
             {displayed.map((node, i) => (
               <NodeRow key={node.key + i} node={node} depth={0}
-                displayYears={displayYears} currentYear={currentYear}
+                displayCols={displayCols} currentYear={currentYear}
                 townColor={townColor} colCount={colCount}
                 forceCollapsed={allCollapsed} totalRevenue={totalRevenue} />
             ))}
             <tr className="border-t-2 border-gray-300 bg-gray-50/80">
               <td className="px-5 py-3 font-bold text-gray-900 text-sm">Total Revenue</td>
-              {displayYears.map(y => (
-                <td key={y} className="px-3 py-3 text-right tabular-nums font-bold text-gray-900 text-sm whitespace-nowrap">
-                  {formatCurrency(grandTotals[y] || 0)}
+              {displayCols.map(col => (
+                <td key={col.colKey} className="px-3 py-3 text-right tabular-nums font-bold text-gray-900 text-sm whitespace-nowrap">
+                  {formatCurrency(grandTotals[col.colKey] || 0)}
                 </td>
               ))}
               <td className="px-3 py-3 text-right font-bold text-gray-900 text-sm">100%</td>
