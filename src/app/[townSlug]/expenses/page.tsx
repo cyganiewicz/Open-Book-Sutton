@@ -305,14 +305,22 @@ export default async function ExpensesPage({
     : [];
   const prevTotal = prev.reduce((s, r) => s + r.amount, 0);
 
-  // All available year+type combinations for the filter UI
-  const yearTypeOptions: { year: string; type: "budget" | "actual"; label: string }[] = [];
+  // Which types are available per year (for the toggle UI)
+  const availableTypes: Record<string, ("budget" | "actual")[]> = {};
   for (const y of tableYears) {
-    const hasBudget = allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "budget");
-    const hasActual = allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "actual");
-    if (hasBudget) yearTypeOptions.push({ year: y, type: "budget", label: `FY${y} Budget` });
-    if (hasActual) yearTypeOptions.push({ year: y, type: "actual", label: `FY${y} Actual` });
+    const types: ("budget" | "actual")[] = [];
+    if (allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "budget")) types.push("budget");
+    if (allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "actual")) types.push("actual");
+    availableTypes[y] = types;
   }
+  // yearTypeOptions: one entry per year showing the selected (default) type
+  const yearTypeOptions: { year: string; type: "budget" | "actual"; label: string; available: ("budget" | "actual")[] }[] =
+    tableYears.map(y => ({
+      year: y,
+      type: yearTypes[y] ?? "budget",
+      label: `FY${y} ${(yearTypes[y] ?? "budget") === "actual" ? "Actual" : "Budget"}`,
+      available: availableTypes[y] ?? ["budget"],
+    }));
 
   // Use ALL configured levels for grouping; line items always appear as leaves
   // under the deepest level that has a value for that row
