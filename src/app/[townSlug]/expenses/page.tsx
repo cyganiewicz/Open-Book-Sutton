@@ -207,7 +207,8 @@ export function buildHierarchyV2(
   levelIndex: number,
   tableYears: string[],
   currentYear: string,
-  ancestorFilter: (r: BudgetRowLike) => boolean
+  ancestorFilter: (r: BudgetRowLike) => boolean,
+  yearTypes: Record<string, "budget" | "actual"> = {}
 ): HierarchyNode[] {
   if (levelIndex >= levels.length || currentRows.length === 0) return [];
 
@@ -279,7 +280,7 @@ export function buildHierarchyV2(
       nodes.push({ key, amounts, isLeaf: true, children: [], rows: makeLeafRows(groupRows) });
     } else {
       const children = buildHierarchyV2(
-        groupRows, allYearRows, levels, levelIndex + 1, tableYears, currentYear, nodeFilter
+        groupRows, allYearRows, levels, levelIndex + 1, tableYears, currentYear, nodeFilter, yearTypes
       );
       nodes.push({ key, amounts, isLeaf: false, children, rows: [] });
     }
@@ -307,7 +308,7 @@ export function buildHierarchyV2(
       // Skip this level for these rows — recurse to next level
       // but merge the resulting nodes directly here rather than nesting them
       const skipped = buildHierarchyV2(
-        withoutValue, allYearRows, levels, levelIndex + 1, tableYears, currentYear, ancestorFilter
+        withoutValue, allYearRows, levels, levelIndex + 1, tableYears, currentYear, ancestorFilter, yearTypes
       );
       nodes.push(...skipped);
     }
@@ -420,7 +421,8 @@ export default async function ExpensesPage({
     0,
     tableYears,
     currentYear,
-    () => true
+    () => true,
+    yearTypes
   );
   const hierarchy = annotateSpendingTypes(
     hierarchyRaw, tableYears,
