@@ -13,7 +13,7 @@ import {
   type SummaryTile,
   fallbackSpendingType,
 } from "@/lib/expense-types";
-import { resolveSpendingType } from "@/lib/account-codes";
+import { resolveSpendingType, applyAccountCodeConfig } from "@/lib/account-codes";
 import ExpenseHeader from "@/components/portal/ExpenseHeader";
 import DynamicExpenseTable from "@/components/portal/DynamicExpenseTable";
 import ExportButton from "@/components/portal/ExportButton";
@@ -344,11 +344,31 @@ export default async function ExpensesPage({
   const { currentYear, previousYear: prevYear, allYears } =
     detectCurrentAndPreviousYear(allRows);
 
-  const current = allRows.filter(
+  // Re-classify all rows at render time using the current account code config.
+  // Changes to the Account Code dictionary are reflected immediately without re-uploading.
+  // Stored DB values are used as fallback if the config doesn't produce a match.
+  function reclassifyExpense<T extends {
+    objectCode: string | null; functionArea: string | null;
+    department: string | null; category1: string | null; category2: string | null;
+  }>(row: T): T {
+    if (!acConfig) return row;
+    const derived = applyAccountCodeConfig(row.objectCode, row.department, acConfig);
+    return {
+      ...row,
+      functionArea: derived.functionArea || row.functionArea,
+      department: derived.department || row.department,
+      category1: derived.category1 || row.category1,
+      category2: derived.category2 || row.category2,
+    };
+  }
+
+  const allRowsClassified = allRows.map(reclassifyExpense);
+
+  const current = allRowsClassified.filter(
     (r) => r.fiscalYear === currentYear && r.amountType === "budget"
   );
   const prev = prevYear
-    ? allRows.filter(r => r.fiscalYear === prevYear && (r.amountType === "budget" || r.amountType === "actual"))
+    ? allRowsClassified.filter(r => r.fiscalYear === prevYear && (r.amountType === "budget" || r.amountType === "actual"))
     : [];
 
   const currentTotal = current.reduce((s, r) => s + r.amount, 0);
@@ -369,7 +389,7 @@ export default async function ExpensesPage({
 
   // Use ALL configured levels for grouping; line items always appear as leaves
   // under the deepest level that has a value for that row
-  const allRowsTyped = allRows as BudgetRowLike[];
+  const allRowsTyped = allRowsClassified as BudgetRowLike[];
   const currentTyped = current as BudgetRowLike[];
 
   const hierarchyRaw = buildHierarchyV2(
