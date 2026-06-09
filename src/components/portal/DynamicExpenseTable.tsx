@@ -4,11 +4,19 @@ import { useState, useRef, useCallback } from "react";
 import { formatCurrency, abbreviateCurrency } from "@/lib/format";
 import { type HierarchyNode } from "@/lib/expense-types";
 
+interface YearTypeOption {
+  year: string;
+  type: "budget" | "actual";
+  label: string;
+}
+
 interface DynamicExpenseTableProps {
   hierarchy: HierarchyNode[];
   levelNames: string[];
   years: string[];
   currentYear: string;
+  yearTypes?: Record<string, "budget" | "actual">;
+  yearTypeOptions?: YearTypeOption[];
   townColor?: string;
   lineItemTooltips?: Record<string, string>;
 }
@@ -167,6 +175,8 @@ export default function DynamicExpenseTable({
   levelNames,
   years,
   currentYear,
+  yearTypes = {},
+  yearTypeOptions = [],
   townColor = "#1e40af",
   lineItemTooltips = {},
 }: DynamicExpenseTableProps) {
@@ -175,12 +185,11 @@ export default function DynamicExpenseTable({
   const [query, setQuery] = useState("");
   const [allCollapsed, setAllCollapsed] = useState(false);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
-  // Which individual year columns to show (default: all visible)
-  const [hiddenYears, setHiddenYears] = useState<Set<string>>(new Set());
+  // Which year+type combinations to hide
+  const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set());
 
-  const displayYears = years
-    .slice(yearOffset, yearOffset + MAX_VISIBLE_YEARS)
-    .filter(y => !hiddenYears.has(y));
+  const windowYears = years.slice(yearOffset, yearOffset + MAX_VISIBLE_YEARS);
+  const displayYears = windowYears.filter(y => !hiddenCols.has(y));
   const canScrollLeft = yearOffset > 0;
   const canScrollRight = yearOffset + MAX_VISIBLE_YEARS < years.length;
   const colCount = 2 + displayYears.length;
@@ -256,25 +265,29 @@ export default function DynamicExpenseTable({
           <button onClick={() => setFilterMenuOpen(o => !o)}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white hover:bg-gray-50">
             <span className="text-gray-600">Columns</span>
-            {hiddenYears.size > 0 && <span className="text-[10px] bg-blue-100 text-blue-600 rounded px-1">{hiddenYears.size} hidden</span>}
+            {hiddenCols.size > 0 && <span className="text-[10px] bg-blue-100 text-blue-600 rounded px-1">{hiddenCols.size} hidden</span>}
           </button>
           {filterMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[10rem]">
-              <p className="px-3 pb-1 text-xs text-gray-400 font-medium uppercase tracking-wide">Show/hide years</p>
-              {years.slice(yearOffset, yearOffset + MAX_VISIBLE_YEARS).map(y => (
-                <label key={y} className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 cursor-pointer">
-                  <input type="checkbox" checked={!hiddenYears.has(y)}
-                    onChange={() => setHiddenYears(prev => {
+            <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[12rem]">
+              <p className="px-3 pb-1 text-xs text-gray-400 font-medium uppercase tracking-wide">Show / hide columns</p>
+              {(yearTypeOptions.length > 0 ? yearTypeOptions.filter(o => windowYears.includes(o.year)) : windowYears.map(y => ({ year: y, type: yearTypes[y] ?? "budget", label: `FY${y} ${(yearTypes[y] ?? "budget") === "budget" ? "Budget" : "Actual"}` }))).map(opt => (
+                <label key={opt.year} className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 cursor-pointer">
+                  <input type="checkbox"
+                    checked={!hiddenCols.has(opt.year)}
+                    onChange={() => setHiddenCols(prev => {
                       const next = new Set(prev);
-                      next.has(y) ? next.delete(y) : next.add(y);
+                      next.has(opt.year) ? next.delete(opt.year) : next.add(opt.year);
                       return next;
                     })}
                     className="h-4 w-4 rounded border-gray-300" />
-                  <span className="text-gray-700">FY{y}</span>
+                  <span className="text-gray-700">{opt.label}</span>
+                  <span className={`ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded ${opt.type === "actual" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
+                    {opt.type === "actual" ? "Actual" : "Budget"}
+                  </span>
                 </label>
               ))}
-              {hiddenYears.size > 0 && (
-                <button onClick={() => setHiddenYears(new Set())}
+              {hiddenCols.size > 0 && (
+                <button onClick={() => setHiddenCols(new Set())}
                   className="w-full text-left px-3 py-1.5 text-xs text-blue-600 hover:bg-gray-50 border-t border-gray-100 mt-1">
                   Show all
                 </button>
@@ -309,14 +322,25 @@ export default function DynamicExpenseTable({
                 style={{ minWidth: "180px" }}>
                 Account
               </th>
-              {displayYears.map(y => (
-                <th key={y}
-                  className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
-                  style={{ minWidth: "130px", color: y === currentYear ? townColor : "#9ca3af" }}>
-                  FY{y}
-                  {y === currentYear && <span className="ml-1 normal-case font-normal opacity-60 text-[10px]">Budget</span>}
-                </th>
-              ))}
+              {displayYears.map(y => {
+                const type = yearTypes[y] ?? (y === currentYear ? "budget" : "budget");
+                return (
+                  <th key={y}
+                    className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
+                    style={{ minWidth: "130px", color: y === currentYear ? townColor : "#9ca3af" }}>
+                    FY{y}
+                    <span className={`ml-1.5 normal-case font-medium text-[10px] px-1.5 py-0.5 rounded ${
+                      type === "actual"
+                        ? "bg-amber-100 text-amber-700"
+                        : y === currentYear
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-gray-100 text-gray-500"
+                    }`}>
+                      {type === "actual" ? "Actual" : "Budget"}
+                    </span>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody key={`${allCollapsed}-${yearOffset}`}>
