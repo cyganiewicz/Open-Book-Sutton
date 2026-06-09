@@ -565,15 +565,11 @@ export default function AccountCodesPage() {
             category (e.g. "Taxes and Excise") and subcategory (e.g. "Motor Vehicle Excise").
           </p>
 
-          <HelpBox title="How revenue account codes work" variant="tip">
-            <p className="text-xs text-gray-600">
-              When a revenue file is uploaded with an account number column, the system splits each
-              account by the separator below and looks up the segment you designate as Category.
-              For example, account <code className="bg-gray-100 px-1 rounded">0001-100-146-0000-00-0-00-41200</code> with
-              separator <code className="bg-gray-100 px-1 rounded">-</code> and Category at Segment 7 with prefix length 3
-              gives key <code className="bg-gray-100 px-1 rounded">412</code> → your defined label.
-              If codes already exist in your upload as separate Category/Subcategory columns, those
-              will be used as-is and this dictionary fills in any gaps.
+          <HelpBox title="Two ways to classify revenues — use either or both" variant="tip">
+            <p className="text-xs text-gray-600 space-y-2">
+              <strong>Option A — Columns in your file:</strong> If your revenue file already has Category and Subcategory columns, just map them during upload. No setup here needed.<br /><br />
+              <strong>Option B — Account code dictionary (this page):</strong> Define which segment of the account number holds the revenue type code. The system will automatically classify any row where Category is not already provided — so future uploads with just an account number column will work.<br /><br />
+              For each code you define: <strong>Category</strong> = the top-level bucket shown on charts (e.g. "Taxes and Excise"). <strong>Subcategory label</strong> = the specific description shown in the detail table (e.g. "Motor Vehicle Excise"). Multiple codes can share the same Category to roll up together.
             </p>
           </HelpBox>
 
@@ -679,8 +675,8 @@ export default function AccountCodesPage() {
                         <thead className="bg-gray-50 border-b border-gray-200">
                           <tr>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 w-24">Code</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Label (specific)</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Group (merged)</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Subcategory label</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Category (roll-up group)</th>
                             <th className="w-8" />
                           </tr>
                         </thead>
