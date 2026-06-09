@@ -62,7 +62,7 @@ export default async function RevenuesPage({
 
   const current = allRowsClassified.filter(r => r.fiscalYear === currentYear && r.amountType === "budget");
   const prev = previousYear
-    ? allRowsClassified.filter(r => r.fiscalYear === previousYear && (r.amountType === "actual" || r.amountType === "budget"))
+    ? allRowsClassified.filter(r => r.fiscalYear === previousYear && r.amountType === (yearTypes[previousYear] ?? "budget"))
     : [];
 
   const totalRevenue = current.reduce((s, r) => s + r.amount, 0);
