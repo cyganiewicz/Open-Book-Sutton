@@ -118,15 +118,18 @@ export interface PortalOrganization {
  * Revenue accounts often have a completely different structure from expenses,
  * so they get their own segment dictionary.
  */
+/**
+ * Revenue account code configuration.
+ * One segment handles both category and subcategory automatically:
+ *   Group  → category1  (roll-up bucket, e.g. "Taxes and Excise")
+ *   Label  → category2  (specific line, e.g. "Real Estate Taxes")
+ * If Group is blank: category1 = Label, category2 = null.
+ */
 export interface RevenueCodeConfig {
-  /** Separator character (e.g. "-") */
   separator: string;
-  /** Named segment definitions for revenue accounts */
   segments: AccountSegment[];
-  /** Which segment index drives category1 (e.g. "Taxes and Excise") */
-  categorySegment: number | null;
-  /** Which segment index drives category2 (e.g. "Real Estate Tax") */
-  subcategorySegment: number | null;
+  /** Which segment index holds the revenue type code */
+  revenueTypeSegment: number | null;
 }
 
 export interface AccountCodeConfig {
@@ -179,8 +182,7 @@ export function emptyConfig(): AccountCodeConfig {
     revenueConfig: {
       separator: "-",
       segments: [],
-      categorySegment: null,
-      subcategorySegment: null,
+      revenueTypeSegment: null,
     },
     portalOrganization: {
       expenseLevels: DEFAULT_EXPENSE_LEVELS,
@@ -398,25 +400,22 @@ export function resolveRevenueCategory(
   accountCode: string | null,
   config: RevenueCodeConfig | null | undefined
 ): { category1: string | null; category2: string | null } {
-  if (!accountCode || !config) return { category1: null, category2: null };
-
-  const parts = config.separator ? accountCode.split(config.separator) : [accountCode];
-
-  function lookup(segIdx: number | null): string | null {
-    if (segIdx === null || segIdx === undefined || !config) return null;
-    const seg = config.segments.find(s => s.index === segIdx);
-    if (!seg) return null;
-    const raw = parts[seg.index];
-    if (!raw) return null;
-    const key = seg.prefixLength > 0 ? raw.slice(0, seg.prefixLength) : raw;
-    const entry = seg.codes.find(c => c.code === key);
-    return entry ? (entry.group || entry.label) : null;
+  if (!accountCode || !config || config.revenueTypeSegment === null) {
+    return { category1: null, category2: null };
   }
-
-  return {
-    category1: lookup(config.categorySegment),
-    category2: lookup(config.subcategorySegment),
-  };
+  const parts = config.separator ? accountCode.split(config.separator) : [accountCode];
+  const seg = config.segments.find(s => s.index === config.revenueTypeSegment);
+  if (!seg) return { category1: null, category2: null };
+  const raw = parts[seg.index];
+  if (!raw) return { category1: null, category2: null };
+  const key = seg.prefixLength > 0 ? raw.slice(0, seg.prefixLength) : raw;
+  const entry = seg.codes.find(c => c.code === key);
+  if (!entry) return { category1: null, category2: null };
+  // Group → category1 (roll-up), Label → category2 (specific)
+  // If no group set, label becomes category1 with no subcategory
+  return entry.group
+    ? { category1: entry.group, category2: entry.label }
+    : { category1: entry.label, category2: null };
 }
 
 // ── Legacy compatibility ───────────────────────────────────────────────────
