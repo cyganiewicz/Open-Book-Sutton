@@ -102,7 +102,7 @@ export default async function RevenuesPage({
       switch (level.sort) {
         case "alpha_asc":  return a[0].localeCompare(b[0]);
         case "alpha_desc": return b[0].localeCompare(a[0]);
-        case "total_asc":  return a[1].reduce((s, r) => s + r.amount, 0) - b[1].reduce((s, r) => s + r.amount, 0);
+        case "total_asc":  return a[1].reduce((s, r) => s + r.amount, 0) - b[1].reduce((s, r) => s + r.amount, 0); // uses raw rows — ok
         default:           return b[1].reduce((s, r) => s + r.amount, 0) - a[1].reduce((s, r) => s + r.amount, 0);
       }
     });
@@ -168,7 +168,7 @@ export default async function RevenuesPage({
 
   // Fallback: if configured levels produce nothing, use category1 → category2
   // Works whether data came from mapped columns or account code dictionary
-  if (hierarchy.length === 0 || hierarchy.every(n => (n.amounts[currentYear] || 0) === 0)) {
+  if (hierarchy.length === 0 || hierarchy.every(n => (n.amounts[colKey(currentYear,'budget')] || n.amounts[colKey(currentYear,'actual')] || 0) === 0)) {
     hierarchy = buildLevel(current, 0, () => true, DEFAULT_REVENUE_LEVELS);
     levelNames = DEFAULT_REVENUE_LEVELS.map(l => l.name);
   }
