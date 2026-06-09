@@ -77,11 +77,12 @@ export default async function RevenuesPage({
   function buildLevel(
     rows: RowType[],
     levelIdx: number,
-    ancestorMatchFn: (r: RowType) => boolean
+    ancestorMatchFn: (r: RowType) => boolean,
+    levels = revLevels
   ): RevHierarchyNode[] {
-    if (levelIdx >= revLevels.length || rows.length === 0) return [];
-    const level = revLevels[levelIdx];
-    const isLast = levelIdx === revLevels.length - 1;
+    if (levelIdx >= levels.length || rows.length === 0) return [];
+    const level = levels[levelIdx];
+    const isLast = levelIdx === levels.length - 1;
 
     const groups = new Map<string, RowType[]>();
     for (const row of rows) {
@@ -113,7 +114,7 @@ export default async function RevenuesPage({
         }));
         nodes.push({ key, amounts, isLeaf: true, children: [], rows: leafRows });
       } else {
-        const children = buildLevel(groupRows, levelIdx + 1, nodeMatchFn);
+        const children = buildLevel(groupRows, levelIdx + 1, nodeMatchFn, levels);
         nodes.push({ key, amounts, isLeaf: false, children, rows: [] });
       }
     }
@@ -121,14 +122,22 @@ export default async function RevenuesPage({
     // Rows that skipped this level — pass through to next level
     const skipped = level.skipIfEmpty ? rows.filter(r => !getRevField(r, level.dataField)) : [];
     if (skipped.length > 0 && !isLast) {
-      nodes.push(...buildLevel(skipped, levelIdx + 1, ancestorMatchFn));
+      nodes.push(...buildLevel(skipped, levelIdx + 1, ancestorMatchFn, levels));
     }
 
     return nodes;
   }
 
-  const hierarchy = buildLevel(current, 0, () => true);
-  const levelNames = revLevels.map(l => l.name);
+  // Build hierarchy using configured levels
+  let hierarchy = buildLevel(current, 0, () => true);
+  let levelNames = revLevels.map(l => l.name);
+
+  // Fallback: if configured levels produce nothing, use category1 → category2
+  // Works whether data came from mapped columns or account code dictionary
+  if (hierarchy.length === 0 || hierarchy.every(n => (n.amounts[currentYear] || 0) === 0)) {
+    hierarchy = buildLevel(current, 0, () => true, DEFAULT_REVENUE_LEVELS);
+    levelNames = DEFAULT_REVENUE_LEVELS.map(l => l.name);
+  }
 
   // Export
   const exportData = current.map(r => {
