@@ -1,23 +1,13 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import {
-  groupAndSum,
-  toChartData,
-  detectCurrentAndPreviousYear,
-} from "@/lib/aggregator";
-import {
-  abbreviateCurrency,
-  formatCurrency,
-  formatPercent,
-  calculateChange,
-} from "@/lib/format";
-import SummaryTiles from "@/components/portal/SummaryTiles";
-import PieChart from "@/components/portal/PieChart";
-import BarChart from "@/components/portal/BarChart";
-import type { SummaryTile } from "@/types";
-import Link from "next/link";
+import { detectCurrentAndPreviousYear } from "@/lib/aggregator";
+import { formatCurrency, abbreviateCurrency, calculateChange, formatPercent } from "@/lib/format";
+import { parseAccountCodeConfig, DEFAULT_REVENUE_LEVELS } from "@/lib/account-codes";
+import ExportButton from "@/components/portal/ExportButton";
+import RevenueHeader, { type RevHierarchyNode } from "@/components/portal/RevenueHeader";
+import RevenueTable from "@/components/portal/RevenueTable";
 
-export default async function DashboardPage({
+export default async function RevenuesPage({
   params,
 }: {
   params: Promise<{ townSlug: string }>;
@@ -26,205 +16,175 @@ export default async function DashboardPage({
   const town = await prisma.town.findUnique({ where: { slug: townSlug } });
   if (!town) return notFound();
 
-  const expenseRows = await prisma.budgetRow.findMany({
-    where: { townId: town.id, dataCategory: "expenses" },
-  });
-  const revenueRows = await prisma.budgetRow.findMany({
+  const acConfig = parseAccountCodeConfig(town.accountCodeRules || "");
+  const revLevels = acConfig?.portalOrganization?.revenueLevels ?? DEFAULT_REVENUE_LEVELS;
+
+  const allRows = await prisma.budgetRow.findMany({
     where: { townId: town.id, dataCategory: "revenues" },
   });
-  const capitalRows = await prisma.budgetRow.findMany({
-    where: { townId: town.id, dataCategory: "capital" },
+
+  const { currentYear, previousYear, allYears } = detectCurrentAndPreviousYear(allRows);
+  const tableYears = allYears.length > 0 ? allYears : [currentYear];
+
+  const current = allRows.filter(r => r.fiscalYear === currentYear && r.amountType === "budget");
+  const prev = previousYear
+    ? allRows.filter(r => r.fiscalYear === previousYear && (r.amountType === "actual" || r.amountType === "budget"))
+    : [];
+
+  const totalRevenue = current.reduce((s, r) => s + r.amount, 0);
+  const prevTotal = prev.reduce((s, r) => s + r.amount, 0);
+
+  // ── Build hierarchy from portal organization levels ─────────────────────
+  // Revenue typically: category1 → category2 → line items
+  // Use the configured revLevels to determine grouping fields
+
+  type RowType = typeof current[0];
+
+  function getRevField(row: RowType, field: string): string {
+    const v = row[field as keyof RowType];
+    return (v != null && v !== "") ? String(v) : "";
+  }
+
+  function getYearAmounts(
+    matchFn: (r: RowType) => boolean
+  ): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const y of tableYears) {
+      out[y] = allRows
+        .filter(r =>
+          matchFn(r) &&
+          r.fiscalYear === y &&
+          (y === currentYear ? r.amountType === "budget" : r.amountType === "budget" || r.amountType === "actual")
+        )
+        .reduce((s, r) => s + r.amount, 0);
+    }
+    return out;
+  }
+
+  function sortByLevel(entries: [string, RowType[]][], levelIdx: number): [string, RowType[]][] {
+    const level = revLevels[levelIdx];
+    if (!level) return entries;
+    return [...entries].sort((a, b) => {
+      switch (level.sort) {
+        case "alpha_asc":  return a[0].localeCompare(b[0]);
+        case "alpha_desc": return b[0].localeCompare(a[0]);
+        case "total_asc":  return a[1].reduce((s, r) => s + r.amount, 0) - b[1].reduce((s, r) => s + r.amount, 0);
+        default:           return b[1].reduce((s, r) => s + r.amount, 0) - a[1].reduce((s, r) => s + r.amount, 0);
+      }
+    });
+  }
+
+  function buildLevel(
+    rows: RowType[],
+    levelIdx: number,
+    ancestorMatchFn: (r: RowType) => boolean,
+    levels = revLevels
+  ): RevHierarchyNode[] {
+    if (levelIdx >= levels.length || rows.length === 0) return [];
+    const level = levels[levelIdx];
+    const isLast = levelIdx === levels.length - 1;
+
+    const groups = new Map<string, RowType[]>();
+    for (const row of rows) {
+      const val = getRevField(row, level.dataField) || (level.skipIfEmpty ? "" : "Other");
+      if (!val && level.skipIfEmpty) continue;
+      const key = val || "Other";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(row);
+    }
+
+    const sorted = sortByLevel([...groups.entries()], levelIdx);
+    const nodes: RevHierarchyNode[] = [];
+
+    for (const [key, groupRows] of sorted) {
+      const nodeMatchFn = (r: RowType) => ancestorMatchFn(r) && getRevField(r, level.dataField) === key;
+      const amounts = getYearAmounts(nodeMatchFn);
+
+      if (isLast) {
+        // Show line items as leaves
+        // Match across years by lineItem + category1 + category2 (not by id)
+        const leafRows = groupRows.map(row => ({
+          id: row.id,
+          label: row.lineItem || row.category2 || row.category1 || "",
+          amounts: getYearAmounts(r =>
+            r.lineItem === row.lineItem &&
+            r.category1 === row.category1 &&
+            r.category2 === row.category2
+          ),
+        }));
+        nodes.push({ key, amounts, isLeaf: true, children: [], rows: leafRows });
+      } else {
+        const children = buildLevel(groupRows, levelIdx + 1, nodeMatchFn, levels);
+        nodes.push({ key, amounts, isLeaf: false, children, rows: [] });
+      }
+    }
+
+    // Rows that skipped this level — pass through to next level
+    const skipped = level.skipIfEmpty ? rows.filter(r => !getRevField(r, level.dataField)) : [];
+    if (skipped.length > 0 && !isLast) {
+      nodes.push(...buildLevel(skipped, levelIdx + 1, ancestorMatchFn, levels));
+    }
+
+    return nodes;
+  }
+
+  // Build hierarchy using configured levels
+  let hierarchy = buildLevel(current, 0, () => true);
+  let levelNames = revLevels.map(l => l.name);
+
+  // Fallback: if configured levels produce nothing, use category1 → category2
+  // Works whether data came from mapped columns or account code dictionary
+  if (hierarchy.length === 0 || hierarchy.every(n => (n.amounts[currentYear] || 0) === 0)) {
+    hierarchy = buildLevel(current, 0, () => true, DEFAULT_REVENUE_LEVELS);
+    levelNames = DEFAULT_REVENUE_LEVELS.map(l => l.name);
+  }
+
+  // Export
+  const exportData = current.map(r => {
+    const row: Record<string, string> = {
+      Category: r.category1 || "",
+      Subcategory: r.category2 || "",
+      Description: r.lineItem || "",
+    };
+    for (const y of tableYears) {
+      const amt = allRows.find(ar =>
+        ar.lineItem === r.lineItem && ar.category1 === r.category1 &&
+        ar.category2 === r.category2 && ar.fiscalYear === y
+      )?.amount || 0;
+      row[`FY${y}`] = formatCurrency(amt);
+    }
+    return row;
   });
 
-  const expYears = detectCurrentAndPreviousYear(expenseRows);
-  const revYears = detectCurrentAndPreviousYear(revenueRows);
-  const { currentYear, previousYear, allYears } = expYears;
-
-  const currentExpenses = expenseRows.filter(
-    (r) => r.fiscalYear === currentYear && r.amountType === "budget"
-  );
-  const prevExpenses = previousYear
-    ? expenseRows.filter(
-        (r) => r.fiscalYear === previousYear && (r.amountType === "budget" || r.amountType === "actual")
-      )
-    : [];
-
-  const currentRevenues = revenueRows.filter(
-    (r) => r.fiscalYear === revYears.currentYear && r.amountType === "budget"
-  );
-  const prevRevenues = revYears.previousYear
-    ? revenueRows.filter(
-        (r) => r.fiscalYear === revYears.previousYear && (r.amountType === "actual" || r.amountType === "budget")
-      )
-    : [];
-
-  const currentCapital = capitalRows.filter(
-    (r) => r.fiscalYear === currentYear
-  );
-
-  const totalExp = currentExpenses.reduce((s, r) => s + r.amount, 0);
-  const totalRev = currentRevenues.reduce((s, r) => s + r.amount, 0);
-  const totalCap = currentCapital.reduce((s, r) => s + r.amount, 0);
-  const prevTotalExp = prevExpenses.reduce((s, r) => s + r.amount, 0);
-  const prevTotalRev = prevRevenues.reduce((s, r) => s + r.amount, 0);
-
-  const expChange = prevTotalExp > 0 ? calculateChange(prevTotalExp, totalExp) : null;
-  const revChange = prevTotalRev > 0 ? calculateChange(prevTotalRev, totalRev) : null;
-
-  const expenseByFunction = toChartData(groupAndSum(currentExpenses, "functionArea"));
-  const revenueByCategory = toChartData(groupAndSum(currentRevenues, "category1"));
-
-  const years = allYears.length > 0 ? allYears : [currentYear];
-  const functions: string[] = [...new Set(currentExpenses.map((r) => r.functionArea || "Other"))];
-  const trendSeries = functions.slice(0, 6).map((fn) => ({
-    label: fn,
-    data: years.map((y) =>
-      expenseRows
-        .filter((r) => r.functionArea === fn && r.fiscalYear === y && (r.amountType === "budget" || r.amountType === "actual"))
-        .reduce((s, r) => s + r.amount, 0)
-    ),
-  }));
-
-  const heroTiles: SummaryTile[] = [
-    { label: "Total Expenses", value: abbreviateCurrency(totalExp), change: expChange ? formatPercent(expChange.percent) + " vs last year" : undefined, changeType: expChange ? (expChange.percent >= 0 ? "positive" : "negative") : undefined },
-    { label: "Total Revenue", value: abbreviateCurrency(totalRev), change: revChange ? formatPercent(revChange.percent) + " vs last year" : undefined, changeType: revChange ? (revChange.percent >= 0 ? "positive" : "negative") : undefined },
-    ...(totalCap > 0 ? [{ label: "Capital Projects", value: abbreviateCurrency(totalCap), change: `${currentCapital.length} projects`, changeType: "neutral" as const }] : []),
-  ];
-
   return (
-    <div className="space-y-10">
-      {/* Hero */}
-      <div
-        className="rounded-2xl px-6 py-8 sm:px-10 text-white"
-        style={{ backgroundColor: townColor(town.primaryColor) }}
-      >
-        {town.logoUrl && (
-          <img src={town.logoUrl} alt={`${town.name} logo`} className="h-14 w-14 object-contain mb-4 opacity-90" />
-        )}
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-          Town of {town.name}
-        </h1>
-        <p className="text-white/75 mt-2 text-lg">
-          FY{currentYear} Budget Portal
-        </p>
-        <p className="text-white/60 text-sm mt-3 max-w-xl leading-relaxed">
-          Explore how your tax dollars are spent. Use the navigation above to drill into
-          expenses, revenues, and capital projects — or start with the highlights below.
-        </p>
-        <div className="flex flex-wrap gap-3 mt-5">
-          <Link href={`/${town.slug}/expenses`} className="px-4 py-2 bg-white/15 hover:bg-white/25 border border-white/20 rounded-lg text-sm font-medium text-white transition-colors">
-            View Expenses →
-          </Link>
-          <Link href={`/${town.slug}/revenues`} className="px-4 py-2 bg-white/15 hover:bg-white/25 border border-white/20 rounded-lg text-sm font-medium text-white transition-colors">
-            View Revenues →
-          </Link>
-          {totalCap > 0 && (
-            <Link href={`/${town.slug}/capital`} className="px-4 py-2 bg-white/15 hover:bg-white/25 border border-white/20 rounded-lg text-sm font-medium text-white transition-colors">
-              Capital Projects →
-            </Link>
-          )}
-          <Link href={`/${town.slug}/budget-book`} className="px-4 py-2 bg-white/15 hover:bg-white/25 border border-white/20 rounded-lg text-sm font-medium text-white transition-colors">
-            Budget Book →
-          </Link>
+    <div className="space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Revenues</h1>
+          <p className="text-gray-500 mt-1 text-sm">
+            FY{currentYear} adopted budget · {current.length.toLocaleString()} line items
+          </p>
         </div>
+        <ExportButton data={exportData} filename={`${town.slug}-revenues-fy${currentYear}`} />
       </div>
 
-      {/* Top-line KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {heroTiles.map((tile) => (
-          <div key={tile.label} className="bg-white border border-gray-200 rounded-xl p-5 hover:border-gray-300 hover:shadow-sm transition-all">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{tile.label}</p>
-            <p className="text-3xl font-bold tracking-tight text-gray-900 mt-1">{tile.value}</p>
-            {tile.change && (
-              <p className={`text-sm mt-1.5 font-medium ${tile.changeType === "negative" ? "text-red-500" : tile.changeType === "positive" ? "text-emerald-600" : "text-gray-400"}`}>
-                {tile.change}
-              </p>
-            )}
-          </div>
-        ))}
-      </div>
+      <RevenueHeader
+        hierarchy={hierarchy}
+        years={tableYears}
+        currentYear={currentYear}
+        townColor={town.primaryColor}
+        totalRevenue={totalRevenue}
+        prevTotal={prevTotal}
+      />
 
-      {/* Expense section */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Expenses</h2>
-            <p className="text-sm text-gray-500 mt-0.5">How the town spends money by function area</p>
-          </div>
-          <Link href={`/${town.slug}/expenses`} className="text-sm font-medium hover:underline" style={{ color: town.primaryColor }}>
-            Full detail →
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <PieChart data={expenseByFunction} title={`FY${currentYear} Expenses by Function`} townColor={town.primaryColor} />
-          <BarChart categories={years.map((y) => `FY${y}`)} series={trendSeries} title="Expense Trend by Function" stacked />
-        </div>
-
-        {/* Top departments quick table */}
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100">
-            <p className="text-sm font-medium text-gray-700">Top Function Areas — FY{currentYear}</p>
-          </div>
-          <table className="w-full text-sm">
-            <tbody>
-              {Object.entries(groupAndSum(currentExpenses, "functionArea"))
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 6)
-                .map(([fn, amount]) => (
-                  <tr key={fn} className="border-t border-gray-50 hover:bg-gray-50/50">
-                    <td className="px-5 py-2.5 text-gray-700">{fn}</td>
-                    <td className="px-5 py-2.5 text-right tabular-nums font-medium text-gray-900">{formatCurrency(amount)}</td>
-                    <td className="px-5 py-2.5 text-right tabular-nums text-gray-400 w-20">
-                      {totalExp > 0 ? ((amount / totalExp) * 100).toFixed(1) : 0}%
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* Revenue section */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Revenues</h2>
-            <p className="text-sm text-gray-500 mt-0.5">Where the town&apos;s money comes from</p>
-          </div>
-          <Link href={`/${town.slug}/revenues`} className="text-sm font-medium hover:underline" style={{ color: town.primaryColor }}>
-            Full detail →
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <PieChart data={revenueByCategory} title={`FY${revYears.currentYear} Revenue by Category`} townColor={town.primaryColor} />
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div className="px-5 py-3 border-b border-gray-100">
-              <p className="text-sm font-medium text-gray-700">Revenue Sources — FY{revYears.currentYear}</p>
-            </div>
-            <table className="w-full text-sm">
-              <tbody>
-                {Object.entries(groupAndSum(currentRevenues, "category1"))
-                  .sort((a, b) => b[1] - a[1])
-                  .slice(0, 6)
-                  .map(([cat, amount]) => (
-                    <tr key={cat} className="border-t border-gray-50 hover:bg-gray-50/50">
-                      <td className="px-5 py-2.5 text-gray-700">{cat}</td>
-                      <td className="px-5 py-2.5 text-right tabular-nums font-medium text-gray-900">{formatCurrency(amount)}</td>
-                      <td className="px-5 py-2.5 text-right tabular-nums text-gray-400 w-20">
-                        {totalRev > 0 ? ((amount / totalRev) * 100).toFixed(1) : 0}%
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
+      <RevenueTable
+        hierarchy={hierarchy}
+        years={tableYears}
+        currentYear={currentYear}
+        townColor={town.primaryColor}
+        totalRevenue={totalRevenue}
+        levelNames={levelNames}
+      />
     </div>
   );
-}
-
-// Darken color slightly for readability if needed
-function townColor(hex: string): string {
-  return hex || "#1e40af";
 }
