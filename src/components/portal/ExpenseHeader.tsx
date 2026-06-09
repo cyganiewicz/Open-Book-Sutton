@@ -69,7 +69,11 @@ function buildSpendingTypeTotals(
     if (!type) continue;
     if (!map.has(type)) map.set(type, Object.fromEntries(years.map(y => [y, 0])));
     const entry = map.get(type)!;
-    for (const y of years) entry[y] = (entry[y] || 0) + (leaf.amounts[y] || 0);
+    for (const y of years) {
+      const bud = leaf.amounts[colKey(y, 'budget')] || 0;
+      const act = leaf.amounts[colKey(y, 'actual')] || 0;
+      entry[y] = (entry[y] || 0) + (bud || act);
+    }
   }
   return map;
 }
@@ -106,7 +110,7 @@ export default function ExpenseHeader({
       // Top level: group by function (depth 0 nodes)
       return hierarchy
         .filter(n => n.key !== "_direct")
-        .sort((a, b) => (b.amounts[currentYear] || 0) - (a.amounts[currentYear] || 0))
+        .sort((a, b) => ((b.amounts[colKey(currentYear,'budget')] || b.amounts[colKey(currentYear,'actual')] || 0) - (a.amounts[colKey(currentYear,'budget')] || a.amounts[colKey(currentYear,'actual')] || 0)))
         .slice(0, 8)
         .map(n => ({ label: n.key, amounts: n.amounts }));
     } else {
@@ -115,7 +119,7 @@ export default function ExpenseHeader({
       if (!fnNode) return [];
       return fnNode.children
         .filter(n => n.key !== "_direct")
-        .sort((a, b) => (b.amounts[currentYear] || 0) - (a.amounts[currentYear] || 0))
+        .sort((a, b) => ((b.amounts[colKey(currentYear,'budget')] || b.amounts[colKey(currentYear,'actual')] || 0) - (a.amounts[colKey(currentYear,'budget')] || a.amounts[colKey(currentYear,'actual')] || 0)))
         .slice(0, 10)
         .map(n => ({ label: n.key, amounts: n.amounts }));
     }
@@ -127,7 +131,7 @@ export default function ExpenseHeader({
     labels: displayYears.map(y => `FY${y}`),
     datasets: trendGroups.map((g, i) => ({
       label: g.label,
-      data: displayYears.map(y => g.amounts[y] || 0),
+      data: displayYears.map(y => g.amounts[colKey(y,'budget')] || g.amounts[colKey(y,'actual')] || 0),
       backgroundColor: COLORS[i % COLORS.length] + "dd",
       borderColor: COLORS[i % COLORS.length],
       borderWidth: 0,
@@ -142,7 +146,7 @@ export default function ExpenseHeader({
       return {
         labels: fnNodes.map(n => n.key),
         datasets: [{
-          data: fnNodes.map(n => n.amounts[currentYear] || 0),
+          data: fnNodes.map(n => n.amounts[colKey(currentYear,'budget')] || n.amounts[colKey(currentYear,'actual')] || 0),
           backgroundColor: COLORS,
           borderWidth: 2,
           borderColor: "#fff",
