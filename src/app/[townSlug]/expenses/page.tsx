@@ -52,9 +52,9 @@ function sortNodes(
     switch (sort) {
       case "alpha_asc":  return a.key.localeCompare(b.key);
       case "alpha_desc": return b.key.localeCompare(a.key);
-      case "total_asc":  return (a.amounts[currentYear] || 0) - (b.amounts[currentYear] || 0);
+      case "total_asc":  return (a.amounts[colKey(currentYear,'budget')] || a.amounts[colKey(currentYear,'actual')] || 0) - (b.amounts[colKey(currentYear,'budget')] || b.amounts[colKey(currentYear,'actual')] || 0);
       case "total_desc":
-      default:           return (b.amounts[currentYear] || 0) - (a.amounts[currentYear] || 0);
+      default:           return (b.amounts[colKey(currentYear,'budget')] || b.amounts[colKey(currentYear,'actual')] || 0) - (a.amounts[colKey(currentYear,'budget')] || a.amounts[colKey(currentYear,'actual')] || 0);
     }
   });
 }
