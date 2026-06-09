@@ -81,7 +81,7 @@ export default function ExpenseTable({
   const grandTotals: Record<string, number> = {};
   for (const y of displayYears) {
     grandTotals[y] = functionGroups.reduce(
-      (s, fg) => s + (fg.amounts[y] || 0),
+      (s, fg) => s + (fg.amounts[colKey(y,'budget')] || fg.amounts[colKey(y,'actual')] || 0),
       0
     );
   }
@@ -218,7 +218,7 @@ export default function ExpenseTable({
                         >▾</span>
                         <span className="flex-1 text-left">{fg.name}</span>
                         <span className="tabular-nums text-white/80 font-medium text-sm flex-shrink-0">
-                          {abbreviateCurrency(fg.amounts[currentYear] || 0)}
+                          {abbreviateCurrency(fg.amounts[colKey(currentYear,'budget')] || fg.amounts[colKey(currentYear,'actual')] || 0)}
                         </span>
                       </button>
                     </td>
@@ -248,7 +248,7 @@ export default function ExpenseTable({
                           <td className="px-4 py-2.5 hidden sm:table-cell" />
                           {displayYears.map((y) => (
                             <td key={y} className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-700">
-                              {formatCurrency(dept.amounts[y] || 0)}
+                              {formatCurrency(dept.amounts[colKey(y,'budget')] || dept.amounts[colKey(y,'actual')] || 0)}
                             </td>
                           ))}
                         </tr>
@@ -267,8 +267,8 @@ export default function ExpenseTable({
                                   </td>
                                   <td className="px-4 py-2 text-gray-400 text-xs hidden sm:table-cell">{item.objectCode || ""}</td>
                                   {displayYears.map((y) => (
-                                    <td key={y} className={`px-4 py-2 text-right tabular-nums ${(item.amounts[y] || 0) === 0 ? "text-gray-300" : "text-gray-700"}`}>
-                                      {(item.amounts[y] || 0) === 0 ? "—" : formatCurrency(item.amounts[y])}
+                                    <td key={y} className={`px-4 py-2 text-right tabular-nums ${(item.amounts[colKey(y,'budget')] || item.amounts[colKey(y,'actual')] || 0) === 0 ? "text-gray-300" : "text-gray-700"}`}>
+                                      {(item.amounts[colKey(y,'budget')] || item.amounts[colKey(y,'actual')] || 0) === 0 ? "—" : formatCurrency(item.amounts[colKey(y,'budget')] || item.amounts[colKey(y,'actual')] || 0)}
                                     </td>
                                   ))}
                                 </tr>
@@ -303,7 +303,7 @@ export default function ExpenseTable({
                                     <td className="hidden sm:table-cell" />
                                     {displayYears.map((y) => (
                                       <td key={y} className="px-4 py-2 text-right tabular-nums font-medium text-gray-600">
-                                        {formatCurrency(cat1.amounts[y] || 0)}
+                                        {formatCurrency(cat1.amounts[colKey(y,'budget')] || cat1.amounts[colKey(y,'actual')] || 0)}
                                       </td>
                                     ))}
                                   </tr>
@@ -317,8 +317,8 @@ export default function ExpenseTable({
                                             <td className="px-5 py-1.5 text-gray-500 text-xs" style={{ paddingLeft: "5.5rem" }}>{item.label}</td>
                                             <td className="px-4 py-1.5 text-gray-400 text-xs hidden sm:table-cell">{item.objectCode || ""}</td>
                                             {displayYears.map((y) => (
-                                              <td key={y} className={`px-4 py-1.5 text-right tabular-nums text-xs ${(item.amounts[y] || 0) === 0 ? "text-gray-300" : "text-gray-600"}`}>
-                                                {(item.amounts[y] || 0) === 0 ? "—" : formatCurrency(item.amounts[y])}
+                                              <td key={y} className={`px-4 py-1.5 text-right tabular-nums text-xs ${(item.amounts[colKey(y,'budget')] || item.amounts[colKey(y,'actual')] || 0) === 0 ? "text-gray-300" : "text-gray-600"}`}>
+                                                {(item.amounts[colKey(y,'budget')] || item.amounts[colKey(y,'actual')] || 0) === 0 ? "—" : formatCurrency(item.amounts[colKey(y,'budget')] || item.amounts[colKey(y,'actual')] || 0)}
                                               </td>
                                             ))}
                                           </tr>
@@ -335,7 +335,7 @@ export default function ExpenseTable({
                                               <td className="hidden sm:table-cell" />
                                               {displayYears.map((y) => (
                                                 <td key={y} className="px-4 py-1.5 text-right tabular-nums font-medium text-gray-500 text-xs">
-                                                  {formatCurrency(cat2.amounts[y] || 0)}
+                                                  {formatCurrency(cat2.amounts[colKey(y,'budget')] || cat2.amounts[colKey(y,'actual')] || 0)}
                                                 </td>
                                               ))}
                                             </tr>
@@ -345,8 +345,8 @@ export default function ExpenseTable({
                                                   <td className="px-5 py-1.5 text-gray-400 text-xs" style={{ paddingLeft: "7rem" }}>{item.label}</td>
                                                   <td className="px-4 py-1.5 text-gray-300 text-xs hidden sm:table-cell">{item.objectCode || ""}</td>
                                                   {displayYears.map((y) => (
-                                                    <td key={y} className={`px-4 py-1.5 text-right tabular-nums text-xs ${(item.amounts[y] || 0) === 0 ? "text-gray-200" : "text-gray-500"}`}>
-                                                      {(item.amounts[y] || 0) === 0 ? "—" : formatCurrency(item.amounts[y])}
+                                                    <td key={y} className={`px-4 py-1.5 text-right tabular-nums text-xs ${(item.amounts[colKey(y,'budget')] || item.amounts[colKey(y,'actual')] || 0) === 0 ? "text-gray-200" : "text-gray-500"}`}>
+                                                      {(item.amounts[colKey(y,'budget')] || item.amounts[colKey(y,'actual')] || 0) === 0 ? "—" : formatCurrency(item.amounts[colKey(y,'budget')] || item.amounts[colKey(y,'actual')] || 0)}
                                                     </td>
                                                   ))}
                                                 </tr>
