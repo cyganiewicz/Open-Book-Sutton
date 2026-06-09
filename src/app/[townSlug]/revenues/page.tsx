@@ -52,13 +52,20 @@ export default async function RevenuesPage({
       yearTypes[y] = hasActual ? "actual" : "budget";
     }
   }
-  const yearTypeOptions: { year: string; type: "budget" | "actual"; label: string }[] = [];
+  const availableTypes: Record<string, ("budget" | "actual")[]> = {};
   for (const y of tableYears) {
-    const hasBudget = allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "budget");
-    const hasActual = allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "actual");
-    if (hasBudget) yearTypeOptions.push({ year: y, type: "budget", label: `FY${y} Budget` });
-    if (hasActual) yearTypeOptions.push({ year: y, type: "actual", label: `FY${y} Actual` });
+    const types: ("budget" | "actual")[] = [];
+    if (allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "budget")) types.push("budget");
+    if (allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "actual")) types.push("actual");
+    availableTypes[y] = types;
   }
+  const yearTypeOptions: { year: string; type: "budget" | "actual"; label: string; available: ("budget" | "actual")[] }[] =
+    tableYears.map(y => ({
+      year: y,
+      type: yearTypes[y] ?? "budget",
+      label: `FY${y} ${(yearTypes[y] ?? "budget") === "actual" ? "Actual" : "Budget"}`,
+      available: availableTypes[y] ?? ["budget"],
+    }));
 
   const current = allRowsClassified.filter(r => r.fiscalYear === currentYear && r.amountType === "budget");
   const prev = previousYear
