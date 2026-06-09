@@ -163,13 +163,13 @@ export default function AccountCodesPage() {
 
   // ── Revenue config mutators ──────────────────────────────────────────────
   const updRevConfig = (patch: Partial<RevenueCodeConfig>) =>
-    setConfig(c => ({ ...c, revenueConfig: { ...( c.revenueConfig ?? { separator: "-", segments: [], categorySegment: null, subcategorySegment: null }), ...patch } }));
+    setConfig(c => ({ ...c, revenueConfig: { ...( c.revenueConfig ?? { separator: "-", segments: [], revenueTypeSegment: null }), ...patch } }));
 
   const updRevSeg = (idx: number, patch: Partial<AccountSegment>) =>
     setConfig(c => ({
       ...c,
       revenueConfig: {
-        ...(c.revenueConfig ?? { separator: "-", segments: [], categorySegment: null, subcategorySegment: null }),
+        ...(c.revenueConfig ?? { separator: "-", segments: [], revenueTypeSegment: null }),
         segments: (c.revenueConfig?.segments ?? []).map(s => s.index === idx ? { ...s, ...patch } : s),
       }
     }));
@@ -180,7 +180,7 @@ export default function AccountCodesPage() {
     setConfig(c => ({
       ...c,
       revenueConfig: {
-        ...(c.revenueConfig ?? { separator: "-", segments: [], categorySegment: null, subcategorySegment: null }),
+        ...(c.revenueConfig ?? { separator: "-", segments: [], revenueTypeSegment: null }),
         segments: [...existing, blankSegment(index)].sort((a,b) => a.index - b.index),
       }
     }));
@@ -191,7 +191,7 @@ export default function AccountCodesPage() {
     setConfig(c => ({
       ...c,
       revenueConfig: {
-        ...(c.revenueConfig ?? { separator: "-", segments: [], categorySegment: null, subcategorySegment: null }),
+        ...(c.revenueConfig ?? { separator: "-", segments: [], revenueTypeSegment: null }),
         segments: (c.revenueConfig?.segments ?? []).map(s => {
           if (s.index !== segIdx) return s;
           const existing = new Map(s.codes.map(e => [e.code, e]));
@@ -605,8 +605,7 @@ export default function AccountCodesPage() {
                         <span className="text-xs opacity-50 mr-1">Seg {i}</span>
                         {seg?.name || <span className="italic">unnamed</span>}
                         {seg?.codes.length ? <span className="ml-1.5 text-[10px] bg-gray-100 text-gray-500 rounded px-1">{seg.codes.length} codes</span> : null}
-                        {config.revenueConfig?.categorySegment === i && <span className="ml-1 text-[10px] bg-green-100 text-green-700 rounded px-1">Cat</span>}
-                        {config.revenueConfig?.subcategorySegment === i && <span className="ml-1 text-[10px] bg-purple-100 text-purple-600 rounded px-1">Sub</span>}
+                        {config.revenueConfig?.revenueTypeSegment === i && <span className="ml-1 text-[10px] bg-green-100 text-green-700 rounded px-1">Rev Type</span>}
                       </button>
                     );
                   })}
@@ -641,30 +640,22 @@ export default function AccountCodesPage() {
                   </div>
                 </div>
 
-                {/* Category/Subcategory role */}
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">What does this segment drive?</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${config.revenueConfig?.categorySegment === activeRevSeg.index ? "border-green-400 bg-green-50" : "border-gray-200 hover:border-gray-300"}`}>
-                    <input type="checkbox"
-                      checked={config.revenueConfig?.categorySegment === activeRevSeg.index}
-                      onChange={e => updRevConfig({ categorySegment: e.target.checked ? activeRevSeg.index : null })}
-                      className="h-4 w-4 rounded border-gray-300" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Category</p>
-                      <p className="text-xs text-gray-400">Top-level revenue grouping (e.g. "Taxes and Excise")</p>
-                    </div>
-                  </label>
-                  <label className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${config.revenueConfig?.subcategorySegment === activeRevSeg.index ? "border-purple-400 bg-purple-50" : "border-gray-200 hover:border-gray-300"}`}>
-                    <input type="checkbox"
-                      checked={config.revenueConfig?.subcategorySegment === activeRevSeg.index}
-                      onChange={e => updRevConfig({ subcategorySegment: e.target.checked ? activeRevSeg.index : null })}
-                      className="h-4 w-4 rounded border-gray-300" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Subcategory</p>
-                      <p className="text-xs text-gray-400">Second-level grouping (e.g. "Motor Vehicle Excise")</p>
-                    </div>
-                  </label>
-                </div>
+                {/* Revenue type role - single checkbox, unambiguous */}
+                <label className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${config.revenueConfig?.revenueTypeSegment === activeRevSeg.index ? "border-green-400 bg-green-50" : "border-gray-200 hover:border-gray-300"}`}>
+                  <input type="checkbox"
+                    checked={config.revenueConfig?.revenueTypeSegment === activeRevSeg.index}
+                    onChange={e => updRevConfig({ revenueTypeSegment: e.target.checked ? activeRevSeg.index : null })}
+                    className="h-4 w-4 rounded border-gray-300 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">This is the Revenue Type segment</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      The system automatically uses each code entry like this:<br />
+                      <strong>Category column</strong> (right) → top-level grouping on charts (e.g. "Taxes and Excise")<br />
+                      <strong>Subcategory label</strong> (middle) → detail row description (e.g. "Real Estate Taxes")<br />
+                      Codes sharing the same Category roll up together. No second checkbox needed.
+                    </p>
+                  </div>
+                </label>
 
                 {/* Code table */}
                 <div>
