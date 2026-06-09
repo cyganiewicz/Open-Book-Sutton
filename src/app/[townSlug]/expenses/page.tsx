@@ -64,7 +64,8 @@ function buildHierarchy(
   levelIndex: number,
   tableYears: string[],
   currentYear: string,
-  allYearRows: BudgetRowLike[]
+  allYearRows: BudgetRowLike[],
+  yearTypes: Record<string, "budget" | "actual"> = {}
 ): HierarchyNode[] {
   if (levelIndex >= levels.length || rows.length === 0) return [];
 
@@ -135,7 +136,7 @@ function buildHierarchy(
         }))
       });
     } else {
-      const children = buildHierarchy(groupRows, levels, levelIndex + 1, tableYears, currentYear, allYearRows);
+      const children = buildHierarchy(groupRows, levels, levelIndex + 1, tableYears, currentYear, allYearRows, yearTypes);
       const nodeAmounts: Record<string, number> = {};
       for (const y of tableYears) {
         nodeAmounts[y] = children.reduce((s, c) => s + (c.amounts[y] || 0), 0);
