@@ -1,28 +1,19 @@
 import React from "react";
-import { colKey } from "@/lib/expense-types";
 import { notFound } from "next/navigation";
-import { colKey } from "@/lib/expense-types";
 import { prisma } from "@/lib/db";
-import { colKey } from "@/lib/expense-types";
 import { groupAndSum, detectCurrentAndPreviousYear } from "@/lib/aggregator";
-import { colKey } from "@/lib/expense-types";
 import { formatCurrency, abbreviateCurrency } from "@/lib/format";
-import { colKey } from "@/lib/expense-types";
 import {
   parseAccountCodeConfig,
   DEFAULT_EXPENSE_LEVELS,
   DEFAULT_REVENUE_LEVELS,
 } from "@/lib/account-codes";
-import { colKey } from "@/lib/expense-types";
 import { applySortOrder } from "@/lib/portal-sort";
-import { colKey } from "@/lib/expense-types";
 import {
   buildHierarchyV2,
   annotateSpendingTypes,
 } from "@/app/[townSlug]/expenses/page";
-import { colKey } from "@/lib/expense-types";
-import { type HierarchyNode, fallbackSpendingType } from "@/lib/expense-types";
-import { colKey } from "@/lib/expense-types";
+import { type HierarchyNode, fallbackSpendingType, colKey } from "@/lib/expense-types";
 import { resolveSpendingType } from "@/lib/account-codes";
 import PrintButton from "@/components/portal/PrintButton";
 
