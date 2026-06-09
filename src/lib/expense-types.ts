@@ -68,6 +68,19 @@ export function fallbackSpendingType(accountCode: string | null, separator = "-"
   return MUNIS_FALLBACK_MAP[prefix] || null;
 }
 
+/**
+ * A column key combining fiscal year and amount type.
+ * e.g. "2025:budget" or "2025:actual"
+ */
+export function colKey(year: string, type: "budget" | "actual"): string {
+  return `${year}:${type}`;
+}
+
+export function parseColKey(key: string): { year: string; type: "budget" | "actual" } {
+  const [year, type] = key.split(":");
+  return { year, type: (type as "budget" | "actual") || "budget" };
+}
+
 // Keep OBJECT_SPENDING_MAP as an alias for backward compatibility
 // @deprecated — use resolveSpendingType() from account-codes.ts
 export const OBJECT_SPENDING_MAP = MUNIS_FALLBACK_MAP;
