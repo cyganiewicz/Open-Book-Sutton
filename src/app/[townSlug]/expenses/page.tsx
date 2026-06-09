@@ -272,12 +272,7 @@ export default async function ExpensesPage({
   const current = allRowsClassified.filter(
     (r) => r.fiscalYear === currentYear && r.amountType === "budget"
   );
-  const prev = prevYear
-    ? allRowsClassified.filter(r => r.fiscalYear === prevYear && r.amountType === (yearTypes[prevYear] ?? "budget"))
-    : [];
-
   const currentTotal = current.reduce((s, r) => s + r.amount, 0);
-  const prevTotal = prev.reduce((s, r) => s + r.amount, 0);
 
   // ── Tiles for header ───────────────────────────────────────────────────
   const byFunction = groupAndSum(current, "functionArea");
@@ -303,6 +298,12 @@ export default async function ExpensesPage({
       yearTypes[y] = hasActual ? "actual" : "budget";
     }
   }
+
+  // Now that yearTypes is built, filter prev rows with correct amountType
+  const prev = prevYear
+    ? allRowsClassified.filter(r => r.fiscalYear === prevYear && r.amountType === (yearTypes[prevYear] ?? "budget"))
+    : [];
+  const prevTotal = prev.reduce((s, r) => s + r.amount, 0);
 
   // All available year+type combinations for the filter UI
   const yearTypeOptions: { year: string; type: "budget" | "actual"; label: string }[] = [];
