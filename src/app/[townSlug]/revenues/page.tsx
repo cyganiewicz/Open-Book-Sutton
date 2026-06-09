@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { detectCurrentAndPreviousYear } from "@/lib/aggregator";
 import { formatCurrency, abbreviateCurrency, calculateChange, formatPercent } from "@/lib/format";
-import { parseAccountCodeConfig, DEFAULT_REVENUE_LEVELS } from "@/lib/account-codes";
+import { parseAccountCodeConfig, DEFAULT_REVENUE_LEVELS, resolveRevenueCategory } from "@/lib/account-codes";
 import ExportButton from "@/components/portal/ExportButton";
 import RevenueHeader, { type RevHierarchyNode } from "@/components/portal/RevenueHeader";
 import RevenueTable from "@/components/portal/RevenueTable";
@@ -26,9 +26,24 @@ export default async function RevenuesPage({
   const { currentYear, previousYear, allYears } = detectCurrentAndPreviousYear(allRows);
   const tableYears = allYears.length > 0 ? allYears : [currentYear];
 
-  const current = allRows.filter(r => r.fiscalYear === currentYear && r.amountType === "budget");
+  // Re-classify all rows at render time using the current account code config.
+  // This means changes to the Revenue Segments dictionary are reflected immediately
+  // without needing to re-upload data. Stored category1/category2 are used as
+  // fallback if the account code config doesn't produce a match.
+  function reclassify<T extends { objectCode: string | null; category1: string | null; category2: string | null }>(row: T): T {
+    if (!acConfig?.revenueConfig) return row;
+    const derived = resolveRevenueCategory(row.objectCode, acConfig.revenueConfig);
+    return {
+      ...row,
+      category1: derived.category1 || row.category1,
+      category2: derived.category2 || row.category2,
+    };
+  }
+
+  const allRowsClassified = allRows.map(reclassify);
+  const current = allRowsClassified.filter(r => r.fiscalYear === currentYear && r.amountType === "budget");
   const prev = previousYear
-    ? allRows.filter(r => r.fiscalYear === previousYear && (r.amountType === "actual" || r.amountType === "budget"))
+    ? allRowsClassified.filter(r => r.fiscalYear === previousYear && (r.amountType === "actual" || r.amountType === "budget"))
     : [];
 
   const totalRevenue = current.reduce((s, r) => s + r.amount, 0);
@@ -50,7 +65,7 @@ export default async function RevenuesPage({
   ): Record<string, number> {
     const out: Record<string, number> = {};
     for (const y of tableYears) {
-      out[y] = allRows
+      out[y] = allRowsClassified
         .filter(r =>
           matchFn(r) &&
           r.fiscalYear === y &&
