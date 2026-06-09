@@ -26,6 +26,24 @@ export default async function RevenuesPage({
   const { currentYear, previousYear, allYears } = detectCurrentAndPreviousYear(allRows);
   const tableYears = allYears.length > 0 ? allYears : [currentYear];
 
+  // Determine budget vs actual per year
+  const yearTypes: Record<string, "budget" | "actual"> = {};
+  for (const y of tableYears) {
+    if (y === currentYear) {
+      yearTypes[y] = "budget";
+    } else {
+      const hasActual = allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "actual");
+      yearTypes[y] = hasActual ? "actual" : "budget";
+    }
+  }
+  const yearTypeOptions: { year: string; type: "budget" | "actual"; label: string }[] = [];
+  for (const y of tableYears) {
+    const hasBudget = allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "budget");
+    const hasActual = allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "actual");
+    if (hasBudget) yearTypeOptions.push({ year: y, type: "budget", label: `FY${y} Budget` });
+    if (hasActual) yearTypeOptions.push({ year: y, type: "actual", label: `FY${y} Actual` });
+  }
+
   // Re-classify all rows at render time using the current account code config.
   // This means changes to the Revenue Segments dictionary are reflected immediately
   // without needing to re-upload data. Stored category1/category2 are used as
@@ -69,7 +87,7 @@ export default async function RevenuesPage({
         .filter(r =>
           matchFn(r) &&
           r.fiscalYear === y &&
-          (y === currentYear ? r.amountType === "budget" : r.amountType === "budget" || r.amountType === "actual")
+          r.amountType === (y === currentYear ? "budget" : (yearTypes[y] ?? "budget"))
         )
         .reduce((s, r) => s + r.amount, 0);
     }
@@ -196,6 +214,8 @@ export default async function RevenuesPage({
         hierarchy={hierarchy}
         years={tableYears}
         currentYear={currentYear}
+        yearTypes={yearTypes}
+        yearTypeOptions={yearTypeOptions}
         townColor={town.primaryColor}
         totalRevenue={totalRevenue}
         levelNames={levelNames}
