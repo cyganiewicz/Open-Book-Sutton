@@ -40,8 +40,7 @@ export function normalizeRows(
   const useExpenseRules = dataCategory === "expenses" && !!accountCodeConfig;
   const useRevenueRules = dataCategory === "revenues" &&
     !!accountCodeConfig?.revenueConfig &&
-    (accountCodeConfig.revenueConfig.categorySegment !== null ||
-     accountCodeConfig.revenueConfig.subcategorySegment !== null);
+    accountCodeConfig.revenueConfig.revenueTypeSegment !== null;
 
   const results: NormalizedRow[] = [];
 
