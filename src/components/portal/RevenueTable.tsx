@@ -139,7 +139,12 @@ export default function RevenueTable({
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
 
   const windowYears = years.slice(yearOffset, yearOffset + MAX_VISIBLE_YEARS);
-  const displayYears = windowYears.filter(y => !hiddenCols.has(y));
+  const windowCols: { year: string; type: "budget" | "actual" }[] =
+    yearTypeOptions.length > 0
+      ? yearTypeOptions.filter(o => windowYears.includes(o.year)).map(o => ({ year: o.year, type: o.type }))
+      : windowYears.map(y => ({ year: y, type: yearTypes[y] ?? (y === currentYear ? "budget" : "budget") as "budget" | "actual" }));
+  const displayCols = windowCols.filter(c => !hiddenCols.has(`${c.year}:${c.type}`));
+  const displayYears = displayCols.map(c => c.year);
   const colCount = 1 + displayYears.length + 1;
   const canScrollLeft = yearOffset > 0;
   const canScrollRight = yearOffset + MAX_VISIBLE_YEARS < years.length;
@@ -199,22 +204,27 @@ export default function RevenueTable({
           {filterMenuOpen && (
             <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[10rem]">
               <p className="px-3 pb-1 text-xs text-gray-400 font-medium uppercase tracking-wide">Show / hide columns</p>
-              {(yearTypeOptions.length > 0 ? yearTypeOptions.filter(o => windowYears.includes(o.year)) : windowYears.map(y => ({ year: y, type: yearTypes[y] ?? "budget", label: `FY${y} ${(yearTypes[y] ?? "budget") === "budget" ? "Budget" : "Actual"}` }))).map(opt => (
-                <label key={opt.year} className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 cursor-pointer">
-                  <input type="checkbox"
-                    checked={!hiddenCols.has(opt.year)}
-                    onChange={() => setHiddenCols(prev => {
-                      const next = new Set(prev);
-                      next.has(opt.year) ? next.delete(opt.year) : next.add(opt.year);
-                      return next;
-                    })}
-                    className="h-4 w-4 rounded border-gray-300" />
-                  <span className="text-gray-700">{opt.label}</span>
-                  <span className={`ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded ${opt.type === "actual" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
-                    {opt.type === "actual" ? "Actual" : "Budget"}
-                  </span>
-                </label>
-              ))}
+              {windowCols.map(col => {
+                const key = `${col.year}:${col.type}`;
+                const label = yearTypeOptions.find(o => o.year === col.year && o.type === col.type)?.label
+                  ?? `FY${col.year} ${col.type === "actual" ? "Actual" : "Budget"}`;
+                return (
+                  <label key={key} className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 cursor-pointer">
+                    <input type="checkbox"
+                      checked={!hiddenCols.has(key)}
+                      onChange={() => setHiddenCols(prev => {
+                        const next = new Set(prev);
+                        next.has(key) ? next.delete(key) : next.add(key);
+                        return next;
+                      })}
+                      className="h-4 w-4 rounded border-gray-300" />
+                    <span className="text-gray-700">{label}</span>
+                    <span className={`ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded ${col.type === "actual" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
+                      {col.type === "actual" ? "Actual" : "Budget"}
+                    </span>
+                  </label>
+                );
+              })}
               {hiddenCols.size > 0 && (
                 <button onClick={() => setHiddenCols(new Set())}
                   className="w-full text-left px-3 py-1.5 text-xs text-blue-600 hover:bg-gray-50 border-t border-gray-100 mt-1">
