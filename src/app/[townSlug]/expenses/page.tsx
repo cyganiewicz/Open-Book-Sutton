@@ -100,7 +100,7 @@ function buildHierarchy(
         const v = getField(r, level.dataField);
         const k = v || "(Other)";
         return k === key && r.fiscalYear === y &&
-          (y === currentYear ? r.amountType === "budget" : r.amountType === "budget" || r.amountType === "actual");
+          r.amountType === (y === currentYear ? "budget" : (yearTypes[y] ?? "budget"));
       });
       // But we need ancestor context — use groupRows filtered by year instead
       amounts[y] = 0;
@@ -119,7 +119,7 @@ function buildHierarchy(
         leafAmounts[y] = allYearRows
           .filter(r => getField(r, level.dataField) === key &&
             r.fiscalYear === y &&
-            (y === currentYear ? r.amountType === "budget" : r.amountType === "budget" || r.amountType === "actual"))
+            r.amountType === (y === currentYear ? "budget" : (yearTypes[y] ?? "budget")))
           .reduce((s, r) => s + r.amount, 0);
       }
       nodes.push({
@@ -234,9 +234,7 @@ export function buildHierarchyV2(
                 r.objectCode === acct &&
                 r.lineItem === desc &&
                 r.fiscalYear === y &&
-                (y === currentYear
-                  ? r.amountType === "budget"
-                  : r.amountType === "budget" || r.amountType === "actual"))
+                r.amountType === (y === currentYear ? "budget" : (yearTypes[y] ?? "budget")))
               .reduce((s, r) => s + r.amount, 0),
           ])
         ),
@@ -369,7 +367,7 @@ export default async function ExpensesPage({
     (r) => r.fiscalYear === currentYear && r.amountType === "budget"
   );
   const prev = prevYear
-    ? allRowsClassified.filter(r => r.fiscalYear === prevYear && (r.amountType === "budget" || r.amountType === "actual"))
+    ? allRowsClassified.filter(r => r.fiscalYear === prevYear && r.amountType === (yearTypes[prevYear] ?? "budget"))
     : [];
 
   const currentTotal = current.reduce((s, r) => s + r.amount, 0);
