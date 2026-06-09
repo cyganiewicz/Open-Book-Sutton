@@ -1,19 +1,28 @@
 import React from "react";
+import { colKey } from "@/lib/expense-types";
 import { notFound } from "next/navigation";
+import { colKey } from "@/lib/expense-types";
 import { prisma } from "@/lib/db";
+import { colKey } from "@/lib/expense-types";
 import { groupAndSum, detectCurrentAndPreviousYear } from "@/lib/aggregator";
+import { colKey } from "@/lib/expense-types";
 import { formatCurrency, abbreviateCurrency } from "@/lib/format";
+import { colKey } from "@/lib/expense-types";
 import {
   parseAccountCodeConfig,
   DEFAULT_EXPENSE_LEVELS,
   DEFAULT_REVENUE_LEVELS,
 } from "@/lib/account-codes";
+import { colKey } from "@/lib/expense-types";
 import { applySortOrder } from "@/lib/portal-sort";
+import { colKey } from "@/lib/expense-types";
 import {
   buildHierarchyV2,
   annotateSpendingTypes,
 } from "@/app/[townSlug]/expenses/page";
+import { colKey } from "@/lib/expense-types";
 import { type HierarchyNode, fallbackSpendingType } from "@/lib/expense-types";
+import { colKey } from "@/lib/expense-types";
 import { resolveSpendingType } from "@/lib/account-codes";
 import PrintButton from "@/components/portal/PrintButton";
 
@@ -115,7 +124,7 @@ export default async function BudgetBookPage({
             {rows.map(row => (
               <tr key={row.id} className="border-b border-gray-50">
                 <td className="py-1 text-gray-600">{row.label || "—"}</td>
-                <td className="py-1 text-right tabular-nums w-32">{formatCurrency(row.amounts[currentYear] || 0)}</td>
+                <td className="py-1 text-right tabular-nums w-32">{formatCurrency(row.amounts[colKey(currentYear,'budget')] || amounts[colKey(currentYear,'actual')] || 0)}</td>
               </tr>
             ))}
           </tbody>
@@ -151,7 +160,7 @@ export default async function BudgetBookPage({
           const type = resolveSpendingType(row.objectCode, acConfig ?? null)
             || fallbackSpendingType(row.objectCode, "-")
             || "Other";
-          directTotals[type] = (directTotals[type] || 0) + (row.amounts[currentYear] || 0);
+          directTotals[type] = (directTotals[type] || 0) + (row.amounts[colKey(currentYear,'budget')] || amounts[colKey(currentYear,'actual')] || 0);
         }
         return (
           <table key={`_direct_${i}`} className={`w-full text-xs ${indentClass} mt-1`}>
@@ -173,17 +182,17 @@ export default async function BudgetBookPage({
         <div key={node.key + i} className={depth === 0 ? "mb-8" : depth === 1 ? `mb-4 ${indentClass}` : `mb-2 ${indentClass}`}>
           {depth === 0 && (
             <h3 className="text-lg font-semibold mt-6 mb-2 border-b pb-1" style={{ color: primaryColor, borderColor: primaryColor + "40" }}>
-              {node.key} <span className="font-normal text-base">{formatCurrency(node.amounts[currentYear] || 0)}</span>
+              {node.key} <span className="font-normal text-base">{formatCurrency(node.amounts[colKey(currentYear,'budget')] || amounts[colKey(currentYear,'actual')] || 0)}</span>
             </h3>
           )}
           {depth === 1 && (
             <h4 className="text-sm font-semibold text-gray-800 mb-1 mt-3">
-              {node.key} <span className="font-normal text-gray-500">{formatCurrency(node.amounts[currentYear] || 0)}</span>
+              {node.key} <span className="font-normal text-gray-500">{formatCurrency(node.amounts[colKey(currentYear,'budget')] || amounts[colKey(currentYear,'actual')] || 0)}</span>
             </h4>
           )}
           {depth >= 2 && (
             <p className="text-xs font-semibold text-gray-700 mb-1 mt-2">
-              {node.key} — {formatCurrency(node.amounts[currentYear] || 0)}
+              {node.key} — {formatCurrency(node.amounts[colKey(currentYear,'budget')] || amounts[colKey(currentYear,'actual')] || 0)}
             </p>
           )}
           {isDeepLeaf
