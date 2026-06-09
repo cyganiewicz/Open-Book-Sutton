@@ -12,6 +12,7 @@ import {
   type HierarchyNode,
   type SummaryTile,
   fallbackSpendingType,
+  colKey,
 } from "@/lib/expense-types";
 import { resolveSpendingType, applyAccountCodeConfig } from "@/lib/account-codes";
 import ExpenseHeader from "@/components/portal/ExpenseHeader";
@@ -93,8 +94,9 @@ export function annotateSpendingTypes(
       const type = getType(row.objectCode);
       if (!type) continue;
       if (!spendingTypeTotals[type]) spendingTypeTotals[type] = {};
-      for (const y of tableYears) {
-        spendingTypeTotals[type][y] = (spendingTypeTotals[type][y] || 0) + (row.amounts[y] || 0);
+      // Sum all amount keys (both budget and actual)
+      for (const [k, v] of Object.entries(row.amounts)) {
+        spendingTypeTotals[type][k] = (spendingTypeTotals[type][k] || 0) + v;
       }
     }
 
@@ -128,36 +130,40 @@ export function buildHierarchyV2(
     rows.map(row => {
       const acct = row.objectCode || "";
       const desc = row.lineItem || "";
+      const amounts: Record<string, number> = {};
+      for (const y of tableYears) {
+        for (const t of ["budget", "actual"] as const) {
+          const sum = allYearRows
+            .filter(r =>
+              r.objectCode === acct &&
+              r.lineItem === desc &&
+              r.fiscalYear === y &&
+              r.amountType === t)
+            .reduce((s, r) => s + r.amount, 0);
+          if (sum > 0) amounts[colKey(y, t)] = sum;
+        }
+      }
       return {
         id: row.id,
         label: row.lineItem || row.objectCode || "",
         objectCode: row.objectCode,
-        amounts: Object.fromEntries(
-          tableYears.map(y => [
-            y,
-            allYearRows
-              .filter(r =>
-                r.objectCode === acct &&
-                r.lineItem === desc &&
-                r.fiscalYear === y &&
-                r.amountType === (y === currentYear ? "budget" : (yearTypes[y] ?? "budget")))
-              .reduce((s, r) => s + r.amount, 0),
-          ])
-        ),
+        amounts,
       };
     });
 
   // Helper: sum amounts for a set of rows across all years
-  const sumAmounts = (filter: (r: BudgetRowLike) => boolean): Record<string, number> =>
-    Object.fromEntries(
-      tableYears.map(y => [
-        y,
-        allYearRows
-          .filter(r => filter(r) && r.fiscalYear === y &&
-            (y === currentYear ? r.amountType === "budget" : r.amountType === (yearTypes[y] ?? "budget")))
-          .reduce((s, r) => s + r.amount, 0),
-      ])
-    );
+  const sumAmounts = (filter: (r: BudgetRowLike) => boolean): Record<string, number> => {
+    const out: Record<string, number> = {};
+    for (const y of tableYears) {
+      for (const t of ["budget", "actual"] as const) {
+        const sum = allYearRows
+          .filter(r => filter(r) && r.fiscalYear === y && r.amountType === t)
+          .reduce((s, r) => s + r.amount, 0);
+        if (sum > 0) out[colKey(y, t)] = sum;
+      }
+    }
+    return out;
+  };
 
   // Partition: rows that have a value at this level vs those that don't
   const withValue = currentRows.filter(r => getField(r, level.dataField) !== "");
@@ -306,21 +312,15 @@ export default async function ExpensesPage({
   const prevTotal = prev.reduce((s, r) => s + r.amount, 0);
 
   // Which types are available per year (for the toggle UI)
-  const availableTypes: Record<string, ("budget" | "actual")[]> = {};
+
+  // Build column options: one entry per year+type combination that has data
+  const yearTypeOptions: { year: string; type: "budget" | "actual"; label: string; colKey: string }[] = [];
   for (const y of tableYears) {
-    const types: ("budget" | "actual")[] = [];
-    if (allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "budget")) types.push("budget");
-    if (allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "actual")) types.push("actual");
-    availableTypes[y] = types;
+    const hasBudget = allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "budget");
+    const hasActual = allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "actual");
+    if (hasBudget) yearTypeOptions.push({ year: y, type: "budget", label: `FY${y} Budget`, colKey: colKey(y, "budget") });
+    if (hasActual) yearTypeOptions.push({ year: y, type: "actual", label: `FY${y} Actual`, colKey: colKey(y, "actual") });
   }
-  // yearTypeOptions: one entry per year showing the selected (default) type
-  const yearTypeOptions: { year: string; type: "budget" | "actual"; label: string; available: ("budget" | "actual")[] }[] =
-    tableYears.map(y => ({
-      year: y,
-      type: yearTypes[y] ?? "budget",
-      label: `FY${y} ${(yearTypes[y] ?? "budget") === "actual" ? "Actual" : "Budget"}`,
-      available: availableTypes[y] ?? ["budget"],
-    }));
 
   // Use ALL configured levels for grouping; line items always appear as leaves
   // under the deepest level that has a value for that row
