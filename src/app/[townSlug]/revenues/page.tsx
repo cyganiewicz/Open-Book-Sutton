@@ -26,7 +26,23 @@ export default async function RevenuesPage({
   const { currentYear, previousYear, allYears } = detectCurrentAndPreviousYear(allRows);
   const tableYears = allYears.length > 0 ? allYears : [currentYear];
 
-  // Determine budget vs actual per year
+  // Re-classify all rows at render time using the current account code config.
+  // This means changes to the Revenue Segments dictionary are reflected immediately
+  // without needing to re-upload data. Stored category1/category2 are used as
+  // fallback if the account code config doesn't produce a match.
+  function reclassify<T extends { objectCode: string | null; category1: string | null; category2: string | null }>(row: T): T {
+    if (!acConfig?.revenueConfig) return row;
+    const derived = resolveRevenueCategory(row.objectCode, acConfig.revenueConfig);
+    return {
+      ...row,
+      category1: derived.category1 || row.category1,
+      category2: derived.category2 || row.category2,
+    };
+  }
+
+  const allRowsClassified = allRows.map(reclassify);
+
+  // Determine budget vs actual per year — must be after allRowsClassified
   const yearTypes: Record<string, "budget" | "actual"> = {};
   for (const y of tableYears) {
     if (y === currentYear) {
@@ -44,21 +60,6 @@ export default async function RevenuesPage({
     if (hasActual) yearTypeOptions.push({ year: y, type: "actual", label: `FY${y} Actual` });
   }
 
-  // Re-classify all rows at render time using the current account code config.
-  // This means changes to the Revenue Segments dictionary are reflected immediately
-  // without needing to re-upload data. Stored category1/category2 are used as
-  // fallback if the account code config doesn't produce a match.
-  function reclassify<T extends { objectCode: string | null; category1: string | null; category2: string | null }>(row: T): T {
-    if (!acConfig?.revenueConfig) return row;
-    const derived = resolveRevenueCategory(row.objectCode, acConfig.revenueConfig);
-    return {
-      ...row,
-      category1: derived.category1 || row.category1,
-      category2: derived.category2 || row.category2,
-    };
-  }
-
-  const allRowsClassified = allRows.map(reclassify);
   const current = allRowsClassified.filter(r => r.fiscalYear === currentYear && r.amountType === "budget");
   const prev = previousYear
     ? allRowsClassified.filter(r => r.fiscalYear === previousYear && (r.amountType === "actual" || r.amountType === "budget"))
