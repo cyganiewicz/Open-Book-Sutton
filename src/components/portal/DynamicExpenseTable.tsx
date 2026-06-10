@@ -275,7 +275,6 @@ export default function DynamicExpenseTable({
           {filterMenuOpen && (
             <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[12rem]">
               <p className="px-3 pb-1 text-xs text-gray-400 font-medium uppercase tracking-wide">Show / hide columns</p>
-              <p className="px-3 pb-1 text-xs text-gray-400 font-medium uppercase tracking-wide">Show / hide columns</p>
               {yearTypeOptions.filter(o => windowYears.includes(o.year)).map(opt => (
                 <label key={opt.colKey} className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 cursor-pointer">
                   <input type="checkbox"
