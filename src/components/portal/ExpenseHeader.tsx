@@ -8,7 +8,7 @@ import {
   ArcElement, Tooltip, Legend,
 } from "chart.js";
 import { abbreviateCurrency } from "@/lib/format";
-import { type HierarchyNode, type SummaryTile, fallbackSpendingType } from "@/lib/expense-types";
+import { type HierarchyNode, type SummaryTile, fallbackSpendingType, colKey } from "@/lib/expense-types";
 import { resolveSpendingType, type AccountSegment, type AccountCodeConfig } from "@/lib/account-codes";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
