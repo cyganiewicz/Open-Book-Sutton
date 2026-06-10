@@ -72,7 +72,9 @@ function buildSpendingTypeTotals(
     for (const y of years) {
       const bud = leaf.amounts[colKey(y, 'budget')] || 0;
       const act = leaf.amounts[colKey(y, 'actual')] || 0;
-      entry[y] = (entry[y] || 0) + (bud || act);
+      // Store under colKey format for consistency
+      if (bud) entry[colKey(y, 'budget')] = (entry[colKey(y, 'budget')] || 0) + bud;
+      if (act) entry[colKey(y, 'actual')] = (entry[colKey(y, 'actual')] || 0) + act;
     }
   }
   return map;
@@ -97,10 +99,10 @@ export default function ExpenseHeader({
     [leaves, years, accountSegments, spendingTypeSegmentIndex]
   );
   const spendingTypeSorted = useMemo(() =>
-    [...spendingTypeTotals.entries()].sort((a, b) => (b[1][currentYear] || 0) - (a[1][currentYear] || 0)),
+    [...spendingTypeTotals.entries()].sort((a, b) => (b[1][colKey(currentYear,'budget')] || b[1][colKey(currentYear,'actual')] || 0) - (a[1][colKey(currentYear,'budget')] || a[1][colKey(currentYear,'actual')] || 0)),
     [spendingTypeTotals, currentYear]
   );
-  const totalForBar = [...spendingTypeTotals.values()].reduce((s, v) => s + (v[currentYear] || 0), 0);
+  const totalForBar = [...spendingTypeTotals.values()].reduce((s, v) => s + (v[colKey(currentYear,'budget')] || v[colKey(currentYear,'actual')] || 0), 0);
 
   // ── Trend chart data ────────────────────────────────────────────────────
   // When drillFn is null: show by function area
@@ -156,7 +158,7 @@ export default function ExpenseHeader({
       return {
         labels: spendingTypeSorted.map(([t]) => t),
         datasets: [{
-          data: spendingTypeSorted.map(([, v]) => v[currentYear] || 0),
+          data: spendingTypeSorted.map(([, v]) => v[colKey(currentYear,'budget')] || v[colKey(currentYear,'actual')] || 0),
           backgroundColor: COLORS,
           borderWidth: 2,
           borderColor: "#fff",
@@ -206,8 +208,8 @@ export default function ExpenseHeader({
             <div className="flex h-2.5 rounded-full overflow-hidden gap-px mt-1">
               {spendingTypeSorted.map(([type, yearAmts], i) => (
                 <div key={type}
-                  style={{ width: `${((yearAmts[currentYear] || 0) / totalForBar) * 100}%`, backgroundColor: COLORS[i % COLORS.length] }}
-                  title={`${type}: ${abbreviateCurrency(yearAmts[currentYear] || 0)}`} />
+                  style={{ width: `${((yearAmts[colKey(currentYear,'budget')] || yearAmts[colKey(currentYear,'actual')] || 0) / totalForBar) * 100}%`, backgroundColor: COLORS[i % COLORS.length] }}
+                  title={`${type}: ${abbreviateCurrency(yearAmts[colKey(currentYear,'budget')] || yearAmts[colKey(currentYear,'actual')] || 0)}`} />
               ))}
             </div>
             <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2.5">
@@ -215,7 +217,7 @@ export default function ExpenseHeader({
                 <span key={type} className="text-white/60 text-xs flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full flex-shrink-0"
                     style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                  {type}: {abbreviateCurrency(yearAmts[currentYear] || 0)}
+                  {type}: {abbreviateCurrency(yearAmts[colKey(currentYear,'budget')] || yearAmts[colKey(currentYear,'actual')] || 0)}
                 </span>
               ))}
             </div>
