@@ -8,7 +8,7 @@ import {
   ArcElement, Tooltip, Legend,
 } from "chart.js";
 import { abbreviateCurrency } from "@/lib/format";
-import { type HierarchyNode, type SummaryTile, fallbackSpendingType, colKey } from "@/lib/expense-types";
+import { type HierarchyNode, type SummaryTile, fallbackSpendingType } from "@/lib/expense-types";
 import { resolveSpendingType, type AccountSegment, type AccountCodeConfig } from "@/lib/account-codes";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
@@ -31,7 +31,6 @@ interface ExpenseHeaderProps {
   accountSegments: AccountSegment[];
 }
 
-// Collect all leaf rows from hierarchy
 function collectLeaves(nodes: HierarchyNode[]): { id: string; label: string; objectCode: string | null; amounts: Record<string, number> }[] {
   return nodes.flatMap(n => {
     if (n.key === "_direct" || n.isLeaf) return n.rows || [];
@@ -39,7 +38,6 @@ function collectLeaves(nodes: HierarchyNode[]): { id: string; label: string; obj
   });
 }
 
-// Derive spending type from objectCode using account code segment config
 function getSpendingType(
   objectCode: string | null,
   segments: AccountSegment[],
@@ -47,16 +45,14 @@ function getSpendingType(
 ): string | null {
   if (!objectCode) return null;
   if (spendingTypeSegIdx !== null) {
-    // Use resolveSpendingType which correctly handles full account strings
     const cfg = { segments, spendingTypeSegment: spendingTypeSegIdx, separator: "-" } as AccountCodeConfig;
     const resolved = resolveSpendingType(objectCode, cfg);
     if (resolved) return resolved;
   }
-  // No config or no match — fallback using last segment prefix
   return fallbackSpendingType(objectCode, "-");
 }
 
-// Aggregate amounts by spending type from leaf rows
+// amounts keys are plain years ("2025") for the primary display value
 function buildSpendingTypeTotals(
   leaves: ReturnType<typeof collectLeaves>,
   years: string[],
@@ -70,11 +66,7 @@ function buildSpendingTypeTotals(
     if (!map.has(type)) map.set(type, Object.fromEntries(years.map(y => [y, 0])));
     const entry = map.get(type)!;
     for (const y of years) {
-      const bud = leaf.amounts[colKey(y, 'budget')] || 0;
-      const act = leaf.amounts[colKey(y, 'actual')] || 0;
-      // Store under colKey format for consistency
-      if (bud) entry[colKey(y, 'budget')] = (entry[colKey(y, 'budget')] || 0) + bud;
-      if (act) entry[colKey(y, 'actual')] = (entry[colKey(y, 'actual')] || 0) + act;
+      entry[y] = (entry[y] || 0) + (leaf.amounts[y] || 0);
     }
   }
   return map;
@@ -85,55 +77,47 @@ export default function ExpenseHeader({
   totalBudget, prevTotal,
   spendingTypeSegmentIndex, accountSegments,
 }: ExpenseHeaderProps) {
-  // Drill-down state: null = top level (functions), string = drill into that function
   const [drillFn, setDrillFn] = useState<string | null>(null);
   const [activePieDim, setActivePieDim] = useState<"function" | "spendingType">("function");
 
   const displayYears = years.slice(-5);
   const pctChange = prevTotal > 0 ? ((totalBudget - prevTotal) / prevTotal * 100) : null;
 
-  // Spending type totals from configured segment
   const leaves = useMemo(() => collectLeaves(hierarchy), [hierarchy]);
   const spendingTypeTotals = useMemo(() =>
     buildSpendingTypeTotals(leaves, years, accountSegments, spendingTypeSegmentIndex),
     [leaves, years, accountSegments, spendingTypeSegmentIndex]
   );
   const spendingTypeSorted = useMemo(() =>
-    [...spendingTypeTotals.entries()].sort((a, b) => (b[1][colKey(currentYear,'budget')] || b[1][colKey(currentYear,'actual')] || 0) - (a[1][colKey(currentYear,'budget')] || a[1][colKey(currentYear,'actual')] || 0)),
+    [...spendingTypeTotals.entries()].sort((a, b) => (b[1][currentYear] || 0) - (a[1][currentYear] || 0)),
     [spendingTypeTotals, currentYear]
   );
-  const totalForBar = [...spendingTypeTotals.values()].reduce((s, v) => s + (v[colKey(currentYear,'budget')] || v[colKey(currentYear,'actual')] || 0), 0);
+  const totalForBar = [...spendingTypeTotals.values()].reduce((s, v) => s + (v[currentYear] || 0), 0);
 
-  // ── Trend chart data ────────────────────────────────────────────────────
-  // When drillFn is null: show by function area
-  // When drillFn is set: show departments within that function
+  // Trend chart — use plain year amounts (primary display value)
   const trendGroups = useMemo(() => {
     if (drillFn === null) {
-      // Top level: group by function (depth 0 nodes)
       return hierarchy
         .filter(n => n.key !== "_direct")
-        .sort((a, b) => ((b.amounts[colKey(currentYear,'budget')] || b.amounts[colKey(currentYear,'actual')] || 0) - (a.amounts[colKey(currentYear,'budget')] || a.amounts[colKey(currentYear,'actual')] || 0)))
+        .sort((a, b) => (b.amounts[currentYear] || 0) - (a.amounts[currentYear] || 0))
         .slice(0, 8)
         .map(n => ({ label: n.key, amounts: n.amounts }));
     } else {
-      // Drilled in: find the selected function's departments (depth 1 nodes)
       const fnNode = hierarchy.find(n => n.key === drillFn);
       if (!fnNode) return [];
       return fnNode.children
         .filter(n => n.key !== "_direct")
-        .sort((a, b) => ((b.amounts[colKey(currentYear,'budget')] || b.amounts[colKey(currentYear,'actual')] || 0) - (a.amounts[colKey(currentYear,'budget')] || a.amounts[colKey(currentYear,'actual')] || 0)))
+        .sort((a, b) => (b.amounts[currentYear] || 0) - (a.amounts[currentYear] || 0))
         .slice(0, 10)
         .map(n => ({ label: n.key, amounts: n.amounts }));
     }
   }, [hierarchy, drillFn, currentYear]);
 
-  // Horizontal stacked bar: one bar per fiscal year, segments = groups (functions/departments)
-  // Transposed: labels = years, datasets = groups
   const barData = {
     labels: displayYears.map(y => `FY${y}`),
     datasets: trendGroups.map((g, i) => ({
       label: g.label,
-      data: displayYears.map(y => g.amounts[colKey(y,'budget')] || g.amounts[colKey(y,'actual')] || 0),
+      data: displayYears.map(y => g.amounts[y] || 0),
       backgroundColor: COLORS[i % COLORS.length] + "dd",
       borderColor: COLORS[i % COLORS.length],
       borderWidth: 0,
@@ -141,14 +125,13 @@ export default function ExpenseHeader({
     })),
   };
 
-  // ── Pie chart data ──────────────────────────────────────────────────────
   const pieData = useMemo(() => {
     if (activePieDim === "function") {
       const fnNodes = hierarchy.filter(n => n.key !== "_direct");
       return {
         labels: fnNodes.map(n => n.key),
         datasets: [{
-          data: fnNodes.map(n => n.amounts[colKey(currentYear,'budget')] || n.amounts[colKey(currentYear,'actual')] || 0),
+          data: fnNodes.map(n => n.amounts[currentYear] || 0),
           backgroundColor: COLORS,
           borderWidth: 2,
           borderColor: "#fff",
@@ -156,9 +139,9 @@ export default function ExpenseHeader({
       };
     } else {
       return {
-        labels: spendingTypeSorted.map(([t]) => t),
+        labels: spendingTypeSorted.map(([type]) => type),
         datasets: [{
-          data: spendingTypeSorted.map(([, v]) => v[colKey(currentYear,'budget')] || v[colKey(currentYear,'actual')] || 0),
+          data: spendingTypeSorted.map(([, v]) => v[currentYear] || 0),
           backgroundColor: COLORS,
           borderWidth: 2,
           borderColor: "#fff",
@@ -169,7 +152,7 @@ export default function ExpenseHeader({
 
   return (
     <div className="space-y-5">
-      {/* ── Hero banner ── */}
+      {/* Hero banner */}
       <div className="rounded-2xl overflow-hidden shadow-md"
         style={{ background: `linear-gradient(135deg, ${townColor} 0%, ${townColor}dd 100%)` }}>
         <div className="px-6 pt-6 pb-4">
@@ -208,8 +191,8 @@ export default function ExpenseHeader({
             <div className="flex h-2.5 rounded-full overflow-hidden gap-px mt-1">
               {spendingTypeSorted.map(([type, yearAmts], i) => (
                 <div key={type}
-                  style={{ width: `${((yearAmts[colKey(currentYear,'budget')] || yearAmts[colKey(currentYear,'actual')] || 0) / totalForBar) * 100}%`, backgroundColor: COLORS[i % COLORS.length] }}
-                  title={`${type}: ${abbreviateCurrency(yearAmts[colKey(currentYear,'budget')] || yearAmts[colKey(currentYear,'actual')] || 0)}`} />
+                  style={{ width: `${((yearAmts[currentYear] || 0) / totalForBar) * 100}%`, backgroundColor: COLORS[i % COLORS.length] }}
+                  title={`${type}: ${abbreviateCurrency(yearAmts[currentYear] || 0)}`} />
               ))}
             </div>
             <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2.5">
@@ -217,7 +200,7 @@ export default function ExpenseHeader({
                 <span key={type} className="text-white/60 text-xs flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full flex-shrink-0"
                     style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                  {type}: {abbreviateCurrency(yearAmts[colKey(currentYear,'budget')] || yearAmts[colKey(currentYear,'actual')] || 0)}
+                  {type}: {abbreviateCurrency(yearAmts[currentYear] || 0)}
                 </span>
               ))}
             </div>
@@ -225,9 +208,8 @@ export default function ExpenseHeader({
         )}
       </div>
 
-      {/* ── Charts row ── */}
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* Pie */}
         <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-semibold text-gray-800">FY{currentYear} Breakdown</p>
@@ -254,7 +236,6 @@ export default function ExpenseHeader({
           </div>
         </div>
 
-        {/* Trend with drill-down */}
         <div className="lg:col-span-3 bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
             <div className="flex items-center gap-2">
@@ -269,9 +250,7 @@ export default function ExpenseHeader({
               </p>
             </div>
           </div>
-          {!drillFn && (
-            <p className="text-xs text-gray-400 mb-2">Click a function bar to see its departments</p>
-          )}
+          {!drillFn && <p className="text-xs text-gray-400 mb-2">Click a function bar to see its departments</p>}
           <div className="h-56">
             <Bar data={barData} options={{
               indexAxis: "y",
