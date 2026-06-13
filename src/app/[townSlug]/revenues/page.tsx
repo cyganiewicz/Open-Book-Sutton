@@ -1,9 +1,10 @@
+export const dynamic = "force-dynamic";
+
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { detectCurrentAndPreviousYear } from "@/lib/aggregator";
-import { formatCurrency, abbreviateCurrency, calculateChange, formatPercent } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import { parseAccountCodeConfig, DEFAULT_REVENUE_LEVELS, resolveRevenueCategory } from "@/lib/account-codes";
-import { colKey } from "@/lib/expense-types";
 import ExportButton from "@/components/portal/ExportButton";
 import RevenueHeader, { type RevHierarchyNode } from "@/components/portal/RevenueHeader";
 import RevenueTable from "@/components/portal/RevenueTable";
@@ -27,10 +28,7 @@ export default async function RevenuesPage({
   const { currentYear, previousYear, allYears } = detectCurrentAndPreviousYear(allRows);
   const tableYears = allYears.length > 0 ? allYears : [currentYear];
 
-  // Re-classify all rows at render time using the current account code config.
-  // This means changes to the Revenue Segments dictionary are reflected immediately
-  // without needing to re-upload data. Stored category1/category2 are used as
-  // fallback if the account code config doesn't produce a match.
+  // Reclassify at render time — account code changes reflect immediately
   function reclassify<T extends { objectCode: string | null; category1: string | null; category2: string | null }>(row: T): T {
     if (!acConfig?.revenueConfig) return row;
     const derived = resolveRevenueCategory(row.objectCode, acConfig.revenueConfig);
@@ -43,7 +41,7 @@ export default async function RevenuesPage({
 
   const allRowsClassified = allRows.map(reclassify);
 
-  // Determine budget vs actual per year — must be after allRowsClassified
+  // Determine preferred type per year
   const yearTypes: Record<string, "budget" | "actual"> = {};
   for (const y of tableYears) {
     if (y === currentYear) {
@@ -53,12 +51,14 @@ export default async function RevenuesPage({
       yearTypes[y] = hasActual ? "actual" : "budget";
     }
   }
+
+  // Build year+type column options for the table
   const yearTypeOptions: { year: string; type: "budget" | "actual"; label: string; colKey: string }[] = [];
   for (const y of tableYears) {
     const hasBudget = allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "budget");
     const hasActual = allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "actual");
-    if (hasBudget) yearTypeOptions.push({ year: y, type: "budget", label: `FY${y} Budget`, colKey: colKey(y, "budget") });
-    if (hasActual) yearTypeOptions.push({ year: y, type: "actual", label: `FY${y} Actual`, colKey: colKey(y, "actual") });
+    if (hasBudget) yearTypeOptions.push({ year: y, type: "budget", label: `FY${y} Budget`, colKey: `${y}:budget` });
+    if (hasActual) yearTypeOptions.push({ year: y, type: "actual", label: `FY${y} Actual`, colKey: `${y}:actual` });
   }
 
   const current = allRowsClassified.filter(r => r.fiscalYear === currentYear && r.amountType === "budget");
@@ -69,10 +69,6 @@ export default async function RevenuesPage({
   const totalRevenue = current.reduce((s, r) => s + r.amount, 0);
   const prevTotal = prev.reduce((s, r) => s + r.amount, 0);
 
-  // ── Build hierarchy from portal organization levels ─────────────────────
-  // Revenue typically: category1 → category2 → line items
-  // Use the configured revLevels to determine grouping fields
-
   type RowType = typeof current[0];
 
   function getRevField(row: RowType, field: string): string {
@@ -80,29 +76,35 @@ export default async function RevenuesPage({
     return (v != null && v !== "") ? String(v) : "";
   }
 
-  function getYearAmounts(
-    matchFn: (r: RowType) => boolean
-  ): Record<string, number> {
+  // amounts[year] = preferred type for that year (for charts/sorting)
+  // amounts[year:budget] and amounts[year:actual] = explicit types for table columns
+  function getYearAmounts(matchFn: (r: RowType) => boolean): Record<string, number> {
     const out: Record<string, number> = {};
     for (const y of tableYears) {
+      const preferredType = y === currentYear ? "budget" : (yearTypes[y] ?? "budget");
+      const primary = allRowsClassified
+        .filter(r => matchFn(r) && r.fiscalYear === y && r.amountType === preferredType)
+        .reduce((s, r) => s + r.amount, 0);
+      if (primary) out[y] = primary;
+      // Also store explicit budget/actual for column switching
       for (const t of ["budget", "actual"] as const) {
-        const sum = allRowsClassified
+        const val = allRowsClassified
           .filter(r => matchFn(r) && r.fiscalYear === y && r.amountType === t)
           .reduce((s, r) => s + r.amount, 0);
-        if (sum > 0) out[colKey(y, t)] = sum;
+        if (val) out[`${y}:${t}`] = val;
       }
     }
     return out;
   }
 
-  function sortByLevel(entries: [string, RowType[]][], levelIdx: number): [string, RowType[]][] {
-    const level = revLevels[levelIdx];
+  function sortByLevel(entries: [string, RowType[]][], levelIdx: number, levels = revLevels): [string, RowType[]][] {
+    const level = levels[levelIdx];
     if (!level) return entries;
     return [...entries].sort((a, b) => {
       switch (level.sort) {
         case "alpha_asc":  return a[0].localeCompare(b[0]);
         case "alpha_desc": return b[0].localeCompare(a[0]);
-        case "total_asc":  return a[1].reduce((s, r) => s + r.amount, 0) - b[1].reduce((s, r) => s + r.amount, 0); // uses raw rows — ok
+        case "total_asc":  return a[1].reduce((s, r) => s + r.amount, 0) - b[1].reduce((s, r) => s + r.amount, 0);
         default:           return b[1].reduce((s, r) => s + r.amount, 0) - a[1].reduce((s, r) => s + r.amount, 0);
       }
     });
@@ -127,7 +129,7 @@ export default async function RevenuesPage({
       groups.get(key)!.push(row);
     }
 
-    const sorted = sortByLevel([...groups.entries()], levelIdx);
+    const sorted = sortByLevel([...groups.entries()], levelIdx, levels);
     const nodes: RevHierarchyNode[] = [];
 
     for (const [key, groupRows] of sorted) {
@@ -135,8 +137,6 @@ export default async function RevenuesPage({
       const amounts = getYearAmounts(nodeMatchFn);
 
       if (isLast) {
-        // Show line items as leaves
-        // Match across years by lineItem + category1 + category2 (not by id)
         const leafRows = groupRows.map(row => ({
           id: row.id,
           label: row.lineItem || row.category2 || row.category1 || "",
@@ -153,7 +153,6 @@ export default async function RevenuesPage({
       }
     }
 
-    // Rows that skipped this level — pass through to next level
     const skipped = level.skipIfEmpty ? rows.filter(r => !getRevField(r, level.dataField)) : [];
     if (skipped.length > 0 && !isLast) {
       nodes.push(...buildLevel(skipped, levelIdx + 1, ancestorMatchFn, levels));
@@ -162,18 +161,15 @@ export default async function RevenuesPage({
     return nodes;
   }
 
-  // Build hierarchy using configured levels
   let hierarchy = buildLevel(current, 0, () => true);
   let levelNames = revLevels.map(l => l.name);
 
-  // Fallback: if configured levels produce nothing, use category1 → category2
-  // Works whether data came from mapped columns or account code dictionary
-  if (hierarchy.length === 0 || hierarchy.every(n => (n.amounts[colKey(currentYear,'budget')] || n.amounts[colKey(currentYear,'actual')] || 0) === 0)) {
+  // Fallback if configured levels produce nothing
+  if (hierarchy.length === 0 || hierarchy.every(n => (n.amounts[currentYear] || 0) === 0)) {
     hierarchy = buildLevel(current, 0, () => true, DEFAULT_REVENUE_LEVELS);
     levelNames = DEFAULT_REVENUE_LEVELS.map(l => l.name);
   }
 
-  // Export
   const exportData = current.map(r => {
     const row: Record<string, string> = {
       Category: r.category1 || "",
