@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { formatCurrency, abbreviateCurrency } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import type { RevHierarchyNode } from "./RevenueHeader";
 
 interface YearTypeOption {
@@ -32,12 +32,16 @@ function tint(hex: string, opacity: number) {
 const INDENT_REM = [1.25, 2.75, 4.25, 5.75];
 const getIndent = (depth: number) => `${INDENT_REM[Math.min(depth, INDENT_REM.length - 1)]}rem`;
 
+function getAmt(amounts: Record<string, number>, col: { year: string; colKey: string }): number {
+  return amounts[col.colKey] ?? amounts[col.year] ?? 0;
+}
+
 function NodeRow({
   node, depth, displayCols, currentYear, townColor, colCount, forceCollapsed, totalRevenue,
 }: {
   node: RevHierarchyNode;
   depth: number;
-  displayCols: { year: string; type: "budget" | "actual"; colKey: string }[];
+  displayCols: YearTypeOption[];
   currentYear: string;
   townColor: string;
   colCount: number;
@@ -47,7 +51,8 @@ function NodeRow({
   const [collapsed, setCollapsed] = useState(false);
   const effectiveCollapsed = forceCollapsed || collapsed;
   const isTopLevel = depth === 0;
-  const pct = totalRevenue > 0 ? ((node.amounts[`${currentYear}:budget`] || 0) / totalRevenue * 100).toFixed(1) : "0";
+  const curAmt = node.amounts[currentYear] || 0;
+  const pct = totalRevenue > 0 ? ((curAmt / totalRevenue) * 100).toFixed(1) : "0";
 
   return (
     <>
@@ -71,7 +76,7 @@ function NodeRow({
                 fontWeight: col.year === currentYear && col.type === "budget" ? "600" : "400",
                 fontSize: col.year === currentYear && col.type === "budget" ? "0.9rem" : "0.8rem",
               }}>
-              {formatCurrency(node.amounts[col.colKey] || 0)}
+              {formatCurrency(getAmt(node.amounts, col))}
             </td>
           ))}
           <td className="px-3 py-3 text-right text-white/60 text-xs whitespace-nowrap">{pct}%</td>
@@ -93,14 +98,13 @@ function NodeRow({
           </td>
           {displayCols.map(col => (
             <td key={col.colKey} className="px-3 py-2.5 text-right tabular-nums font-semibold text-gray-700 text-sm whitespace-nowrap">
-              {formatCurrency(node.amounts[col.colKey] || 0)}
+              {formatCurrency(getAmt(node.amounts, col))}
             </td>
           ))}
           <td className="px-3 py-2.5 text-right text-gray-400 text-xs whitespace-nowrap">{pct}%</td>
         </tr>
       )}
 
-      {/* Children */}
       {!effectiveCollapsed && !node.isLeaf && node.children.map(child => (
         <NodeRow key={child.key} node={child} depth={depth + 1}
           displayCols={displayCols} currentYear={currentYear}
@@ -108,7 +112,6 @@ function NodeRow({
           forceCollapsed={false} totalRevenue={totalRevenue} />
       ))}
 
-      {/* Leaf rows */}
       {!effectiveCollapsed && node.isLeaf && node.rows?.map(row => (
         <tr key={row.id} className="border-t border-gray-50 hover:bg-gray-50/60 transition-colors">
           <td className="py-2 pr-3 text-gray-600 text-sm" style={{ paddingLeft: getIndent(depth + 1) }}>
@@ -116,9 +119,9 @@ function NodeRow({
           </td>
           {displayCols.map(col => (
             <td key={col.colKey} className={`px-3 py-2 text-right tabular-nums text-sm whitespace-nowrap ${
-              (row.amounts[col.colKey] || 0) === 0 ? "text-gray-300" : "text-gray-700"
+              getAmt(row.amounts, col) === 0 ? "text-gray-300" : "text-gray-700"
             }`}>
-              {(row.amounts[col.colKey] || 0) === 0 ? "—" : formatCurrency(row.amounts[col.colKey])}
+              {getAmt(row.amounts, col) === 0 ? "—" : formatCurrency(getAmt(row.amounts, col))}
             </td>
           ))}
           <td className="px-3 py-2 text-right text-gray-300 text-xs">—</td>
@@ -140,19 +143,33 @@ export default function RevenueTable({
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
 
   const windowYears = years.slice(yearOffset, yearOffset + MAX_VISIBLE_YEARS);
-  const displayCols = yearTypeOptions.filter(
-    o => windowYears.includes(o.year) && !hiddenCols.has(o.colKey)
-  );
-  const colCount = 1 + displayCols.length + 1;
+
+  const displayCols: YearTypeOption[] = yearTypeOptions.length > 0
+    ? yearTypeOptions.filter(o => windowYears.includes(o.year) && !hiddenCols.has(o.colKey))
+    : windowYears.filter(y => !hiddenCols.has(y)).map(y => ({
+        year: y,
+        type: yearTypes[y] ?? (y === currentYear ? "budget" : "budget") as "budget" | "actual",
+        label: `FY${y}`,
+        colKey: y,
+      }));
+
+  const allWindowCols: YearTypeOption[] = yearTypeOptions.length > 0
+    ? yearTypeOptions.filter(o => windowYears.includes(o.year))
+    : windowYears.map(y => ({
+        year: y,
+        type: yearTypes[y] ?? "budget" as "budget" | "actual",
+        label: `FY${y} ${yearTypes[y] === "actual" ? "Actual" : "Budget"}`,
+        colKey: y,
+      }));
+
   const canScrollLeft = yearOffset > 0;
   const canScrollRight = yearOffset + MAX_VISIBLE_YEARS < years.length;
+  const colCount = 1 + displayCols.length + 1;
 
   const grandTotals: Record<string, number> = {};
   for (const col of displayCols) {
-    grandTotals[col.colKey] = hierarchy.reduce((s, n) => s + (n.amounts[col.colKey] || 0), 0);
+    grandTotals[col.colKey] = hierarchy.reduce((s, n) => s + getAmt(n.amounts, col), 0);
   }
-
-  const q = query.toLowerCase().trim();
 
   const filterNodes = (nodes: RevHierarchyNode[], q: string): RevHierarchyNode[] => {
     if (!q) return nodes;
@@ -167,11 +184,10 @@ export default function RevenueTable({
     });
   };
 
-  const displayed = filterNodes(hierarchy, q);
+  const displayed = filterNodes(hierarchy, query.toLowerCase().trim());
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-      {/* Toolbar */}
       <div className="px-5 py-3 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center gap-3 bg-gray-50/60">
         <input
           type="text"
@@ -185,9 +201,9 @@ export default function RevenueTable({
           <button onClick={() => setYearOffset(o => Math.max(0, o - 1))} disabled={!canScrollLeft}
             className="px-2.5 py-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors border-r border-gray-200">◀</button>
           <span className="px-3 py-2 text-xs text-gray-600 font-medium whitespace-nowrap">
-            {years.length > 1
-              ? `FY${years[yearOffset]} – FY${years[Math.min(yearOffset + MAX_VISIBLE_YEARS - 1, years.length - 1)]}`
-              : `FY${years[0] ?? ""}`}
+            {windowYears.length > 1
+              ? `FY${windowYears[0]} – FY${windowYears[windowYears.length - 1]}`
+              : `FY${windowYears[0] ?? ""}`}
           </span>
           <button onClick={() => setYearOffset(o => Math.min(years.length - MAX_VISIBLE_YEARS, o + 1))} disabled={!canScrollRight}
             className="px-2.5 py-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors border-l border-gray-200">▶</button>
@@ -200,10 +216,9 @@ export default function RevenueTable({
             {hiddenCols.size > 0 && <span className="text-[10px] bg-blue-100 text-blue-600 rounded px-1">{hiddenCols.size} hidden</span>}
           </button>
           {filterMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[10rem]">
+            <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[12rem]">
               <p className="px-3 pb-1 text-xs text-gray-400 font-medium uppercase tracking-wide">Show / hide columns</p>
-              <p className="px-3 pb-1 text-xs text-gray-400 font-medium uppercase tracking-wide">Show / hide columns</p>
-              {yearTypeOptions.filter(o => windowYears.includes(o.year)).map(opt => (
+              {allWindowCols.map(opt => (
                 <label key={opt.colKey} className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 cursor-pointer">
                   <input type="checkbox"
                     checked={!hiddenCols.has(opt.colKey)}
@@ -214,7 +229,9 @@ export default function RevenueTable({
                     })}
                     className="h-4 w-4 rounded border-gray-300" />
                   <span className="text-gray-700">{opt.label}</span>
-                  <span className={`ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded ${opt.type === "actual" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
+                  <span className={`ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                    opt.type === "actual" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
+                  }`}>
                     {opt.type === "actual" ? "Actual" : "Budget"}
                   </span>
                 </label>
@@ -263,7 +280,7 @@ export default function RevenueTable({
               <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400 w-16">%</th>
             </tr>
           </thead>
-          <tbody key={`${allCollapsed}-${yearOffset}`}>
+          <tbody key={`${allCollapsed}-${yearOffset}-${hiddenCols.size}`}>
             {displayed.map((node, i) => (
               <NodeRow key={node.key + i} node={node} depth={0}
                 displayCols={displayCols} currentYear={currentYear}
