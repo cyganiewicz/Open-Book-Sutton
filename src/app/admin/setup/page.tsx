@@ -10,6 +10,7 @@ interface Town {
   slug: string;
   primaryColor: string;
   logoUrl: string | null;
+  heroImageUrl: string | null;
   contactEmail: string | null;
   aboutText: string | null;
   published: boolean;
@@ -26,6 +27,8 @@ export default function SetupPage() {
   const [color, setColor] = useState("#1e40af");
   const [logoUrl, setLogoUrl] = useState("");
   const [logoUploading, setLogoUploading] = useState(false);
+  const [heroImageUrl, setHeroImageUrl] = useState("");
+  const [heroUploading, setHeroUploading] = useState(false);
   const [contactEmail, setContactEmail] = useState("");
   const [aboutText, setAboutText] = useState("");
   const [saving, setSaving] = useState(false);
@@ -45,6 +48,7 @@ export default function SetupPage() {
           setSlug(t.slug);
           setColor(t.primaryColor);
           setLogoUrl(t.logoUrl || "");
+          setHeroImageUrl(t.heroImageUrl || "");
           setContactEmail(t.contactEmail || "");
           setAboutText(t.aboutText || "");
         } else {
@@ -81,7 +85,22 @@ export default function SetupPage() {
     } finally {
       setLogoUploading(false);
     }
-  };
+  }
+
+  const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setHeroUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/hero-image", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Hero image upload failed"); }
+      else { setHeroImageUrl(data.url); }
+    } catch { setError("Hero image upload failed"); }
+    setHeroUploading(false);
+  };;
 
   const handleNameChange = (value: string) => {
     setName(value);
@@ -125,7 +144,7 @@ export default function SetupPage() {
         await fetch(`/api/towns/${newTown.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ logoUrl, contactEmail, aboutText }),
+          body: JSON.stringify({ logoUrl, heroImageUrl, contactEmail, aboutText }),
         });
 
         setTown(newTown);
@@ -288,6 +307,29 @@ export default function SetupPage() {
             {logoUploading
               ? "Uploading..."
               : "Upload your town seal or logo. PNG, JPEG, SVG, or WebP (max 5 MB)."}
+          </p>
+        </div>
+
+        <div>
+          <label htmlFor="heroFile" className="block text-sm font-medium text-gray-700 mb-1">
+            Homepage Banner Image <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          {heroImageUrl && (
+            <div className="mb-3">
+              <img src={heroImageUrl} alt="Banner preview" className="w-full h-24 object-cover rounded-lg border border-gray-200" />
+              <button type="button" onClick={() => setHeroImageUrl("")} className="text-xs text-red-600 hover:text-red-800 mt-1">Remove</button>
+            </div>
+          )}
+          <input
+            id="heroFile"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={handleHeroUpload}
+            disabled={heroUploading}
+            className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 disabled:opacity-50"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            {heroUploading ? "Uploading..." : "A background photo for the homepage hero. Displayed with a color overlay. PNG, JPEG, or WebP (max 5 MB)."}
           </p>
         </div>
 
