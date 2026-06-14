@@ -108,53 +108,62 @@ export default function ExpenseHeader({
     }
   }, [hierarchy, drillFn, currentYear, trendView, spendingTypeSorted]);
 
-  // Growth rate — ALL function areas + total budget on right axis
+  // Growth rate — ALL fiscal years, all function areas + total budget (dotted)
+  // Only calculate % change when a prior year exists; skip first year to avoid bad numbers
   const growthData = useMemo(() => {
-    if (displayYears.length < 2) return null;
-    const labels = displayYears.slice(1).map(y => `FY${y}`);
+    // Need all uploaded years in order
+    const sortedYears = [...years].sort();
+    if (sortedYears.length < 2) return null;
 
-    // Total budget growth (right axis y1)
-    const totalGrowth = displayYears.slice(1).map((y, i) => {
-      const prev = allYearTotals[displayYears[i]] || 0;
+    // Labels: all years except the very first (no prior year to compare)
+    const dataYears = sortedYears.slice(1);
+    const labels = dataYears.map(y => `FY${y}`);
+
+    // Total budget growth — dotted line, same axis
+    const totalGrowth = dataYears.map((y, i) => {
+      const prev = allYearTotals[sortedYears[i]] || 0;
       const cur = allYearTotals[y] || 0;
-      return prev > 0 ? +((cur - prev) / prev * 100).toFixed(2) : 0;
+      // If no prior year data, return null so Chart.js leaves a gap
+      if (prev === 0) return null;
+      return +((cur - prev) / prev * 100).toFixed(2);
     });
 
-    // All function areas (left axis y0) — budget amounts only
+    // All function areas
     const fnNodes = hierarchy.filter(n => n.key !== "_direct")
       .sort((a, b) => (b.amounts[currentYear] || 0) - (a.amounts[currentYear] || 0));
 
     const fnDatasets = fnNodes.map((fn, i) => ({
       label: fn.key,
-      data: displayYears.slice(1).map((y, idx) => {
-        const prev = fn.amounts[displayYears[idx]] || 0;
+      data: dataYears.map((y, idx) => {
+        const prev = fn.amounts[sortedYears[idx]] || 0;
         const cur = fn.amounts[y] || 0;
-        return prev > 0 ? +((cur - prev) / prev * 100).toFixed(2) : 0;
+        if (prev === 0) return null;
+        return +((cur - prev) / prev * 100).toFixed(2);
       }),
       borderColor: COLORS[i % COLORS.length],
       backgroundColor: "transparent",
       borderWidth: 1.5,
       pointRadius: 3,
+      pointStyle: "circle",
       fill: false,
       tension: 0.3,
-      yAxisID: "y",
     }));
 
     const totalDataset = {
       label: "Total Budget",
       data: totalGrowth,
       borderColor: townColor,
-      backgroundColor: townColor + "20",
+      backgroundColor: "transparent",
       borderWidth: 2.5,
       pointRadius: 4,
+      pointStyle: "circle",
       fill: false,
       tension: 0.3,
-      yAxisID: "y1",
-      borderDash: [] as number[],
+      borderDash: [6, 3],
     };
 
     return { labels, datasets: [...fnDatasets, totalDataset] };
-  }, [hierarchy, displayYears, allYearTotals, currentYear, townColor]);
+  }, [hierarchy, years, allYearTotals, currentYear, townColor]);
 
   const barData = {
     labels: displayYears.map(y => `FY${y}`),
@@ -327,28 +336,21 @@ export default function ExpenseHeader({
 
           {activeChart === "growth" && growthData && (
             <>
-              <p className="text-xs text-gray-400 mb-1">Year-over-year % change · <span style={{ color: townColor }} className="font-medium">Total Budget</span> on right axis</p>
+              <p className="text-xs text-gray-400 mb-1">Year-over-year % change by function area · <span style={{ color: townColor }} className="font-medium">- - - Total Budget</span></p>
               <div className="h-52">
                 <Line data={growthData} options={{
                   responsive: true, maintainAspectRatio: false,
                   interaction: { mode: "index", intersect: false },
+                  spanGaps: false,
                   plugins: {
                     legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 9 }, padding: 5, usePointStyle: true } },
-                    tooltip: { callbacks: { label: (ctx: { parsed: { y: number }; dataset: { label: string } }) => ` ${ctx.dataset.label}: ${ctx.parsed.y >= 0 ? "+" : ""}${ctx.parsed.y.toFixed(1)}%` } },
+                    tooltip: { callbacks: { label: (ctx: { parsed: { y: number | null }; dataset: { label: string } }) => ctx.parsed.y === null ? "" : ` ${ctx.dataset.label}: ${(ctx.parsed.y ?? 0) >= 0 ? "+" : ""}${(ctx.parsed.y ?? 0).toFixed(1)}%` } },
                   },
                   scales: {
                     x: { grid: { display: false }, ticks: { font: { size: 10 } } },
                     y: {
-                      position: "left",
-                      title: { display: true, text: "Function %", font: { size: 9 }, color: "#9ca3af" },
                       ticks: { font: { size: 9 }, callback: (v: number | string) => `${Number(v).toFixed(0)}%` },
                       grid: { color: "#f3f4f6" },
-                    },
-                    y1: {
-                      position: "right",
-                      title: { display: true, text: "Total Budget %", font: { size: 9 }, color: townColor },
-                      ticks: { font: { size: 9 }, color: townColor, callback: (v: number | string) => `${Number(v).toFixed(0)}%` },
-                      grid: { drawOnChartArea: false },
                     },
                   },
                 } as Parameters<typeof Line>[0]["options"]} />
