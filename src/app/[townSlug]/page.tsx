@@ -20,10 +20,16 @@ export default async function TownHomePage({
   const acConfig = parseAccountCodeConfig(town.accountCodeRules || "");
   const color = town.primaryColor || "#1e40af";
 
-  const [expenseRows, revenueRows] = await Promise.all([
+  const [expenseRows, revenueRows, capitalRows] = await Promise.all([
     prisma.budgetRow.findMany({ where: { townId: town.id, dataCategory: "expenses" } }),
     prisma.budgetRow.findMany({ where: { townId: town.id, dataCategory: "revenues" } }),
+    prisma.budgetRow.findMany({ where: { townId: town.id, dataCategory: "capital" }, orderBy: [{ fiscalYear: "desc" }, { amount: "desc" }] }),
   ]);
+
+  const capitalYears = [...new Set(capitalRows.map(r => r.fiscalYear))].sort().reverse();
+  const latestCapYear = capitalYears[0] || "";
+  const latestCapRows = capitalRows.filter(r => r.fiscalYear === latestCapYear);
+  const totalCapital = latestCapRows.reduce((s, r) => s + r.amount, 0);
 
   const { currentYear: expYear } = detectCurrentAndPreviousYear(expenseRows);
   const { currentYear: revYear } = detectCurrentAndPreviousYear(revenueRows);
@@ -167,7 +173,7 @@ export default async function TownHomePage({
           },
           {
             href: `/${townSlug}/capital`, label: "Capital Projects",
-            value: "CIP",
+            value: totalCapital > 0 ? abbreviateCurrency(totalCapital) : "CIP",
             icon: (
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
@@ -289,6 +295,7 @@ export default async function TownHomePage({
                   ...(totalRevenues > 0 ? [{ label: "Total Revenue", value: formatCurrency(totalRevenues) }] : []),
                   { label: "Fiscal Year", value: `FY${expYear}` },
                   { label: "Expense Line Items", value: currentExpenses.length.toLocaleString() },
+                  ...(totalCapital > 0 ? [{ label: `FY${latestCapYear} Capital Projects`, value: abbreviateCurrency(totalCapital) }] : []),
                 ].map(item => (
                   <div key={item.label} className="flex justify-between items-baseline gap-2">
                     <span className="text-xs text-gray-500">{item.label}</span>
