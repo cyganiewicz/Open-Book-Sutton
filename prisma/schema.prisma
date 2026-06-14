@@ -15,6 +15,7 @@ model Town {
   primaryColor String   @default("#1e40af")
   contactEmail String?
   aboutText    String?
+  heroImageUrl String?
   inviteCode      String   @default("")
   allowedDomains  String   @default("")
   accountCodeRules String   @default("")
