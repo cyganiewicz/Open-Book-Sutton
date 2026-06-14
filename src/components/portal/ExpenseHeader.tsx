@@ -5,13 +5,13 @@ import { Bar, Pie, Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale, BarElement, PointElement, LineElement,
-  ArcElement, Tooltip, Legend, Filler,
+  ArcElement, Tooltip, Legend,
 } from "chart.js";
 import { abbreviateCurrency } from "@/lib/format";
 import { type HierarchyNode, type SummaryTile, fallbackSpendingType } from "@/lib/expense-types";
 import { resolveSpendingType, type AccountSegment, type AccountCodeConfig } from "@/lib/account-codes";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler);
+ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend);
 
 const COLORS = [
   "#4f46e5","#059669","#d97706","#dc2626","#7c3aed",
@@ -56,12 +56,11 @@ function buildSpendingTypeTotals(leaves: ReturnType<typeof collectLeaves>, years
     if (!type) continue;
     if (!map.has(type)) map.set(type, Object.fromEntries(years.map(y => [y, 0])));
     const entry = map.get(type)!;
+    // Use budget amounts only (plain year keys store the budget value)
     for (const y of years) entry[y] = (entry[y] || 0) + (leaf.amounts[y] || 0);
   }
   return map;
 }
-
-type TrendView = "function" | "department" | "spendingType";
 
 export default function ExpenseHeader({
   tiles, hierarchy, years, currentYear, townColor,
@@ -70,8 +69,9 @@ export default function ExpenseHeader({
 }: ExpenseHeaderProps) {
   const [drillFn, setDrillFn] = useState<string | null>(null);
   const [activePieDim, setActivePieDim] = useState<"function" | "spendingType">("function");
-  const [trendView, setTrendView] = useState<TrendView>("function");
   const [activeChart, setActiveChart] = useState<"trend" | "growth">("trend");
+  // Trend only has function and type — no department
+  const [trendView, setTrendView] = useState<"function" | "spendingType">("function");
 
   const displayYears = years.slice(-5);
   const pctChange = prevTotal > 0 ? ((totalBudget - prevTotal) / prevTotal * 100) : null;
@@ -87,86 +87,73 @@ export default function ExpenseHeader({
   );
   const totalForBar = [...spendingTypeTotals.values()].reduce((s, v) => s + (v[currentYear] || 0), 0);
 
-  // Trend groups by selected view
+  // Trend groups — function (with drill-down) or spending type
   const trendGroups = useMemo(() => {
     if (trendView === "function") {
-      const nodes = drillFn
-        ? (hierarchy.find(n => n.key === drillFn)?.children ?? []).filter(n => n.key !== "_direct")
-        : hierarchy.filter(n => n.key !== "_direct");
-      return nodes
+      if (drillFn) {
+        const fnNode = hierarchy.find(n => n.key === drillFn);
+        return (fnNode?.children ?? [])
+          .filter(n => n.key !== "_direct")
+          .sort((a, b) => (b.amounts[currentYear] || 0) - (a.amounts[currentYear] || 0))
+          .slice(0, 8)
+          .map(n => ({ label: n.key, amounts: n.amounts }));
+      }
+      return hierarchy
+        .filter(n => n.key !== "_direct")
         .sort((a, b) => (b.amounts[currentYear] || 0) - (a.amounts[currentYear] || 0))
         .slice(0, 8)
         .map(n => ({ label: n.key, amounts: n.amounts }));
-    } else if (trendView === "department") {
-      const depts = new Map<string, Record<string, number>>();
-      function collectDepts(nodes: HierarchyNode[], depth: number) {
-        for (const n of nodes) {
-          if (n.key === "_direct") continue;
-          if (depth === 1) {
-            // department level
-            const cur = depts.get(n.key) || {};
-            for (const [y, v] of Object.entries(n.amounts)) cur[y] = (cur[y] || 0) + v;
-            depts.set(n.key, cur);
-          } else if (!n.isLeaf) {
-            collectDepts(n.children, depth + 1);
-          }
-        }
-      }
-      collectDepts(hierarchy, 0);
-      return [...depts.entries()]
-        .sort((a, b) => (b[1][currentYear] || 0) - (a[1][currentYear] || 0))
-        .slice(0, 8)
-        .map(([label, amounts]) => ({ label, amounts }));
     } else {
       return spendingTypeSorted.slice(0, 8).map(([label, amounts]) => ({ label, amounts }));
     }
   }, [hierarchy, drillFn, currentYear, trendView, spendingTypeSorted]);
 
-  // Growth rate data (% change year over year for top groups)
+  // Growth rate — ALL function areas + total budget on right axis
   const growthData = useMemo(() => {
     if (displayYears.length < 2) return null;
     const labels = displayYears.slice(1).map(y => `FY${y}`);
-    // Overall budget growth
-    const overallGrowth = displayYears.slice(1).map((y, i) => {
+
+    // Total budget growth (right axis y1)
+    const totalGrowth = displayYears.slice(1).map((y, i) => {
       const prev = allYearTotals[displayYears[i]] || 0;
       const cur = allYearTotals[y] || 0;
-      return prev > 0 ? ((cur - prev) / prev * 100) : 0;
+      return prev > 0 ? +((cur - prev) / prev * 100).toFixed(2) : 0;
     });
 
-    // Top function areas
-    const topFns = hierarchy
-      .filter(n => n.key !== "_direct")
-      .sort((a, b) => (b.amounts[currentYear] || 0) - (a.amounts[currentYear] || 0))
-      .slice(0, 4);
+    // All function areas (left axis y0) — budget amounts only
+    const fnNodes = hierarchy.filter(n => n.key !== "_direct")
+      .sort((a, b) => (b.amounts[currentYear] || 0) - (a.amounts[currentYear] || 0));
 
-    const datasets = [
-      {
-        label: "Total Budget",
-        data: overallGrowth,
-        borderColor: townColor,
-        backgroundColor: townColor + "20",
-        borderWidth: 2.5,
-        pointRadius: 4,
-        fill: false,
-        tension: 0.3,
-      },
-      ...topFns.map((fn, i) => ({
-        label: fn.key,
-        data: displayYears.slice(1).map((y, idx) => {
-          const prev = fn.amounts[displayYears[idx]] || 0;
-          const cur = fn.amounts[y] || 0;
-          return prev > 0 ? ((cur - prev) / prev * 100) : 0;
-        }),
-        borderColor: COLORS[i % COLORS.length],
-        backgroundColor: "transparent",
-        borderWidth: 1.5,
-        pointRadius: 3,
-        borderDash: [4, 3],
-        fill: false,
-        tension: 0.3,
-      })),
-    ];
-    return { labels, datasets };
+    const fnDatasets = fnNodes.map((fn, i) => ({
+      label: fn.key,
+      data: displayYears.slice(1).map((y, idx) => {
+        const prev = fn.amounts[displayYears[idx]] || 0;
+        const cur = fn.amounts[y] || 0;
+        return prev > 0 ? +((cur - prev) / prev * 100).toFixed(2) : 0;
+      }),
+      borderColor: COLORS[i % COLORS.length],
+      backgroundColor: "transparent",
+      borderWidth: 1.5,
+      pointRadius: 3,
+      fill: false,
+      tension: 0.3,
+      yAxisID: "y",
+    }));
+
+    const totalDataset = {
+      label: "Total Budget",
+      data: totalGrowth,
+      borderColor: townColor,
+      backgroundColor: townColor + "20",
+      borderWidth: 2.5,
+      pointRadius: 4,
+      fill: false,
+      tension: 0.3,
+      yAxisID: "y1",
+      borderDash: [] as number[],
+    };
+
+    return { labels, datasets: [...fnDatasets, totalDataset] };
   }, [hierarchy, displayYears, allYearTotals, currentYear, townColor]);
 
   const barData = {
@@ -195,20 +182,6 @@ export default function ExpenseHeader({
     }
   }, [activePieDim, hierarchy, spendingTypeSorted, currentYear]);
 
-  // KPI: avg per dept
-  const deptCount = new Set(leaves.map(l => {
-    // find department from hierarchy traversal
-    return "";
-  })).size;
-
-  // Simpler: count unique departments from hierarchy depth 1 nodes
-  let uniqueDepts = 0;
-  for (const fn of hierarchy) {
-    if (fn.key === "_direct") continue;
-    uniqueDepts += fn.children.filter(c => c.key !== "_direct").length;
-  }
-  const avgPerDept = uniqueDepts > 0 ? Math.round(totalBudget / uniqueDepts) : 0;
-
   return (
     <div className="space-y-5">
       {/* Hero banner */}
@@ -232,13 +205,6 @@ export default function ExpenseHeader({
                 </p>
               )}
             </div>
-            {uniqueDepts > 0 && (
-              <div className="border-l border-white/20 pl-8">
-                <p className="text-white/50 text-xs uppercase tracking-wide font-medium">Departments</p>
-                <p className="text-white text-2xl font-bold mt-0.5">{uniqueDepts}</p>
-                <p className="text-white/50 text-xs mt-0.5">avg {abbreviateCurrency(avgPerDept)} each</p>
-              </div>
-            )}
             {tiles.slice(1).map(t => (
               <div key={t.label} className="border-l border-white/20 pl-8">
                 <p className="text-white/50 text-xs uppercase tracking-wide font-medium">{t.label}</p>
@@ -249,7 +215,6 @@ export default function ExpenseHeader({
           </div>
         </div>
 
-        {/* Spending type proportion bar */}
         {spendingTypeSorted.length > 0 && totalForBar > 0 && (
           <div className="px-6 pb-5">
             <div className="flex h-2.5 rounded-full overflow-hidden gap-px mt-1">
@@ -271,7 +236,7 @@ export default function ExpenseHeader({
         )}
       </div>
 
-      {/* Charts row */}
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* Pie */}
         <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
@@ -298,9 +263,10 @@ export default function ExpenseHeader({
           </div>
         </div>
 
-        {/* Trend / Growth chart */}
+        {/* Trend / Growth */}
         <div className="lg:col-span-3 bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+            {/* Chart type toggle */}
             <div className="flex gap-px border border-gray-200 rounded-lg overflow-hidden text-xs">
               <button onClick={() => setActiveChart("trend")}
                 className={`px-2.5 py-1.5 font-medium transition-colors ${activeChart === "trend" ? "text-white" : "text-gray-500 hover:bg-gray-50"}`}
@@ -314,13 +280,14 @@ export default function ExpenseHeader({
               </button>
             </div>
 
+            {/* View toggle — only on trend chart; function/type only */}
             {activeChart === "trend" && (
               <div className="flex gap-px border border-gray-200 rounded-lg overflow-hidden text-xs">
-                {(["function", "department", "spendingType"] as const).map(v => (
+                {(["function", "spendingType"] as const).map(v => (
                   <button key={v} onClick={() => { setTrendView(v); setDrillFn(null); }}
-                    className={`px-2 py-1.5 font-medium transition-colors ${trendView === v ? "text-white" : "text-gray-500 hover:bg-gray-50"}`}
+                    className={`px-2.5 py-1.5 font-medium transition-colors ${trendView === v ? "text-white" : "text-gray-500 hover:bg-gray-50"}`}
                     style={trendView === v ? { backgroundColor: townColor } : {}}>
-                    {v === "function" ? "Function" : v === "department" ? "Dept" : "Type"}
+                    {v === "function" ? "By Function" : "By Type"}
                   </button>
                 ))}
               </div>
@@ -329,16 +296,19 @@ export default function ExpenseHeader({
 
           {activeChart === "trend" && (
             <>
-              {drillFn && (
-                <button onClick={() => setDrillFn(null)} className="text-xs text-gray-400 hover:text-gray-600 mb-1">
-                  ← {drillFn}
+              {drillFn && trendView === "function" && (
+                <button onClick={() => setDrillFn(null)} className="text-xs text-gray-400 hover:text-gray-600 mb-1 block">
+                  ← Back to all functions
                 </button>
+              )}
+              {!drillFn && trendView === "function" && (
+                <p className="text-xs text-gray-400 mb-1">Click a bar to drill into departments</p>
               )}
               <div className="h-52">
                 <Bar data={barData} options={{
                   indexAxis: "y", responsive: true, maintainAspectRatio: false,
                   onClick: (_e: unknown, els: { datasetIndex: number }[]) => {
-                    if (els.length > 0 && drillFn === null && trendView === "function") {
+                    if (els.length > 0 && !drillFn && trendView === "function") {
                       setDrillFn(trendGroups[els[0].datasetIndex]?.label ?? null);
                     }
                   },
@@ -356,22 +326,34 @@ export default function ExpenseHeader({
           )}
 
           {activeChart === "growth" && growthData && (
-            <div className="h-52 mt-1">
-              <Line data={growthData} options={{
-                responsive: true, maintainAspectRatio: false,
-                plugins: {
-                  legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 }, padding: 6, usePointStyle: true } },
-                  tooltip: { callbacks: { label: (ctx: { parsed: { y: number }; dataset: { label: string } }) => ` ${ctx.dataset.label}: ${ctx.parsed.y >= 0 ? "+" : ""}${ctx.parsed.y.toFixed(1)}%` } },
-                },
-                scales: {
-                  x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-                  y: {
-                    ticks: { font: { size: 10 }, callback: (v: number | string) => `${Number(v).toFixed(0)}%` },
-                    grid: { color: "#f3f4f6" },
+            <>
+              <p className="text-xs text-gray-400 mb-1">Year-over-year % change · <span style={{ color: townColor }} className="font-medium">Total Budget</span> on right axis</p>
+              <div className="h-52">
+                <Line data={growthData} options={{
+                  responsive: true, maintainAspectRatio: false,
+                  interaction: { mode: "index", intersect: false },
+                  plugins: {
+                    legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 9 }, padding: 5, usePointStyle: true } },
+                    tooltip: { callbacks: { label: (ctx: { parsed: { y: number }; dataset: { label: string } }) => ` ${ctx.dataset.label}: ${ctx.parsed.y >= 0 ? "+" : ""}${ctx.parsed.y.toFixed(1)}%` } },
                   },
-                },
-              } as Parameters<typeof Line>[0]["options"]} />
-            </div>
+                  scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                    y: {
+                      position: "left",
+                      title: { display: true, text: "Function %", font: { size: 9 }, color: "#9ca3af" },
+                      ticks: { font: { size: 9 }, callback: (v: number | string) => `${Number(v).toFixed(0)}%` },
+                      grid: { color: "#f3f4f6" },
+                    },
+                    y1: {
+                      position: "right",
+                      title: { display: true, text: "Total Budget %", font: { size: 9 }, color: townColor },
+                      ticks: { font: { size: 9 }, color: townColor, callback: (v: number | string) => `${Number(v).toFixed(0)}%` },
+                      grid: { drawOnChartArea: false },
+                    },
+                  },
+                } as Parameters<typeof Line>[0]["options"]} />
+              </div>
+            </>
           )}
 
           {activeChart === "growth" && !growthData && (
