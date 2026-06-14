@@ -271,6 +271,15 @@ export default async function ExpensesPage({
     }
   }
 
+  // Total budget per year (preferred type) for growth rate chart
+  const allYearTotals: Record<string, number> = {};
+  for (const y of tableYears) {
+    const t = y === currentYear ? "budget" : (yearTypes[y] ?? "budget");
+    allYearTotals[y] = allRowsClassified
+      .filter(r => r.fiscalYear === y && r.amountType === t)
+      .reduce((s, r) => s + r.amount, 0);
+  }
+
   const current = allRowsClassified.filter(
     (r) => r.fiscalYear === currentYear && r.amountType === "budget"
   );
@@ -354,6 +363,7 @@ export default async function ExpensesPage({
         prevTotal={prevTotal}
         spendingTypeSegmentIndex={acConfig?.spendingTypeSegment ?? null}
         accountSegments={acConfig?.segments ?? []}
+        allYearTotals={allYearTotals}
       />
 
       <DynamicExpenseTable
