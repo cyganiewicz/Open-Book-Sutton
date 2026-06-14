@@ -52,7 +52,8 @@ function NodeRow({
   colCount: number;
   forceCollapsed: boolean;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  // Default: function areas (depth 0) open, departments+ (depth >= 1) collapsed
+  const [collapsed, setCollapsed] = useState(depth >= 1);
   const effectiveCollapsed = forceCollapsed || collapsed;
   const isTopLevel = depth === 0;
 
@@ -305,7 +306,7 @@ export default function DynamicExpenseTable({
         <button
           onClick={() => setAllCollapsed(c => !c)}
           className="text-xs text-gray-500 hover:text-gray-700 px-3 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 whitespace-nowrap">
-          {allCollapsed ? "Expand all" : "Collapse all"}
+          {allCollapsed ? "Expand all" : "Collapse to functions"}
         </button>
       </div>
 
