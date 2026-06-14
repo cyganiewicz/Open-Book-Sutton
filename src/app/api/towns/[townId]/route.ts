@@ -8,7 +8,7 @@ export async function PATCH(
   const { townId } = await params;
   const body = await request.json();
   const {
-    name, slug, primaryColor, logoUrl,
+    name, slug, primaryColor, logoUrl, heroImageUrl,
     contactEmail, aboutText, allowedDomains, accountCodeRules,
   } = body;
 
@@ -33,6 +33,7 @@ export async function PATCH(
       ...(logoUrl !== undefined && { logoUrl: logoUrl || null }),
       ...(contactEmail !== undefined && { contactEmail: contactEmail || null }),
       ...(aboutText !== undefined && { aboutText: aboutText || null }),
+      ...(heroImageUrl !== undefined && { heroImageUrl: heroImageUrl || null }),
       ...(allowedDomains !== undefined && { allowedDomains: allowedDomains || "" }),
       ...(accountCodeRules !== undefined && { accountCodeRules: accountCodeRules || "" }),
       published: true,
