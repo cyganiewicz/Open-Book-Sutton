@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { abbreviateCurrency, formatCurrency } from "@/lib/format";
 import ExportButton from "@/components/portal/ExportButton";
 import CapitalProjectList from "@/components/portal/CapitalProjectList";
+import CapitalCharts from "@/components/portal/CapitalCharts";
 
 export default async function CapitalPage({
   params,
@@ -56,6 +57,14 @@ export default async function CapitalPage({
   }
 
   const hasData = allRows.length > 0;
+
+  // Yearly data for stacked bar chart
+  const yearlyData = years.map(year => {
+    const rows = allRows.filter(r => r.fiscalYear === year);
+    const depts: Record<string, number> = {};
+    for (const r of rows) depts[r.department || "Other"] = (depts[r.department || "Other"] || 0) + r.amount;
+    return { year, depts, total: rows.reduce((s, r) => s + r.amount, 0) };
+  }).reverse(); // chronological
 
   // Prepare data for client component
   const projectsByYear = years.map(year => ({
@@ -143,62 +152,13 @@ export default async function CapitalPage({
             )}
           </div>
 
-          {/* Breakdown */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-gray-100">
-                <h2 className="font-semibold text-gray-900 text-sm">FY{latestYear} by Department</h2>
-              </div>
-              <div className="divide-y divide-gray-50">
-                {topDepts.map(([dept, amt], i) => {
-                  const pct = totalLatest > 0 ? (amt / totalLatest) * 100 : 0;
-                  return (
-                    <div key={dept} className="px-5 py-3 flex items-center gap-3">
-                      <div className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                        style={{ backgroundColor: DEPT_COLORS[i % DEPT_COLORS.length] }}>{i + 1}</div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-baseline mb-1">
-                          <span className="text-sm text-gray-800 truncate mr-2">{dept}</span>
-                          <span className="text-sm font-bold text-gray-900 tabular-nums flex-shrink-0">{abbreviateCurrency(amt)}</span>
-                        </div>
-                        <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: DEPT_COLORS[i % DEPT_COLORS.length] }} />
-                        </div>
-                      </div>
-                      <span className="text-xs text-gray-400 w-8 text-right">{pct.toFixed(0)}%</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-gray-100">
-                <h2 className="font-semibold text-gray-900 text-sm">FY{latestYear} by Funding Source</h2>
-              </div>
-              <div className="divide-y divide-gray-50">
-                {topSources.map(([source, amt]) => {
-                  const pct = totalLatest > 0 ? (amt / totalLatest) * 100 : 0;
-                  const c = sourceColor(source);
-                  return (
-                    <div key={source} className="px-5 py-3 flex items-center gap-3">
-                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: c }} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-baseline mb-1">
-                          <span className="text-sm text-gray-800 truncate mr-2">{source}</span>
-                          <span className="text-sm font-bold text-gray-900 tabular-nums flex-shrink-0">{abbreviateCurrency(amt)}</span>
-                        </div>
-                        <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: c }} />
-                        </div>
-                      </div>
-                      <span className="text-xs text-gray-400 w-8 text-right">{pct.toFixed(0)}%</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+          {/* Charts */}
+          <CapitalCharts
+            byDept={topDepts}
+            bySources={topSources}
+            yearlyData={yearlyData}
+            color={color}
+          />
 
           {/* Project cards — client component for expand/collapse */}
           <CapitalProjectList
