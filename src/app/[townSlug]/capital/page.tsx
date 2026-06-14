@@ -42,7 +42,6 @@ export default async function CapitalPage({
     Purpose: r.purpose || "",
     Amount: formatCurrency(r.amount),
     "Funding Source": r.fundingSource || "",
-    Description: r.description || "",
   }));
 
   const DEPT_COLORS = ["#4f46e5","#059669","#d97706","#dc2626","#7c3aed","#0891b2","#be185d","#2563eb","#65a30d","#ea580c"];
@@ -70,7 +69,7 @@ export default async function CapitalPage({
         department: r.department || null,
         amount: r.amount,
         fundingSource: r.fundingSource || null,
-        description: r.description || null,
+        description: null,
       })),
   }));
 
