@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
 import { getSessionFromCookie } from "@/lib/auth";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
@@ -20,9 +19,5 @@ export async function POST(request: Request) {
   const base64 = Buffer.from(bytes).toString("base64");
   const dataUrl = `data:${file.type};base64,${base64}`;
 
-  const town = await prisma.town.findFirst({ where: { staffUsers: { some: { userId: session.userId } } } });
-  if (!town) return NextResponse.json({ error: "Town not found" }, { status: 404 });
-
-  await prisma.town.update({ where: { id: town.id }, data: { heroImageUrl: dataUrl } });
   return NextResponse.json({ url: dataUrl });
 }
