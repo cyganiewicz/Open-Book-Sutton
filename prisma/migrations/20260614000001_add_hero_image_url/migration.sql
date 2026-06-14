@@ -1,0 +1,1 @@
+ALTER TABLE "Town" ADD COLUMN "heroImageUrl" TEXT;
