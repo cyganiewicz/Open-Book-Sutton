@@ -158,6 +158,7 @@ export default async function CapitalPage({
             bySources={topSources}
             yearlyData={yearlyData}
             color={color}
+            latestYear={latestYear}
           />
 
           {/* Project cards — client component for expand/collapse */}
