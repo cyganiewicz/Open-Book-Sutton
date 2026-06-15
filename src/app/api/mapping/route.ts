@@ -60,19 +60,40 @@ export async function POST(request: Request) {
       normalizeRows(cleanedData, mappings, accountCodeConfig, upload.dataCategory)
     );
 
-    // Delete existing rows for this upload
+    // Delete existing rows for this upload (re-mapping)
     await prisma.budgetRow.deleteMany({ where: { uploadId } });
 
     if (normalized.length > 0) {
       const incomingYears = [...new Set(normalized.map((r) => r.fiscalYear))];
-      await prisma.budgetRow.deleteMany({
+
+      // Collect the unique account codes coming in from this file.
+      // We only delete rows that share BOTH the same fiscal year AND the same
+      // objectCode as something in the new file — so adding a debt service file
+      // won't wipe out rows from a previously uploaded general expense file.
+      const incomingKeys = new Set(
+        normalized.map((r) => `${r.fiscalYear}||${r.amountType}||${r.objectCode ?? ""}||${r.lineItem ?? ""}`)
+      );
+
+      // Find existing rows (from OTHER uploads) for these years so we can
+      // selectively remove only the ones this upload is replacing.
+      const existingRows = await prisma.budgetRow.findMany({
         where: {
           townId: upload.townId,
           dataCategory: upload.dataCategory,
           fiscalYear: { in: incomingYears },
           uploadId: { not: uploadId },
         },
+        select: { id: true, fiscalYear: true, amountType: true, objectCode: true, lineItem: true },
       });
+
+      // Only delete existing rows whose key matches something in the new file
+      const idsToDelete = existingRows
+        .filter(r => incomingKeys.has(`${r.fiscalYear}||${r.amountType}||${r.objectCode ?? ""}||${r.lineItem ?? ""}`))
+        .map(r => r.id);
+
+      if (idsToDelete.length > 0) {
+        await prisma.budgetRow.deleteMany({ where: { id: { in: idsToDelete } } });
+      }
 
       await prisma.budgetRow.createMany({
         data: normalized.map((row) => ({
