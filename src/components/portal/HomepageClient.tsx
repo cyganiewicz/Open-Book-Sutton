@@ -138,7 +138,7 @@ export default function HomepageClient({ town, data }: { town: TownData; data: B
           1. HERO — full-bleed, editorial, image-backed
       ══════════════════════════════════════════════════════ */}
       <section
-        className="relative min-h-[86vh] flex flex-col justify-end overflow-hidden -mx-4 sm:-mx-6 mb-0"
+        className="relative min-h-[75vh] flex flex-col justify-center overflow-hidden -mx-4 sm:-mx-6 mb-0"
         aria-label="Hero"
       >
         {/* Background */}
@@ -174,8 +174,8 @@ export default function HomepageClient({ town, data }: { town: TownData; data: B
         <div className="absolute top-24 left-0 right-0 border-t border-white/10" />
 
         {/* Content */}
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 pb-14 pt-32 w-full">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-end">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-20 w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
 
             {/* Left: headline + CTAs */}
             <div className="lg:col-span-7">
@@ -257,7 +257,7 @@ export default function HomepageClient({ town, data }: { town: TownData; data: B
 
           {/* Budget river — the signature element */}
           {hasData && totalExpenses > 0 && (
-            <div className="mt-10">
+            <div className="mt-12 pt-8 border-t border-white/10">
               <p className="text-white/30 text-[9px] font-bold uppercase tracking-[0.2em] mb-2">
                 FY{expYear} Budget · Proportional by Function
               </p>
