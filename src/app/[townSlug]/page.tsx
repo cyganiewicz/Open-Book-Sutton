@@ -8,6 +8,7 @@ import { abbreviateCurrency, formatCurrency } from "@/lib/format";
 import { parseAccountCodeConfig, resolveRevenueCategory, applyAccountCodeConfig } from "@/lib/account-codes";
 import { fallbackSpendingType } from "@/lib/expense-types";
 import HomepageClient from "@/components/portal/HomepageClient";
+import { parseSiteText } from "@/lib/site-text";
 
 export default async function TownHomePage({
   params,
@@ -33,6 +34,7 @@ export default async function TownHomePage({
   const totalCapital = latestCapRows.reduce((s, r) => s + r.amount, 0);
 
   const { currentYear: expYear } = detectCurrentAndPreviousYear(expenseRows);
+  const siteText = parseSiteText((town as {siteText?: string}).siteText || "", town.name, expYear);
   const { currentYear: revYear } = detectCurrentAndPreviousYear(revenueRows);
 
   const currentExpenses = expenseRows
@@ -81,6 +83,7 @@ export default async function TownHomePage({
         aboutText: town.aboutText,
         contactEmail: town.contactEmail,
       }}
+      siteText={siteText}
       data={{
         hasData,
         expYear,
