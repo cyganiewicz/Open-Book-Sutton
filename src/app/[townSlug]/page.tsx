@@ -35,6 +35,13 @@ export default async function TownHomePage({
 
   const { currentYear: expYear } = detectCurrentAndPreviousYear(expenseRows);
   const siteText = parseSiteText((town as {siteText?: string}).siteText || "", town.name, expYear);
+
+  // Generate budget section body from actual data so it's always accurate
+  const topFnName = topFunctions[0]?.[0] ?? "General Government";
+  const topFnPct = totalExpenses > 0 && topFunctions[0]
+    ? ((topFunctions[0][1] / totalExpenses) * 100).toFixed(1)
+    : "0";
+  const budgetSectionBody = `${topFnName} represents the largest area of municipal spending at ${topFnPct}% of the total budget. Every dollar is appropriated through the annual budget process.`;
   const { currentYear: revYear } = detectCurrentAndPreviousYear(revenueRows);
 
   const currentExpenses = expenseRows
@@ -84,6 +91,7 @@ export default async function TownHomePage({
         contactEmail: town.contactEmail,
       }}
       siteText={siteText}
+      budgetSectionBody={budgetSectionBody}
       data={{
         hasData,
         expYear,
