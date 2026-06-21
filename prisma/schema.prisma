@@ -16,6 +16,7 @@ model Town {
   contactEmail String?
   aboutText    String?
   heroImageUrl String?
+  siteText     String   @default("")
   inviteCode      String   @default("")
   allowedDomains  String   @default("")
   accountCodeRules String   @default("")
