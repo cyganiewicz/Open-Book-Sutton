@@ -261,7 +261,7 @@ export default function RevenueTable({
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm" style={{ minWidth: "480px" }}>
-          <thead>
+          <thead className="sticky top-0 z-10">
             <tr className="border-b-2 border-gray-200 bg-gray-50">
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Source</th>
               {displayCols.map(col => (
