@@ -18,7 +18,7 @@ import {
 import { resolveSpendingType, applyAccountCodeConfig } from "@/lib/account-codes";
 import ExpenseHeader from "@/components/portal/ExpenseHeader";
 import DynamicExpenseTable from "@/components/portal/DynamicExpenseTable";
-import ExportButton from "@/components/portal/ExportButton";
+import FinancialPageHeader from "@/components/portal/FinancialPageHeader";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 type BudgetRowLike = {
@@ -57,7 +57,6 @@ function sortNodes(
   });
 }
 
-/** Recursively annotate nodes with spending type totals */
 export function annotateSpendingTypes(
   nodes: HierarchyNode[],
   tableYears: string[],
@@ -101,11 +100,6 @@ export function annotateSpendingTypes(
   });
 }
 
-/**
- * Build hierarchy from rows.
- * amounts[year] = the selected type for that year (budget or actual based on yearTypes).
- * amounts[year+":actual"] and amounts[year+":budget"] are stored for table column switching.
- */
 export function buildHierarchyV2(
   currentRows: BudgetRowLike[],
   allYearRows: BudgetRowLike[],
@@ -127,13 +121,11 @@ export function buildHierarchyV2(
       const desc = row.lineItem || "";
       const amounts: Record<string, number> = {};
       for (const y of tableYears) {
-        // Primary amount (what the column shows by default)
         const preferredType = y === currentYear ? "budget" : (yearTypes[y] ?? "budget");
         const primary = allYearRows
           .filter(r => r.objectCode === acct && r.lineItem === desc && r.fiscalYear === y && r.amountType === preferredType)
           .reduce((s, r) => s + r.amount, 0);
         if (primary) amounts[y] = primary;
-        // Also store explicit budget/actual for column switching
         for (const t of ["budget", "actual"] as const) {
           const val = allYearRows
             .filter(r => r.objectCode === acct && r.lineItem === desc && r.fiscalYear === y && r.amountType === t)
@@ -157,7 +149,6 @@ export function buildHierarchyV2(
         .filter(r => filter(r) && r.fiscalYear === y && r.amountType === preferredType)
         .reduce((s, r) => s + r.amount, 0);
       if (primary) out[y] = primary;
-      // Also store explicit budget/actual for column switching
       for (const t of ["budget", "actual"] as const) {
         const val = allYearRows
           .filter(r => filter(r) && r.fiscalYear === y && r.amountType === t)
@@ -241,7 +232,6 @@ export default async function ExpensesPage({
 
   const { currentYear, previousYear, allYears } = detectCurrentAndPreviousYear(allRows);
 
-  // Reclassify at render time — account code changes reflect immediately
   function reclassifyExpense<T extends {
     objectCode: string | null; functionArea: string | null;
     department: string | null; category1: string | null; category2: string | null;
@@ -260,7 +250,6 @@ export default async function ExpensesPage({
   const allRowsClassified = allRows.map(reclassifyExpense);
   const tableYears = allYears.length > 0 ? allYears : [currentYear];
 
-  // Determine preferred type per year (actual if available for prior years)
   const yearTypes: Record<string, "budget" | "actual"> = {};
   for (const y of tableYears) {
     if (y === currentYear) {
@@ -271,7 +260,6 @@ export default async function ExpensesPage({
     }
   }
 
-  // Total budget per year (preferred type) for growth rate chart
   const allYearTotals: Record<string, number> = {};
   for (const y of tableYears) {
     const t = y === currentYear ? "budget" : (yearTypes[y] ?? "budget");
@@ -291,7 +279,6 @@ export default async function ExpensesPage({
     : [];
   const prevTotal = prev.reduce((s, r) => s + r.amount, 0);
 
-  // Build year+type column options for the table
   const yearTypeOptions: { year: string; type: "budget" | "actual"; label: string; colKey: string }[] = [];
   for (const y of tableYears) {
     const hasBudget = allRowsClassified.some(r => r.fiscalYear === y && r.amountType === "budget");
@@ -342,40 +329,41 @@ export default async function ExpensesPage({
   const levelNames = expLevels.map(l => l.name);
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Expenses</h1>
-          <p className="text-gray-500 mt-1 text-sm">
-            FY{currentYear} adopted budget · {current.length.toLocaleString()} line items
-          </p>
-        </div>
-        <ExportButton data={exportData} filename={`${town.slug}-expenses-fy${currentYear}`} />
+    <div className="space-y-0">
+      <FinancialPageHeader
+        title="Expenses"
+        fiscalYear={currentYear}
+        itemCount={current.length}
+        description="Explore how Sutton allocates resources across services, departments, and programs."
+        exportData={exportData}
+        exportFilename={`${town.slug}-expenses-fy${currentYear}`}
+      />
+
+      <div className="space-y-8">
+        <ExpenseHeader
+          tiles={tiles}
+          hierarchy={hierarchy}
+          years={tableYears}
+          currentYear={currentYear}
+          townColor={town.primaryColor || "#2d6a4f"}
+          totalBudget={currentTotal}
+          prevTotal={prevTotal}
+          spendingTypeSegmentIndex={acConfig?.spendingTypeSegment ?? null}
+          accountSegments={acConfig?.segments ?? []}
+          allYearTotals={allYearTotals}
+        />
+
+        <DynamicExpenseTable
+          hierarchy={hierarchy}
+          levelNames={levelNames}
+          years={tableYears}
+          currentYear={currentYear}
+          yearTypes={yearTypes}
+          yearTypeOptions={yearTypeOptions}
+          townColor={town.primaryColor || "#2d6a4f"}
+          lineItemTooltips={lineItemTooltips}
+        />
       </div>
-
-      <ExpenseHeader
-        tiles={tiles}
-        hierarchy={hierarchy}
-        years={tableYears}
-        currentYear={currentYear}
-        townColor={town.primaryColor}
-        totalBudget={currentTotal}
-        prevTotal={prevTotal}
-        spendingTypeSegmentIndex={acConfig?.spendingTypeSegment ?? null}
-        accountSegments={acConfig?.segments ?? []}
-        allYearTotals={allYearTotals}
-      />
-
-      <DynamicExpenseTable
-        hierarchy={hierarchy}
-        levelNames={levelNames}
-        years={tableYears}
-        currentYear={currentYear}
-        yearTypes={yearTypes}
-        yearTypeOptions={yearTypeOptions}
-        townColor={town.primaryColor}
-        lineItemTooltips={lineItemTooltips}
-      />
     </div>
   );
 }
