@@ -36,12 +36,6 @@ export default async function TownHomePage({
   const { currentYear: expYear } = detectCurrentAndPreviousYear(expenseRows);
   const siteText = parseSiteText((town as {siteText?: string}).siteText || "", town.name, expYear);
 
-  // Generate budget section body from actual data so it's always accurate
-  const topFnName = topFunctions[0]?.[0] ?? "General Government";
-  const topFnPct = totalExpenses > 0 && topFunctions[0]
-    ? ((topFunctions[0][1] / totalExpenses) * 100).toFixed(1)
-    : "0";
-  const budgetSectionBody = `${topFnName} represents the largest area of municipal spending at ${topFnPct}% of the total budget. Every dollar is appropriated through the annual budget process.`;
   const { currentYear: revYear } = detectCurrentAndPreviousYear(revenueRows);
 
   const currentExpenses = expenseRows
@@ -66,6 +60,13 @@ export default async function TownHomePage({
   const expByFn: Record<string, number> = {};
   for (const r of currentExpenses) expByFn[r.functionArea || "Other"] = (expByFn[r.functionArea || "Other"] || 0) + r.amount;
   const topFunctions = Object.entries(expByFn).sort((a, b) => b[1] - a[1]);
+
+  // Generate budget section body from actual top function (not hardcoded)
+  const topFnName = topFunctions[0]?.[0] ?? "General Government";
+  const topFnPct = totalExpenses > 0 && topFunctions[0]
+    ? ((topFunctions[0][1] / totalExpenses) * 100).toFixed(1)
+    : "0";
+  const budgetSectionBody = `${topFnName} represents the largest area of municipal spending at ${topFnPct}% of the total budget. Every dollar is appropriated through the annual budget process.`;
 
   const revByCat: Record<string, number> = {};
   for (const r of currentRevenues) revByCat[r.category1 || "Other"] = (revByCat[r.category1 || "Other"] || 0) + r.amount;
