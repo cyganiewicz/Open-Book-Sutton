@@ -11,6 +11,7 @@ export async function GET() {
       primaryColor: true,
       logoUrl: true,
       heroImageUrl: true,
+      siteText: true,
       contactEmail: true,
       aboutText: true,
       published: true,
