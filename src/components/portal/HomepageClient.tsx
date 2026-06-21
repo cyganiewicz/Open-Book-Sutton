@@ -122,7 +122,7 @@ function Rule() {
 }
 
 // ── Main component ────────────────────────────────────────────
-export default function HomepageClient({ town, data, siteText }: { town: TownData; data: BudgetData; siteText: SiteText }) {
+export default function HomepageClient({ town, data, siteText, budgetSectionBody }: { town: TownData; data: BudgetData; siteText: SiteText; budgetSectionBody: string }) {
   const color = town.primaryColor;
   const slug = town.slug;
 
@@ -396,7 +396,7 @@ export default function HomepageClient({ town, data, siteText }: { town: TownDat
                     {siteText.budgetSectionTitle}
                   </h2>
                   <p className="text-gray-600 leading-relaxed text-sm mb-6">
-                    {siteText.budgetSectionBody}
+                    {budgetSectionBody}
                   </p>
                   <div className="border-l-4 pl-4 mb-6" style={{ borderColor: T.gold }}>
                     <p className="text-2xl font-extrabold tabular-nums" style={{ color: T.green }}>
