@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { abbreviateCurrency, formatCurrency } from "@/lib/format";
+import type { SiteText } from "@/lib/site-text";
 
 // ── Design tokens ──────────────────────────────────────────────
 // Disciplined palette: Sutton deep green, sage, cream, gold, slate
@@ -121,7 +122,7 @@ function Rule() {
 }
 
 // ── Main component ────────────────────────────────────────────
-export default function HomepageClient({ town, data }: { town: TownData; data: BudgetData }) {
+export default function HomepageClient({ town, data, siteText }: { town: TownData; data: BudgetData; siteText: SiteText }) {
   const color = town.primaryColor;
   const slug = town.slug;
 
@@ -193,28 +194,28 @@ export default function HomepageClient({ town, data }: { town: TownData; data: B
               </div>
 
               <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-white tracking-tight leading-[0.95] mb-6">
-                A Clearer View<br />
-                <span style={{ color: T.gold2 }}>of Sutton's</span><br />
-                Finances.
+{siteText.heroHeadline}<br />
+                <span style={{ color: T.gold2 }}>{siteText.heroAccent}</span><br />
+                {siteText.heroSuffix}
               </h1>
 
               <p className="text-white/70 text-lg max-w-lg leading-relaxed mb-8">
                 {town.aboutText ||
-                  "OpenBook makes the Town of Sutton's budget, revenues, expenditures, and capital investments understandable and accessible to every resident."}
+                  siteText.heroSubtext}
               </p>
 
               <div className="flex flex-wrap gap-3">
                 <Link href={`/${slug}/expenses`}
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-bold transition-all hover:scale-105 active:scale-95"
                   style={{ backgroundColor: T.gold2, color: "#1a1a1a" }}>
-                  Explore FY{expYear} Budget
+                  {siteText.heroCtaPrimary}
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75" />
                   </svg>
                 </Link>
                 <Link href={`/${slug}/capital`}
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold border border-white/30 text-white hover:bg-white/10 transition-all">
-                  See Capital Projects
+                  {siteText.heroCtaSecondary}
                 </Link>
               </div>
             </div>
@@ -296,10 +297,10 @@ export default function HomepageClient({ town, data }: { town: TownData; data: B
             <div className="text-center mb-10">
               <Eyebrow>Understanding the budget</Eyebrow>
               <h2 className="text-3xl font-extrabold tracking-tight" style={{ color: T.green }}>
-                Follow Every Dollar
+                {siteText.followTitle}
               </h2>
               <p className="text-gray-500 mt-2 max-w-xl mx-auto text-sm">
-                Every dollar the Town spends follows a path — from residents to services. Here's how it works.
+                {siteText.followSubtext}
               </p>
             </div>
 
@@ -307,8 +308,8 @@ export default function HomepageClient({ town, data }: { town: TownData; data: B
               {[
                 {
                   step: "01",
-                  title: "Revenue comes in",
-                  body: "Property taxes, state aid, fees, and excise taxes fund the Town's operations.",
+                  title: siteText.followStep1Title,
+                  body: siteText.followStep1Body,
                   href: `/${slug}/revenues`,
                   icon: (
                     <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -318,8 +319,8 @@ export default function HomepageClient({ town, data }: { town: TownData; data: B
                 },
                 {
                   step: "02",
-                  title: "The budget is set",
-                  body: "The Select Board and Town Meeting adopt a balanced budget allocating funds to every department.",
+                  title: siteText.followStep2Title,
+                  body: siteText.followStep2Body,
                   href: `/${slug}/budget-book`,
                   icon: (
                     <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -329,8 +330,8 @@ export default function HomepageClient({ town, data }: { town: TownData; data: B
                 },
                 {
                   step: "03",
-                  title: "Services are delivered",
-                  body: "Schools, public safety, roads, and other services reach residents across all eight function areas.",
+                  title: siteText.followStep3Title,
+                  body: siteText.followStep3Body,
                   href: `/${slug}/expenses`,
                   icon: (
                     <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -340,8 +341,8 @@ export default function HomepageClient({ town, data }: { town: TownData; data: B
                 },
                 {
                   step: "04",
-                  title: "The future is built",
-                  body: "Capital funds invest in roads, facilities, equipment, and infrastructure that will last decades.",
+                  title: siteText.followStep4Title,
+                  body: siteText.followStep4Body,
                   href: `/${slug}/capital`,
                   icon: (
                     <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -392,11 +393,10 @@ export default function HomepageClient({ town, data }: { town: TownData; data: B
                 <div className="lg:col-span-4">
                   <Eyebrow>FY{expYear} Budget</Eyebrow>
                   <h2 className="text-4xl font-extrabold tracking-tight mb-4" style={{ color: T.green }}>
-                    Where Sutton Invests
+                    {siteText.budgetSectionTitle}
                   </h2>
                   <p className="text-gray-600 leading-relaxed text-sm mb-6">
-                    Education represents the largest area of municipal spending, reflecting the community's
-                    commitment to Sutton's schools and students. Every dollar is appropriated through Town Meeting.
+                    {siteText.budgetSectionBody}
                   </p>
                   <div className="border-l-4 pl-4 mb-6" style={{ borderColor: T.gold }}>
                     <p className="text-2xl font-extrabold tabular-nums" style={{ color: T.green }}>
@@ -493,7 +493,7 @@ export default function HomepageClient({ town, data }: { town: TownData; data: B
                   A Balanced Budget
                 </h2>
                 <p className="text-gray-500 mt-2 text-sm max-w-md mx-auto">
-                  Sutton's operating budget is balanced — revenue collected equals services funded.
+                  {siteText.balanceSubtext}
                 </p>
               </div>
 
@@ -620,11 +620,10 @@ export default function HomepageClient({ town, data }: { town: TownData; data: B
                       Capital Investment Plan
                     </p>
                     <h2 className="text-4xl font-extrabold text-white tracking-tight mb-4 leading-tight">
-                      Building Sutton's Future
+                      {siteText.capitalTitle}
                     </h2>
                     <p className="text-white/65 text-sm leading-relaxed mb-6">
-                      Sutton's capital plan funds long-term assets that serve residents for decades —
-                      roads, public safety equipment, facilities, technology, and infrastructure improvements.
+                      {siteText.capitalBody}
                     </p>
                     <div className="flex items-baseline gap-3 mb-6">
                       <span className="text-5xl font-extrabold text-white tabular-nums">
@@ -684,10 +683,10 @@ export default function HomepageClient({ town, data }: { town: TownData; data: B
             <div className="text-center mb-8">
               <Eyebrow>Transparency</Eyebrow>
               <h2 className="text-3xl font-extrabold tracking-tight" style={{ color: T.green }}>
-                Everything Behind the Numbers.
+                {siteText.docsTitle}
               </h2>
               <p className="text-gray-500 mt-2 text-sm">
-                Every document, every detail — open to all residents.
+                {siteText.docsSubtext}
               </p>
             </div>
 
