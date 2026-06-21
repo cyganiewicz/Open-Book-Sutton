@@ -5,9 +5,9 @@ import { prisma } from "@/lib/db";
 import { detectCurrentAndPreviousYear } from "@/lib/aggregator";
 import { formatCurrency } from "@/lib/format";
 import { parseAccountCodeConfig, DEFAULT_REVENUE_LEVELS, resolveRevenueCategory } from "@/lib/account-codes";
-import ExportButton from "@/components/portal/ExportButton";
 import RevenueHeader, { type RevHierarchyNode } from "@/components/portal/RevenueHeader";
 import RevenueTable from "@/components/portal/RevenueTable";
+import FinancialPageHeader from "@/components/portal/FinancialPageHeader";
 
 export default async function RevenuesPage({
   params,
@@ -187,17 +187,17 @@ export default async function RevenuesPage({
   });
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Revenues</h1>
-          <p className="text-gray-500 mt-1 text-sm">
-            FY{currentYear} adopted budget · {current.length.toLocaleString()} line items
-          </p>
-        </div>
-        <ExportButton data={exportData} filename={`${town.slug}-revenues-fy${currentYear}`} />
-      </div>
+    <div className="space-y-0">
+      <FinancialPageHeader
+        title="Revenues"
+        fiscalYear={currentYear}
+        itemCount={current.length}
+        description="See how Sutton funds municipal services through taxes, state aid, local receipts, and other sources."
+        exportData={exportData}
+        exportFilename={`${town.slug}-revenues-fy${currentYear}`}
+      />
 
+      <div className="space-y-8">
       <RevenueHeader
         hierarchy={hierarchy}
         years={tableYears}
@@ -217,6 +217,7 @@ export default async function RevenuesPage({
         totalRevenue={totalRevenue}
         levelNames={levelNames}
       />
+      </div>
     </div>
   );
 }
