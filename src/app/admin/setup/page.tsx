@@ -11,6 +11,7 @@ interface Town {
   primaryColor: string;
   logoUrl: string | null;
   heroImageUrl: string | null;
+  siteText: string | null;
   contactEmail: string | null;
   aboutText: string | null;
   published: boolean;
@@ -28,6 +29,7 @@ export default function SetupPage() {
   const [logoUrl, setLogoUrl] = useState("");
   const [logoUploading, setLogoUploading] = useState(false);
   const [heroImageUrl, setHeroImageUrl] = useState("");
+  const [siteText, setSiteText] = useState<Record<string, string>>({});
   const [heroUploading, setHeroUploading] = useState(false);
   const [contactEmail, setContactEmail] = useState("");
   const [aboutText, setAboutText] = useState("");
@@ -49,6 +51,7 @@ export default function SetupPage() {
           setColor(t.primaryColor);
           setLogoUrl(t.logoUrl || "");
           setHeroImageUrl(t.heroImageUrl || "");
+          try { setSiteText(JSON.parse(t.siteText || "{}")); } catch { setSiteText({}); }
           setContactEmail(t.contactEmail || "");
           setAboutText(t.aboutText || "");
         } else {
@@ -144,7 +147,7 @@ export default function SetupPage() {
         await fetch(`/api/towns/${newTown.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ logoUrl, heroImageUrl, contactEmail, aboutText }),
+          body: JSON.stringify({ logoUrl, heroImageUrl, siteText: JSON.stringify(siteText), contactEmail, aboutText }),
         });
 
         setTown(newTown);
@@ -160,6 +163,7 @@ export default function SetupPage() {
             primaryColor: color,
             logoUrl,
             heroImageUrl,
+            siteText: JSON.stringify(siteText),
             contactEmail,
             aboutText,
           }),
@@ -335,6 +339,49 @@ export default function SetupPage() {
         </div>
 
         <div>
+          {/* Homepage Text Customization */}
+          <div className="border border-gray-200 rounded-xl p-5 space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-800 mb-0.5">Homepage Text</h3>
+              <p className="text-xs text-gray-500">Customize the copy shown on the public homepage. Leave blank to use the default text.</p>
+            </div>
+            {([
+              { key: "heroHeadline", label: "Hero Headline", placeholder: "A Clearer View", hint: "First line of the big hero heading" },
+              { key: "heroAccent", label: "Hero Accent Line", placeholder: "of Sutton's", hint: "Second line, shown in gold" },
+              { key: "heroSuffix", label: "Hero Suffix", placeholder: "Finances.", hint: "Third line of the heading" },
+              { key: "heroCtaPrimary", label: "Primary Button", placeholder: "Explore FY2027 Budget", hint: "Main call-to-action button" },
+              { key: "budgetSectionTitle", label: "Budget Section Title", placeholder: "Where Sutton Invests", hint: "'Where Sutton Invests' section heading" },
+              { key: "capitalTitle", label: "Capital Section Title", placeholder: "Building Sutton's Future", hint: "Capital projects section heading" },
+            ] as { key: string; label: string; placeholder: string; hint: string }[]).map(field => (
+              <div key={field.key}>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  {field.label}
+                  <span className="ml-1.5 text-gray-400 font-normal">({field.hint})</span>
+                </label>
+                <input
+                  type="text"
+                  value={siteText[field.key] || ""}
+                  onChange={e => setSiteText(prev => ({ ...prev, [field.key]: e.target.value }))}
+                  placeholder={field.placeholder}
+                  className="block w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            ))}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Hero Subtext
+                <span className="ml-1.5 text-gray-400 font-normal">(paragraph below the headline)</span>
+              </label>
+              <textarea
+                rows={2}
+                value={siteText["heroSubtext"] || ""}
+                onChange={e => setSiteText(prev => ({ ...prev, heroSubtext: e.target.value }))}
+                placeholder={`OpenBook makes the Town's budget understandable and accessible to every resident.`}
+                className="block w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
           <label htmlFor="contactEmail" className="block text-sm font-medium text-gray-700 mb-1">
             Contact Email
           </label>
