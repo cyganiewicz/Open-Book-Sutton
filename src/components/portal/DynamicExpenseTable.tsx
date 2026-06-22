@@ -460,7 +460,7 @@ export default function DynamicExpenseTable({
                 ))}
               </tr>
             </thead>
-            <tbody key={`${allCollapsed}-${yearOffset}-${hiddenCols.size}`}>
+            <tbody key={`${allCollapsed}-${hiddenCols.size}`}>
               {displayed.map((node, i) => (
                 <NodeRow
                   key={node.key + i}
