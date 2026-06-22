@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -57,63 +57,25 @@ export default function ReservesClient({
   totalLatest,
   categories,
 }: ReservesClientProps) {
-  const [chartView, setChartView] = useState<"balance" | "trend">("balance");
   const [expandedFund, setExpandedFund] = useState<string | null>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
 
-  // ── Ranked bar chart: current balances ──────────────────────
-  const balanceChartData = {
-    labels: funds.map(f => f.name),
-    datasets: [
-      {
-        label: `FY${latestYear} Balance`,
-        data: funds.map(f => f.balances[latestYear] || 0),
-        backgroundColor: funds.map((_, i) => FUND_COLORS[i % FUND_COLORS.length] + "e0"),
-        borderWidth: 0,
-        borderRadius: 3,
-      },
-    ],
-  };
+  // Scroll table to the right on mount so the most recent year is visible
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, []);
 
-  // ── Trend chart: each fund across years ─────────────────────
+  // ── Trend chart: stacked bars, x-axis = fiscal years ────────
   const trendChartData = {
     labels: allYears.map(y => `FY${y}`),
-    datasets: funds.slice(0, 6).map((fund, i) => ({
+    datasets: funds.slice(0, 8).map((fund, i) => ({
       label: fund.name,
       data: allYears.map(y => fund.balances[y] || 0),
-      backgroundColor: FUND_COLORS[i % FUND_COLORS.length] + "cc",
+      backgroundColor: FUND_COLORS[i % FUND_COLORS.length] + "d0",
       borderWidth: 0,
       borderRadius: 2,
     })),
-  };
-
-  const chartOpts = {
-    indexAxis: "y" as const,
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        callbacks: {
-          label: (ctx: { parsed: { x: number }; dataset: { label: string } }) =>
-            ` ${ctx.dataset.label}: ${abbreviateCurrency(ctx.parsed.x)}`,
-        },
-      },
-    },
-    scales: {
-      x: {
-        ticks: {
-          font: { size: 11 },
-          callback: (v: number | string) => abbreviateCurrency(Number(v)),
-          color: "#9ca3af",
-        },
-        grid: { color: "#f3f4f6" },
-        border: { color: "#f3f4f6" },
-      },
-      y: {
-        grid: { display: false },
-        ticks: { font: { size: 11 }, color: "#6b7280" },
-      },
-    },
   };
 
   const trendOpts = {
@@ -126,7 +88,7 @@ export default function ReservesClient({
           boxWidth: 10,
           boxHeight: 10,
           font: { size: 10 },
-          padding: 8,
+          padding: 10,
           usePointStyle: true,
           pointStyle: "rectRounded" as const,
         },
@@ -143,6 +105,7 @@ export default function ReservesClient({
         stacked: true,
         grid: { display: false },
         ticks: { font: { size: 11 }, color: "#9ca3af" },
+        border: { color: "#f3f4f6" },
       },
       y: {
         stacked: true,
@@ -152,6 +115,7 @@ export default function ReservesClient({
           color: "#9ca3af",
         },
         grid: { color: "#f3f4f6" },
+        border: { color: "#f3f4f6" },
       },
     },
   };
@@ -160,59 +124,24 @@ export default function ReservesClient({
     <div className="space-y-6">
       {/* ── Chart section ───────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Ranked balances or trend */}
+        {/* Trend chart */}
         <div className="lg:col-span-2 bg-white border border-gray-200/60 rounded-xl p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2
-                className="text-base font-bold text-gray-900"
-                style={{ fontFamily: "var(--font-display)" }}
-              >
-                {chartView === "balance" ? "Reserve Balances" : "Balance Trend"}
-              </h2>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {chartView === "balance"
-                  ? `FY${latestYear} balance by fund`
-                  : "Fund balances across fiscal years"}
-              </p>
-            </div>
-            {allYears.length > 1 && (
-              <div
-                className="flex gap-px rounded-lg overflow-hidden border border-gray-200 bg-gray-100"
-                role="group"
-                aria-label="Chart view"
-              >
-                {(["balance", "trend"] as const).map(view => (
-                  <button
-                    key={view}
-                    onClick={() => setChartView(view)}
-                    className={`px-3 py-1.5 text-xs font-semibold transition-all ${
-                      chartView === view
-                        ? "text-white shadow-sm"
-                        : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                    }`}
-                    style={chartView === view ? { backgroundColor: color } : {}}
-                    aria-pressed={chartView === view}
-                  >
-                    {view === "balance" ? "Current" : "Trend"}
-                  </button>
-                ))}
-              </div>
-            )}
+          <div className="mb-4">
+            <h2
+              className="text-base font-bold text-gray-900"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              Reserve Balance Trend
+            </h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Total fund balances by fiscal year
+            </p>
           </div>
-
-          <div style={{ height: Math.max(180, funds.length * 36) + "px", maxHeight: "320px" }}>
-            {chartView === "balance" ? (
-              <Bar
-                data={balanceChartData}
-                options={chartOpts as Parameters<typeof Bar>[0]["options"]}
-              />
-            ) : (
-              <Bar
-                data={trendChartData}
-                options={trendOpts as Parameters<typeof Bar>[0]["options"]}
-              />
-            )}
+          <div className="h-72">
+            <Bar
+              data={trendChartData}
+              options={trendOpts as Parameters<typeof Bar>[0]["options"]}
+            />
           </div>
         </div>
 
@@ -273,19 +202,21 @@ export default function ReservesClient({
             Reserve Fund Detail
           </h2>
           <p className="text-xs text-gray-400 mt-0.5">
-            Click any fund to expand historical balances
+            Historical balances by fund — most recent year shown at right
           </p>
         </div>
 
-        {/* Column headers */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" ref={tableScrollRef}>
           <table className="w-full text-sm" style={{ minWidth: "480px" }}>
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-gray-200 bg-gray-50/80">
-                <th className="px-5 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                <th
+                  className="px-5 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-gray-400 sticky left-0 bg-gray-50/95 z-20"
+                  style={{ minWidth: "160px" }}
+                >
                   Fund Name
                 </th>
-                <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">
                   Category
                 </th>
                 {allYears.map(year => (
@@ -298,12 +229,14 @@ export default function ReservesClient({
                     }}
                   >
                     FY{year}
+                    {year === latestYear && (
+                      <span className="ml-1 text-[8px] align-middle opacity-60">★</span>
+                    )}
                   </th>
                 ))}
                 <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">
                   Change
                 </th>
-                <th className="w-8" />
               </tr>
             </thead>
             <tbody>
@@ -314,27 +247,31 @@ export default function ReservesClient({
                 const change = prev !== null ? latest - prev : null;
                 const changePct = prev && prev > 0 ? ((latest - prev) / prev) * 100 : null;
                 const isExpanded = expandedFund === fund.name;
-                const hasHistory = allYears.length > 1;
 
                 return (
                   <tr
                     key={fund.name}
-                    className={`border-t border-gray-100 transition-colors ${
-                      hasHistory ? "cursor-pointer" : ""
-                    } ${isExpanded ? "bg-gray-50/60" : "hover:bg-gray-50/40"}`}
-                    onClick={() => hasHistory && setExpandedFund(isExpanded ? null : fund.name)}
+                    className={`border-t border-gray-100 transition-colors cursor-pointer ${
+                      isExpanded ? "bg-gray-50/60" : "hover:bg-gray-50/40"
+                    }`}
+                    onClick={() => setExpandedFund(isExpanded ? null : fund.name)}
                   >
-                    <td className="px-5 py-3">
+                    <td
+                      className="px-5 py-3 sticky left-0 z-10 bg-inherit"
+                      style={{ backgroundColor: isExpanded ? "rgb(249 250 251 / 0.6)" : "white" }}
+                    >
                       <div className="flex items-center gap-2">
                         <span
                           className="inline-block w-2 h-2 rounded-sm flex-shrink-0"
                           style={{ backgroundColor: FUND_COLORS[i % FUND_COLORS.length] }}
                           aria-hidden
                         />
-                        <span className="font-semibold text-gray-800 text-sm">{fund.name}</span>
+                        <span className="font-semibold text-gray-800 text-sm leading-tight">
+                          {fund.name}
+                        </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-medium">
                         {fund.category}
                       </span>
@@ -365,24 +302,16 @@ export default function ReservesClient({
                         <span className="text-xs text-gray-300">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-gray-300 text-sm">
-                      {hasHistory && (
-                        <span
-                          className="transition-transform duration-150 inline-block"
-                          style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}
-                          aria-hidden
-                        >
-                          ▾
-                        </span>
-                      )}
-                    </td>
                   </tr>
                 );
               })}
 
               {/* Grand total row */}
               <tr className="border-t-2 border-gray-200 bg-gray-50/70">
-                <td className="px-5 py-3" colSpan={2}>
+                <td
+                  className="px-5 py-3 sticky left-0 bg-gray-50/95 z-10"
+                  colSpan={2}
+                >
                   <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
                     Total Reserves
                   </span>
@@ -400,7 +329,6 @@ export default function ReservesClient({
                   );
                 })}
                 <td className="px-4 py-3" />
-                <td className="px-3 py-3" />
               </tr>
             </tbody>
           </table>
