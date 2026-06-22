@@ -22,10 +22,11 @@ export default async function TownHomePage({
   const acConfig = parseAccountCodeConfig(town.accountCodeRules || "");
   const color = town.primaryColor || "#1B3A2D";
 
-  const [expenseRows, revenueRows, capitalRows] = await Promise.all([
+  const [expenseRows, revenueRows, capitalRows, reserveRows] = await Promise.all([
     prisma.budgetRow.findMany({ where: { townId: town.id, dataCategory: "expenses" } }),
     prisma.budgetRow.findMany({ where: { townId: town.id, dataCategory: "revenues" } }),
     prisma.budgetRow.findMany({ where: { townId: town.id, dataCategory: "capital" }, orderBy: [{ fiscalYear: "desc" }, { amount: "desc" }] }),
+    prisma.budgetRow.findMany({ where: { townId: town.id, dataCategory: "reserves" }, orderBy: [{ fiscalYear: "desc" }] }),
   ]);
 
   const capitalYears = [...new Set(capitalRows.map(r => r.fiscalYear))].sort().reverse();
@@ -80,6 +81,18 @@ export default async function TownHomePage({
   for (const r of latestCapRows) capByDept[r.department || "Other"] = (capByDept[r.department || "Other"] || 0) + r.amount;
   const topCapDepts = Object.entries(capByDept).sort((a, b) => b[1] - a[1]).slice(0, 3);
 
+  // Reserves summary
+  const reserveYears = [...new Set(reserveRows.map(r => r.fiscalYear))].sort().reverse();
+  const reserveYear = reserveYears[0] || "";
+  const latestReserveRows = reserveRows.filter(r => r.fiscalYear === reserveYear);
+  const totalReserves = latestReserveRows.reduce((s, r) => s + r.amount, 0);
+  const reserveByFund: Record<string, number> = {};
+  for (const r of latestReserveRows) {
+    const name = r.lineItem || r.fundName || r.department || "Unnamed Fund";
+    reserveByFund[name] = (reserveByFund[name] || 0) + r.amount;
+  }
+  const topReserveFunds = Object.entries(reserveByFund).sort((a, b) => b[1] - a[1]).slice(0, 4);
+
   return (
     <HomepageClient
       town={{
@@ -106,6 +119,9 @@ export default async function TownHomePage({
         topRevenues,
         topCapDepts,
         lineItemCount: currentExpenses.length,
+        totalReserves,
+        reserveYear,
+        topReserveFunds,
       }}
     />
   );
