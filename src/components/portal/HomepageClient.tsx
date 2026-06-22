@@ -44,6 +44,9 @@ interface BudgetData {
   topRevenues: [string, number][];
   topCapDepts: [string, number][];
   lineItemCount: number;
+  totalReserves: number;
+  reserveYear: string;
+  topReserveFunds: [string, number][];
 }
 
 // ── Animated counter ─────────────────────────────────────────
@@ -130,6 +133,7 @@ export default function HomepageClient({ town, data, siteText, budgetSectionBody
     hasData, expYear, revYear, latestCapYear,
     totalExpenses, totalRevenues, totalCapital, balance,
     topFunctions, topRevenues, topCapDepts, lineItemCount,
+    totalReserves, reserveYear, topReserveFunds,
   } = data;
 
   return (
@@ -672,10 +676,84 @@ export default function HomepageClient({ town, data, siteText, budgetSectionBody
         </section>
       )}
 
+
       <Rule />
 
       {/* ══════════════════════════════════════════════════════
-          6. DOCUMENT LIBRARY
+          6. RESERVES SPOTLIGHT
+      ══════════════════════════════════════════════════════ */}
+      {totalReserves > 0 && (
+        <section className="py-16 px-4 sm:px-6 -mx-4 sm:-mx-6" style={{ backgroundColor: T.cream }} aria-label="Reserve funds">
+          <Section>
+            <div className="max-w-7xl mx-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+                {/* Left: editorial text */}
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-3" style={{ color: T.sage }}>
+                    Fiscal Stability
+                  </p>
+                  <h2 className="text-3xl font-extrabold tracking-tight mb-4" style={{ color: T.green }}>
+                    Reserve Funds &amp; Stabilization
+                  </h2>
+                  <p className="text-gray-600 text-sm leading-relaxed mb-6">
+                    Sutton maintains reserve funds to ensure financial stability, reduce reliance on borrowing,
+                    and prepare for unexpected fiscal pressures. Strong reserves support the Town's bond rating
+                    and long-term financial health.
+                  </p>
+                  <div className="flex items-baseline gap-3 mb-6">
+                    <span className="text-5xl font-extrabold tabular-nums" style={{ color: T.green }}>
+                      {abbreviateCurrency(totalReserves)}
+                    </span>
+                    <div>
+                      <p className="text-xs uppercase tracking-wider font-semibold text-gray-400">FY{reserveYear}</p>
+                      <p className="text-xs text-gray-400">Total Reserves</p>
+                    </div>
+                  </div>
+                  <Link href={`/${slug}/reserves`}
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-bold text-white transition-all hover:scale-105"
+                    style={{ backgroundColor: T.green }}>
+                    Explore Reserve Funds
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75" />
+                    </svg>
+                  </Link>
+                </div>
+
+                {/* Right: fund breakdown cards */}
+                <div className="space-y-3">
+                  {topReserveFunds.slice(0, 4).map(([fund, amt], i) => {
+                    const pct = totalReserves > 0 ? ((amt / totalReserves) * 100).toFixed(1) : "0";
+                    const dotColors = [T.green, T.slate, T.gold, T.sage2];
+                    return (
+                      <div key={fund}
+                        className="flex items-center justify-between p-4 rounded-xl border border-gray-200/60 bg-white shadow-sm">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: dotColors[i % dotColors.length] }} />
+                          <span className="font-semibold text-gray-800 text-sm truncate">{fund}</span>
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0 ml-3">
+                          <span className="text-xs text-gray-400">{pct}%</span>
+                          <span className="font-bold tabular-nums text-gray-900 text-sm">{abbreviateCurrency(amt)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="text-center pt-1">
+                    <Link href={`/${slug}/reserves`}
+                      className="text-xs font-bold flex items-center justify-center gap-1 hover:gap-2 transition-all"
+                      style={{ color: T.green }}>
+                      View full reserve detail →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Section>
+        </section>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          7. DOCUMENT LIBRARY
       ══════════════════════════════════════════════════════ */}
       <section className="py-16 px-4 sm:px-6 -mx-4 sm:-mx-6 bg-white" aria-label="Documents">
         <Section>
