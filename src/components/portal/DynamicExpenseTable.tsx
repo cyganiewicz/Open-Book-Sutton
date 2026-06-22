@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { formatCurrency, abbreviateCurrency } from "@/lib/format";
 import { type HierarchyNode } from "@/lib/expense-types";
 
@@ -252,26 +252,27 @@ export default function DynamicExpenseTable({
   townColor = "#2d6a4f",
   lineItemTooltips = {},
 }: DynamicExpenseTableProps) {
-  const MAX_VISIBLE_YEARS = 3;
-  const [yearOffset, setYearOffset] = useState(Math.max(0, years.length - MAX_VISIBLE_YEARS));
   const [query, setQuery] = useState("");
   const [allCollapsed, setAllCollapsed] = useState(false);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set());
+  const tableScrollRef = useRef<HTMLDivElement>(null);
 
-  const windowYears = years.slice(yearOffset, yearOffset + MAX_VISIBLE_YEARS);
+  // Scroll to the right on mount so the most recent year is visible
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, []);
 
+  // Show all years
   const displayCols: YearTypeOption[] = yearTypeOptions.length > 0
-    ? yearTypeOptions.filter(o => windowYears.includes(o.year) && !hiddenCols.has(o.colKey))
-    : windowYears.filter(y => !hiddenCols.has(y)).map(y => ({
+    ? yearTypeOptions.filter(o => !hiddenCols.has(o.colKey))
+    : years.filter(y => !hiddenCols.has(y)).map(y => ({
         year: y,
         type: yearTypes[y] ?? (y === currentYear ? "budget" : "budget") as "budget" | "actual",
         label: `FY${y}`,
         colKey: y,
       }));
-
-  const canScrollLeft = yearOffset > 0;
-  const canScrollRight = yearOffset + MAX_VISIBLE_YEARS < years.length;
 
   const grandTotals: Record<string, number> = {};
   for (const col of displayCols) {
@@ -305,8 +306,8 @@ export default function DynamicExpenseTable({
   const displayed = filterNodes(hierarchy, q);
 
   const allWindowCols: YearTypeOption[] = yearTypeOptions.length > 0
-    ? yearTypeOptions.filter(o => windowYears.includes(o.year))
-    : windowYears.map(y => ({
+    ? yearTypeOptions
+    : years.map(y => ({
         year: y,
         type: yearTypes[y] ?? "budget" as "budget" | "actual",
         label: `FY${y} ${yearTypes[y] === "actual" ? "Actual" : "Budget"}`,
@@ -346,31 +347,6 @@ export default function DynamicExpenseTable({
               className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 transition-shadow"
               style={{ "--tw-ring-color": townColor } as React.CSSProperties}
             />
-          </div>
-
-          {/* Year navigator */}
-          <div className="flex items-center gap-0 border border-gray-200 rounded-lg bg-white overflow-hidden">
-            <button
-              onClick={() => setYearOffset(o => Math.max(0, o - 1))}
-              disabled={!canScrollLeft}
-              className="px-2.5 py-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors border-r border-gray-100 text-xs"
-              aria-label="Earlier years"
-            >
-              ◀
-            </button>
-            <span className="px-3 py-2 text-xs text-gray-600 font-semibold whitespace-nowrap">
-              {windowYears.length > 1
-                ? `FY${windowYears[0]} – FY${windowYears[windowYears.length - 1]}`
-                : `FY${windowYears[0] ?? ""}`}
-            </span>
-            <button
-              onClick={() => setYearOffset(o => Math.min(years.length - MAX_VISIBLE_YEARS, o + 1))}
-              disabled={!canScrollRight}
-              className="px-2.5 py-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors border-l border-gray-100 text-xs"
-              aria-label="Later years"
-            >
-              ▶
-            </button>
           </div>
 
           {/* Columns menu */}
@@ -442,7 +418,7 @@ export default function DynamicExpenseTable({
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" ref={tableScrollRef}>
           <table className="w-full text-sm" style={{ minWidth: "560px" }}>
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-gray-200 bg-gray-50/80">
