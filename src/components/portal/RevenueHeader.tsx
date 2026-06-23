@@ -32,6 +32,8 @@ export interface RevHierarchyNode {
   rows?: { id: string; label: string; amounts: Record<string, number> }[];
 }
 
+interface ExplainerItem { heading: string; body: string; }
+
 interface RevenueHeaderProps {
   hierarchy: RevHierarchyNode[];
   years: string[];
@@ -39,6 +41,7 @@ interface RevenueHeaderProps {
   townColor: string;
   totalRevenue: number;
   prevTotal: number;
+  revenueExplainerItems?: ExplainerItem[];
 }
 
 function ColorSwatch({ color, size = 8 }: { color: string; size?: number }) {
@@ -52,7 +55,7 @@ function ColorSwatch({ color, size = 8 }: { color: string; size?: number }) {
 }
 
 export default function RevenueHeader({
-  hierarchy, years, currentYear, townColor, totalRevenue, prevTotal,
+  hierarchy, years, currentYear, townColor, totalRevenue, prevTotal, revenueExplainerItems,
 }: RevenueHeaderProps) {
   const [drillCat, setDrillCat] = useState<string | null>(null);
   const [activePieDim, setActivePieDim] = useState<"category" | "subcategory">("category");
@@ -92,23 +95,32 @@ export default function RevenueHeader({
 
   const hasSubcategories = hierarchy.some(n => n.children.filter(c => c.key !== "_direct").length > 0);
 
-  // Trend data
+  // Trend data — budget-only for apples-to-apples comparison across years
+  const toBudget = (amounts: Record<string, number>, ys: string[]) =>
+    Object.fromEntries(ys.map(y => [y, amounts[`${y}:budget`] ?? amounts[y] ?? 0]));
+
   const trendGroups = useMemo(() => {
     if (drillCat === null) {
       return hierarchy
         .filter(n => n.key !== "_direct")
-        .sort((a, b) => (b.amounts[currentYear] || 0) - (a.amounts[currentYear] || 0))
+        .sort((a, b) =>
+          (b.amounts[`${currentYear}:budget`] ?? b.amounts[currentYear] ?? 0) -
+          (a.amounts[`${currentYear}:budget`] ?? a.amounts[currentYear] ?? 0)
+        )
         .slice(0, 8)
-        .map(n => ({ label: n.key, amounts: n.amounts }));
+        .map(n => ({ label: n.key, amounts: toBudget(n.amounts, displayYears) }));
     }
     const catNode = hierarchy.find(n => n.key === drillCat);
     if (!catNode) return [];
     return catNode.children
       .filter(n => n.key !== "_direct")
-      .sort((a, b) => (b.amounts[currentYear] || 0) - (a.amounts[currentYear] || 0))
+      .sort((a, b) =>
+        (b.amounts[`${currentYear}:budget`] ?? b.amounts[currentYear] ?? 0) -
+        (a.amounts[`${currentYear}:budget`] ?? a.amounts[currentYear] ?? 0)
+      )
       .slice(0, 10)
-      .map(n => ({ label: n.key, amounts: n.amounts }));
-  }, [hierarchy, drillCat, currentYear]);
+      .map(n => ({ label: n.key, amounts: toBudget(n.amounts, displayYears) }));
+  }, [hierarchy, drillCat, currentYear, displayYears]);
 
   const barData = {
     labels: displayYears.map(y => `FY${y}`),
@@ -452,24 +464,24 @@ export default function RevenueHeader({
           Understanding Revenue
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
+          {(revenueExplainerItems ?? [
             {
-              heading: "Taxes & Excise",
-              body: "Includes property taxes and other local tax sources — typically the Town's largest single revenue category.",
+              heading: "Tax Revenue",
+              body: "Local taxes are typically the largest revenue source, funding the majority of municipal services each year.",
             },
             {
               heading: "State Aid",
-              body: "State government distributions, including Chapter 70 education aid and unrestricted local aid.",
+              body: "State government distributions help fund local education and general government services.",
             },
             {
               heading: "Local Receipts",
-              body: "Fees, permits, licenses, fines, and other locally generated non-tax revenue.",
+              body: "Fees, permits, licenses, fines, and other locally generated non-tax revenue supplement the budget.",
             },
             {
               heading: "Balanced Budget",
-              body: "Massachusetts law requires the Town to adopt a balanced annual operating budget each fiscal year.",
+              body: "Municipalities are required to adopt a balanced annual operating budget each fiscal year.",
             },
-          ].map(item => (
+          ]).map(item => (
             <div key={item.heading}>
               <p className="text-sm font-semibold text-gray-700 mb-1">{item.heading}</p>
               <p className="text-xs text-gray-500 leading-relaxed">{item.body}</p>
