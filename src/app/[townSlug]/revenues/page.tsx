@@ -186,6 +186,14 @@ export default async function RevenuesPage({
     return row;
   });
 
+  const tooltipRows = await prisma.tooltip.findMany({ where: { townId: town.id } });
+  const lineItemTooltips: Record<string, string> = {};
+  const categoryTooltips: Record<string, string> = {};
+  for (const t of tooltipRows) {
+    if (t.scope === "line-item") lineItemTooltips[t.key] = t.text;
+    if (t.scope === "category") categoryTooltips[t.key] = t.text;
+  }
+
   return (
     <div className="space-y-0">
       <FinancialPageHeader
@@ -216,6 +224,8 @@ export default async function RevenuesPage({
         townColor={town.primaryColor}
         totalRevenue={totalRevenue}
         levelNames={levelNames}
+        lineItemTooltips={lineItemTooltips}
+        categoryTooltips={categoryTooltips}
       />
       </div>
     </div>
