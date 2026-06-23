@@ -203,7 +203,6 @@ function NodeRow({
             depth={depth + 1}
             displayCols={displayCols}
             lineItemTooltips={lineItemTooltips}
-              categoryTooltips={categoryTooltips}
           />
         ));
       })()}
@@ -216,7 +215,6 @@ function NodeRow({
           depth={depth + 1}
           displayCols={displayCols}
           lineItemTooltips={lineItemTooltips}
-              categoryTooltips={categoryTooltips}
         />
       ))}
     </>
