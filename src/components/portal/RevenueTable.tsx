@@ -20,6 +20,8 @@ interface RevenueTableProps {
   townColor: string;
   totalRevenue: number;
   levelNames: string[];
+  lineItemTooltips?: Record<string, string>;
+  categoryTooltips?: Record<string, string>;
 }
 
 function tint(hex: string, opacity: number) {
@@ -38,6 +40,7 @@ function getAmt(amounts: Record<string, number>, col: { year: string; colKey: st
 
 function NodeRow({
   node, depth, displayCols, currentYear, townColor, colCount, forceCollapsed, totalRevenue,
+  categoryTooltips, lineItemTooltips,
 }: {
   node: RevHierarchyNode;
   depth: number;
@@ -47,6 +50,8 @@ function NodeRow({
   colCount: number;
   forceCollapsed: boolean;
   totalRevenue: number;
+  categoryTooltips: Record<string, string>;
+  lineItemTooltips: Record<string, string>;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const effectiveCollapsed = forceCollapsed || collapsed;
@@ -67,6 +72,11 @@ function NodeRow({
               <span className="text-white/60 text-xs flex-shrink-0 transition-transform duration-150"
                 style={{ display: "inline-block", transform: effectiveCollapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</span>
               <span className="text-white font-semibold text-sm">{node.key}</span>
+              {categoryTooltips[node.key] && (
+                <span title={categoryTooltips[node.key]}
+                  className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold cursor-help flex-shrink-0 bg-white/20 text-white"
+                  aria-label={`Info: ${categoryTooltips[node.key]}`}>?</span>
+              )}
             </span>
           </td>
           {displayCols.map(col => (
@@ -94,6 +104,11 @@ function NodeRow({
               <span className={`${depth === 1 ? "font-semibold text-gray-800" : "font-medium text-gray-700"} text-sm`}>
                 {node.key}
               </span>
+              {categoryTooltips[node.key] && (
+                <span title={categoryTooltips[node.key]}
+                  className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[9px] font-bold cursor-help flex-shrink-0 bg-gray-200 text-gray-500"
+                  aria-label={`Info: ${categoryTooltips[node.key]}`}>?</span>
+              )}
             </span>
           </td>
           {displayCols.map(col => (
@@ -109,13 +124,23 @@ function NodeRow({
         <NodeRow key={child.key} node={child} depth={depth + 1}
           displayCols={displayCols} currentYear={currentYear}
           townColor={townColor} colCount={colCount}
-          forceCollapsed={false} totalRevenue={totalRevenue} />
+          forceCollapsed={false} totalRevenue={totalRevenue}
+          categoryTooltips={categoryTooltips} lineItemTooltips={lineItemTooltips} />
       ))}
 
       {!effectiveCollapsed && node.isLeaf && node.rows?.map(row => (
         <tr key={row.id} className="border-t border-gray-50 hover:bg-gray-50/60 transition-colors">
           <td className="py-2 pr-3 text-gray-600 text-sm" style={{ paddingLeft: getIndent(depth + 1) }}>
-            {row.label}
+            <span className="inline-flex items-center gap-1">
+              {row.label}
+              {(lineItemTooltips[row.objectCode || ""] || lineItemTooltips[row.label] || "") && (
+                <span
+                  title={lineItemTooltips[row.objectCode || ""] || lineItemTooltips[row.label]}
+                  className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[9px] font-bold cursor-help flex-shrink-0 bg-gray-200 text-gray-400 hover:bg-gray-300"
+                  aria-label="More info"
+                >?</span>
+              )}
+            </span>
           </td>
           {displayCols.map(col => (
             <td key={col.colKey} className={`px-3 py-2 text-right tabular-nums text-sm whitespace-nowrap ${
@@ -134,6 +159,7 @@ function NodeRow({
 export default function RevenueTable({
   hierarchy, years, currentYear, yearTypes = {}, yearTypeOptions = [],
   townColor, totalRevenue, levelNames,
+  lineItemTooltips = {}, categoryTooltips = {},
 }: RevenueTableProps) {
   const [query, setQuery] = useState("");
   const [allCollapsed, setAllCollapsed] = useState(false);
@@ -273,6 +299,8 @@ export default function RevenueTable({
           <tbody key={`${allCollapsed}-${hiddenCols.size}`}>
             {displayed.map((node, i) => (
               <NodeRow key={node.key + i} node={node} depth={0}
+                categoryTooltips={categoryTooltips}
+                lineItemTooltips={lineItemTooltips}
                 displayCols={displayCols} currentYear={currentYear}
                 townColor={townColor} colCount={colCount}
                 forceCollapsed={allCollapsed} totalRevenue={totalRevenue} />
