@@ -20,6 +20,7 @@ interface DynamicExpenseTableProps {
   yearTypeOptions?: YearTypeOption[];
   townColor?: string;
   lineItemTooltips?: Record<string, string>;
+  categoryTooltips?: Record<string, string>;
 }
 
 function tint(hex: string, opacity: number) {
@@ -38,7 +39,7 @@ function getAmt(amounts: Record<string, number>, col: { year: string; colKey: st
 
 function NodeRow({
   node, depth, displayCols, currentYear, townColor,
-  lineItemTooltips, forceCollapsed,
+  lineItemTooltips, categoryTooltips, forceCollapsed,
 }: {
   node: HierarchyNode;
   depth: number;
@@ -46,6 +47,7 @@ function NodeRow({
   currentYear: string;
   townColor: string;
   lineItemTooltips: Record<string, string>;
+  categoryTooltips: Record<string, string>;
   forceCollapsed: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(depth >= 1);
@@ -83,6 +85,14 @@ function NodeRow({
               <span className="font-bold text-sm" style={{ color: darkColor }}>
                 {node.key}
               </span>
+              {categoryTooltips[node.key] && (
+                <span
+                  title={categoryTooltips[node.key]}
+                  className="ml-2 inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold cursor-help flex-shrink-0 select-none"
+                  style={{ backgroundColor: darkColor + "22", color: darkColor }}
+                  aria-label={`Info: ${categoryTooltips[node.key]}`}
+                >?</span>
+              )}
             </span>
           </td>
           {displayCols.map(col => (
@@ -117,6 +127,13 @@ function NodeRow({
                 ▾
               </span>
               <span className="font-semibold text-gray-700 text-sm">{node.key}</span>
+              {categoryTooltips[node.key] && (
+                <span
+                  title={categoryTooltips[node.key]}
+                  className="ml-1.5 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[9px] font-bold cursor-help flex-shrink-0 select-none bg-gray-200 text-gray-500"
+                  aria-label={`Info: ${categoryTooltips[node.key]}`}
+                >?</span>
+              )}
             </span>
           </td>
           <td className="px-2 py-2.5 text-gray-300 text-[11px] font-mono" />
@@ -170,6 +187,7 @@ function NodeRow({
             currentYear={currentYear}
             townColor={townColor}
             lineItemTooltips={lineItemTooltips}
+              categoryTooltips={categoryTooltips}
             forceCollapsed={false}
           />
         ))}
@@ -185,6 +203,7 @@ function NodeRow({
             depth={depth + 1}
             displayCols={displayCols}
             lineItemTooltips={lineItemTooltips}
+              categoryTooltips={categoryTooltips}
           />
         ));
       })()}
@@ -197,6 +216,7 @@ function NodeRow({
           depth={depth + 1}
           displayCols={displayCols}
           lineItemTooltips={lineItemTooltips}
+              categoryTooltips={categoryTooltips}
         />
       ))}
     </>
@@ -218,8 +238,15 @@ function LeafRow({
         className="py-1.5 pr-2 text-gray-500 text-sm"
         style={{ paddingLeft: `calc(${getIndent(depth)} + 1.25rem)` }}
       >
-        <span title={tooltip || undefined} className="leading-snug">
+        <span className="leading-snug inline-flex items-center gap-1">
           {row.label}
+          {tooltip && (
+            <span
+              title={tooltip}
+              className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[9px] font-bold cursor-help flex-shrink-0 select-none bg-gray-200 text-gray-400 hover:bg-gray-300"
+              aria-label={`Info: ${tooltip}`}
+            >?</span>
+          )}
         </span>
       </td>
       <td
@@ -251,6 +278,7 @@ export default function DynamicExpenseTable({
   yearTypeOptions = [],
   townColor = "#2d6a4f",
   lineItemTooltips = {},
+  categoryTooltips = {},
 }: DynamicExpenseTableProps) {
   const [query, setQuery] = useState("");
   const [allCollapsed, setAllCollapsed] = useState(false);
@@ -470,6 +498,7 @@ export default function DynamicExpenseTable({
                   currentYear={currentYear}
                   townColor={townColor}
                   lineItemTooltips={lineItemTooltips}
+              categoryTooltips={categoryTooltips}
                   forceCollapsed={allCollapsed}
                 />
               ))}
