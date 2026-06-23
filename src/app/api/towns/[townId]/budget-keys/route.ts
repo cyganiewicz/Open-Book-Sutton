@@ -2,21 +2,23 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ townId: string }> }
 ) {
   const { townId } = await params;
+  const { searchParams } = new URL(request.url);
+  const dataCategory = searchParams.get("dataCategory");
+
+  const where = dataCategory
+    ? { townId, dataCategory }
+    : { townId };
 
   const rows = await prisma.budgetRow.findMany({
-    where: { townId },
-    select: {
-      functionArea: true,
-      category1: true,
-      lineItem: true,
-    },
+    where,
+    select: { functionArea: true, category1: true, lineItem: true, dataCategory: true },
   });
 
-  // Collect unique categories (function areas + category1 values)
+  // Collect unique categories and line items
   const categorySet = new Set<string>();
   const lineItemSet = new Set<string>();
 
@@ -26,8 +28,17 @@ export async function GET(
     if (row.lineItem) lineItemSet.add(row.lineItem);
   }
 
+  // Also return which dataCategorys exist
+  const allRows = await prisma.budgetRow.findMany({
+    where: { townId },
+    select: { dataCategory: true },
+    distinct: ["dataCategory"],
+  });
+  const dataCategories = allRows.map(r => r.dataCategory).filter(Boolean);
+
   return NextResponse.json({
     categories: [...categorySet].sort(),
     lineItems: [...lineItemSet].sort(),
+    dataCategories,
   });
 }
