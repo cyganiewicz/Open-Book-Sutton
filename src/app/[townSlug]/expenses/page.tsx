@@ -222,8 +222,10 @@ export default async function ExpensesPage({
 
   const tooltipRows = await prisma.tooltip.findMany({ where: { townId: town.id } });
   const lineItemTooltips: Record<string, string> = {};
+  const categoryTooltips: Record<string, string> = {};
   for (const t of tooltipRows) {
     if (t.scope === "line-item") lineItemTooltips[t.key] = t.text;
+    if (t.scope === "category") categoryTooltips[t.key] = t.text;
   }
 
   const allRows = await prisma.budgetRow.findMany({
@@ -362,6 +364,7 @@ export default async function ExpensesPage({
           yearTypeOptions={yearTypeOptions}
           townColor={town.primaryColor || "#2d6a4f"}
           lineItemTooltips={lineItemTooltips}
+          categoryTooltips={categoryTooltips}
         />
       </div>
     </div>
