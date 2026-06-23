@@ -260,11 +260,11 @@ export default async function ExpensesPage({
     }
   }
 
+  // allYearTotals: always budget-only for chart comparisons (avoids partial-year actual distortion)
   const allYearTotals: Record<string, number> = {};
   for (const y of tableYears) {
-    const t = y === currentYear ? "budget" : (yearTypes[y] ?? "budget");
     allYearTotals[y] = allRowsClassified
-      .filter(r => r.fiscalYear === y && r.amountType === t)
+      .filter(r => r.fiscalYear === y && r.amountType === "budget")
       .reduce((s, r) => s + r.amount, 0);
   }
 
