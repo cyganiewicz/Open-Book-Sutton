@@ -38,6 +38,7 @@ interface ExpenseHeaderProps {
   spendingTypeSegmentIndex: number | null;
   accountSegments: AccountSegment[];
   allYearTotals?: Record<string, number>;
+  expenseExplainerItems?: { heading: string; body: string }[];
 }
 
 function collectLeaves(nodes: HierarchyNode[]): { id: string; label: string; objectCode: string | null; amounts: Record<string, number> }[] {
@@ -84,6 +85,7 @@ export default function ExpenseHeader({
   tiles, hierarchy, years, currentYear, townColor,
   totalBudget, prevTotal, spendingTypeSegmentIndex, accountSegments,
   allYearTotals = {},
+  expenseExplainerItems,
 }: ExpenseHeaderProps) {
   const [drillFn, setDrillFn] = useState<string | null>(null);
   const [activePieDim, setActivePieDim] = useState<"function" | "spendingType">("function");
@@ -635,10 +637,10 @@ export default function ExpenseHeader({
           Understanding Expenses
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[
+          {(expenseExplainerItems ?? [
             {
               heading: "Adopted Budget",
-              body: "Operating budget figures represent planned appropriations voted on by Town Meeting for the fiscal year.",
+              body: "Budget figures represent planned appropriations for the fiscal year. They reflect the spending plan approved by the municipality.",
             },
             {
               heading: "Actual Spending",
@@ -648,7 +650,7 @@ export default function ExpenseHeader({
               heading: "Exploring Data",
               body: "Click any function row in the table below to expand into departments and account-level detail.",
             },
-          ].map(item => (
+          ]).map(item => (
             <div key={item.heading}>
               <p className="text-sm font-semibold text-gray-700 mb-1">{item.heading}</p>
               <p className="text-xs text-gray-500 leading-relaxed">{item.body}</p>
