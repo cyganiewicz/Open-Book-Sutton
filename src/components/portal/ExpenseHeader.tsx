@@ -13,18 +13,18 @@ import { resolveSpendingType, type AccountSegment, type AccountCodeConfig } from
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend);
 
-// Controlled, accessible, CVD-friendly palette
+// CVD-friendly palette — varied hues, distinguishable for color vision deficiencies
 const CATEGORY_COLORS = [
-  "#2d6a4f", // Sutton green (primary)
-  "#52796f", // sage
-  "#84a98c", // soft green
-  "#b7c9b0", // pale green
-  "#4a7c59", // mid green
-  "#1b4332", // deep green
-  "#74c69d", // mint
-  "#40916c", // forest
-  "#d8f3dc", // lightest green — for small segments
-  "#95d5b2",
+  "#2d6a4f", // Sutton green — Education (primary, largest)
+  "#1e6091", // deep blue — Unclassified
+  "#d97706", // amber — Public Safety
+  "#7c3aed", // violet — Debt Service
+  "#0891b2", // teal — Intergovernmental
+  "#be185d", // rose — General Government
+  "#4a7c59", // sage green — Public Works
+  "#92400e", // brown — Human Services
+  "#065f46", // dark emerald — Culture & Recreation
+  "#374151", // slate — overflow
 ];
 
 interface ExpenseHeaderProps {
@@ -64,7 +64,8 @@ function buildSpendingTypeTotals(leaves: ReturnType<typeof collectLeaves>, years
     if (!type) continue;
     if (!map.has(type)) map.set(type, Object.fromEntries(years.map(y => [y, 0])));
     const entry = map.get(type)!;
-    for (const y of years) entry[y] = (entry[y] || 0) + (leaf.amounts[y] || 0);
+    // Always use budget amounts for chart comparisons
+    for (const y of years) entry[y] = (entry[y] || 0) + (leaf.amounts[`${y}:budget`] ?? leaf.amounts[y] ?? 0);
   }
   return map;
 }
