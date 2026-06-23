@@ -133,9 +133,9 @@ function NodeRow({
           <td className="py-2 pr-3 text-gray-600 text-sm" style={{ paddingLeft: getIndent(depth + 1) }}>
             <span className="inline-flex items-center gap-1">
               {row.label}
-              {(lineItemTooltips[row.objectCode || ""] || lineItemTooltips[row.label] || "") && (
+              {(lineItemTooltips[row.label] || "") && (
                 <span
-                  title={lineItemTooltips[row.objectCode || ""] || lineItemTooltips[row.label]}
+                  title={lineItemTooltips[row.label]}
                   className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[9px] font-bold cursor-help flex-shrink-0 bg-gray-200 text-gray-400 hover:bg-gray-300"
                   aria-label="More info"
                 >?</span>
