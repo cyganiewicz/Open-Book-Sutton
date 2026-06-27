@@ -10,12 +10,13 @@ export async function GET(
 
   const town = await prisma.town.findUnique({
     where: { id: townId },
-    select: { accountCodeConfig: true },
+    select: { accountCodeRules: true },
   });
 
   const acConfig = town?.accountCodeConfig
-    ? parseAccountCodeConfig(town.accountCodeConfig as Record<string, unknown>)
+    ? parseAccountCodeConfig(town.accountCodeRules || "")
     : null;
+
 
   // Get all rows, deduplicated by the key fields
   const rows = await prisma.budgetRow.findMany({
