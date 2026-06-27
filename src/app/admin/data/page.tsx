@@ -32,6 +32,11 @@ export default function DataManagementPage() {
   const [downloading, setDownloading] = useState<string | null>(null);
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   const [error, setError] = useState("");
+  const [unmapped, setUnmapped] = useState<{
+    totalUnmapped: number;
+    byCategory: Record<string, { objectCode: string | null; lineItem: string | null; reason: string }[]>;
+  } | null>(null);
+  const [unmappedOpen, setUnmappedOpen] = useState(false);
 
   async function loadData() {
     try {
@@ -45,6 +50,12 @@ export default function DataManagementPage() {
         if (uploadsRes.ok) {
           const data = await uploadsRes.json();
           setUploads(data);
+        }
+
+        // Fetch unmapped items diagnostic
+        const unmappedRes = await fetch(`/api/towns/${t.id}/unmapped`);
+        if (unmappedRes.ok) {
+          setUnmapped(await unmappedRes.json());
         }
       }
     } catch {
@@ -276,6 +287,65 @@ export default function DataManagementPage() {
               </tbody>
             </table>
           </div>
+
+          {/* ── Unmapped items diagnostic ── */}
+          {unmapped && unmapped.totalUnmapped > 0 && (
+            <div className="border-t border-gray-200 pt-6">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold">!</span>
+                    Unmapped Items
+                    <span className="text-sm font-normal text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                      {unmapped.totalUnmapped} item{unmapped.totalUnmapped !== 1 ? "s" : ""}
+                    </span>
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    These rows exist in your budget data but cannot be placed in the portal hierarchy. They may be missing from category subtotals or appear under "(Uncategorized)".
+                  </p>
+                </div>
+                <button
+                  onClick={() => setUnmappedOpen(o => !o)}
+                  className="text-sm text-blue-600 hover:underline flex-shrink-0"
+                >
+                  {unmappedOpen ? "Hide" : "Show details"}
+                </button>
+              </div>
+
+              {unmappedOpen && (
+                <div className="space-y-4">
+                  {Object.entries(unmapped.byCategory).map(([cat, items]) => (
+                    <div key={cat}>
+                      <p className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2 capitalize">{cat}</p>
+                      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-gray-50 border-b border-gray-100">
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Object Code</th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Line Item</th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Reason</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {items.map((item, i) => (
+                              <tr key={i} className="border-t border-gray-50 hover:bg-amber-50/40">
+                                <td className="px-4 py-2 font-mono text-xs text-gray-500">{item.objectCode || "—"}</td>
+                                <td className="px-4 py-2 text-gray-700">{item.lineItem || "—"}</td>
+                                <td className="px-4 py-2 text-amber-700 text-xs">{item.reason}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1.5">
+                        To fix: go to <strong>Account Codes</strong> and add these object codes to your Revenue Type segment, or manually set category values during upload.
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="border-t border-gray-200 pt-6">
             <HelpBox variant="warning" title="About deleting data">
