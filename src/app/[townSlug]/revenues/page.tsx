@@ -154,8 +154,32 @@ export default async function RevenuesPage({
     }
 
     const skipped = level.skipIfEmpty ? rows.filter(r => !getRevField(r, level.dataField)) : [];
-    if (skipped.length > 0 && !isLast) {
-      nodes.push(...buildLevel(skipped, levelIdx + 1, ancestorMatchFn, levels));
+    if (skipped.length > 0) {
+      if (isLast) {
+        // Unmapped rows at leaf level — show under (Uncategorized) so they appear in the table
+        const leafRows = skipped.map(row => ({
+          id: row.id,
+          label: row.lineItem || row.category2 || row.category1 || row.objectCode || "(Unmapped)",
+          amounts: getYearAmounts(r =>
+            r.lineItem === row.lineItem &&
+            r.category1 === row.category1 &&
+            r.category2 === row.category2 &&
+            r.objectCode === row.objectCode
+          ),
+        }));
+        const uncat = nodes.find(n => n.key === "(Uncategorized)");
+        if (uncat) {
+          uncat.rows = [...(uncat.rows || []), ...leafRows];
+        } else {
+          const amounts = getYearAmounts(r => skipped.some(s =>
+            s.lineItem === r.lineItem && s.category1 === r.category1 &&
+            s.category2 === r.category2 && s.objectCode === r.objectCode
+          ));
+          nodes.push({ key: "(Uncategorized)", amounts, isLeaf: true, children: [], rows: leafRows });
+        }
+      } else {
+        nodes.push(...buildLevel(skipped, levelIdx + 1, ancestorMatchFn, levels));
+      }
     }
 
     return nodes;
