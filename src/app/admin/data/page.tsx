@@ -34,9 +34,17 @@ export default function DataManagementPage() {
   const [error, setError] = useState("");
   const [unmapped, setUnmapped] = useState<{
     totalUnmapped: number;
-    byCategory: Record<string, { objectCode: string | null; lineItem: string | null; reason: string }[]>;
+    byCategory: Record<string, {
+      uploadId: string;
+      fileName: string;
+      fiscalYear: string | null;
+      items: { objectCode: string | null; lineItem: string | null; reason: string }[];
+    }[]>;
+    totalsByCategory: Record<string, { totalRows: number; unmappedRows: number }>;
   } | null>(null);
   const [unmappedOpen, setUnmappedOpen] = useState(false);
+  const [reclassifying, setReclassifying] = useState(false);
+  const [reclassifyResult, setReclassifyResult] = useState<string | null>(null);
 
   async function loadData() {
     try {
@@ -288,6 +296,47 @@ export default function DataManagementPage() {
             </table>
           </div>
 
+          {/* ── Re-apply mappings ── */}
+          <div className="border-t border-gray-200 pt-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-semibold text-gray-800">Re-apply Account Code Mappings</h3>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  After updating your Account Code configuration, run this to apply the new mappings
+                  to all existing uploaded data — no re-upload needed.
+                </p>
+              </div>
+              <div className="flex-shrink-0 flex items-center gap-3">
+                {reclassifyResult && (
+                  <span className="text-sm text-emerald-600 font-medium">{reclassifyResult}</span>
+                )}
+                <button
+                  onClick={async () => {
+                    if (!town) return;
+                    setReclassifying(true);
+                    setReclassifyResult(null);
+                    try {
+                      const res = await fetch(`/api/towns/${town.id}/reclassify`, { method: "POST" });
+                      const data = await res.json();
+                      setReclassifyResult(data.message || "Done");
+                      // Refresh unmapped count
+                      const u = await fetch(`/api/towns/${town.id}/unmapped`);
+                      if (u.ok) setUnmapped(await u.json());
+                    } catch {
+                      setReclassifyResult("Error — please try again");
+                    } finally {
+                      setReclassifying(false);
+                    }
+                  }}
+                  disabled={reclassifying}
+                  className="px-4 py-2 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors whitespace-nowrap"
+                >
+                  {reclassifying ? "Applying…" : "Re-apply Mappings"}
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* ── Unmapped items diagnostic ── */}
           {unmapped && unmapped.totalUnmapped > 0 && (
             <div className="border-t border-gray-200 pt-6">
@@ -301,7 +350,8 @@ export default function DataManagementPage() {
                     </span>
                   </h3>
                   <p className="text-sm text-gray-500 mt-0.5">
-                    These rows exist in your budget data but cannot be placed in the portal hierarchy. They may be missing from category subtotals or appear under "(Uncategorized)".
+                    These rows cannot be placed in the portal hierarchy. After fixing Account Codes,
+                    click <strong>Re-apply Mappings</strong> above — no re-upload needed.
                   </p>
                 </div>
                 <button
@@ -313,37 +363,57 @@ export default function DataManagementPage() {
               </div>
 
               {unmappedOpen && (
-                <div className="space-y-4">
-                  {Object.entries(unmapped.byCategory).map(([cat, items]) => (
+                <div className="space-y-5">
+                  {Object.entries(unmapped.byCategory).map(([cat, fileGroups]) => (
                     <div key={cat}>
-                      <p className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2 capitalize">{cat}</p>
-                      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="bg-gray-50 border-b border-gray-100">
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Object Code</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Line Item</th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Reason</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {items.map((item, i) => (
-                              <tr key={i} className="border-t border-gray-50 hover:bg-amber-50/40">
-                                <td className="px-4 py-2 font-mono text-xs text-gray-500">{item.objectCode || "—"}</td>
-                                <td className="px-4 py-2 text-gray-700">{item.lineItem || "—"}</td>
-                                <td className="px-4 py-2 text-amber-700 text-xs">{item.reason}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                      <p className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-3 capitalize">{cat}</p>
+                      <div className="space-y-3">
+                        {fileGroups.map(group => (
+                          <div key={group.uploadId} className="border border-gray-200 rounded-lg overflow-hidden">
+                            <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                              <span className="text-xs font-semibold text-gray-700">{group.fileName}</span>
+                              {group.fiscalYear && (
+                                <span className="text-xs text-gray-400">FY{group.fiscalYear}</span>
+                              )}
+                              <span className="text-xs text-amber-600 font-medium">
+                                {group.items.length} unmapped item{group.items.length !== 1 ? "s" : ""}
+                              </span>
+                            </div>
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b border-gray-100 bg-white">
+                                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Object Code</th>
+                                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Line Item</th>
+                                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Reason</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {group.items.map((item, i) => (
+                                  <tr key={i} className="border-t border-gray-50 hover:bg-amber-50/40">
+                                    <td className="px-4 py-2 font-mono text-xs text-gray-500">{item.objectCode || "—"}</td>
+                                    <td className="px-4 py-2 text-gray-700">{item.lineItem || "—"}</td>
+                                    <td className="px-4 py-2 text-amber-700 text-xs">{item.reason}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ))}
                       </div>
-                      <p className="text-xs text-gray-400 mt-1.5">
-                        To fix: go to <strong>Account Codes</strong> and add these object codes to your Revenue Type segment, or manually set category values during upload.
+                      <p className="text-xs text-gray-400 mt-2">
+                        Fix in <strong>Account Codes</strong>, then click <strong>Re-apply Mappings</strong> above.
                       </p>
                     </div>
                   ))}
                 </div>
               )}
+            </div>
+          )}
+          {unmapped && unmapped.totalUnmapped === 0 && (
+            <div className="border-t border-gray-200 pt-6">
+              <p className="text-sm text-emerald-600 flex items-center gap-2">
+                <span>✓</span> All rows are mapped to categories. No unmapped items found.
+              </p>
             </div>
           )}
 
