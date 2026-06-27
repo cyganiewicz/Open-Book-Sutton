@@ -186,12 +186,23 @@ export default async function RevenuesPage({
     return nodes;
   }
 
-  let hierarchy = buildLevel(current, 0, () => true);
+  // Build hierarchy from ALL rows across all years (deduplicated by key fields).
+  // This ensures line items that exist in prior-year actuals but not the current budget
+  // still get leaf nodes — otherwise they show in parent totals but not in the table.
+  const seenKeys = new Set<string>();
+  const allUniqueRows = allRowsClassified.filter(r => {
+    const k = `${r.category1 ?? ""}|${r.category2 ?? ""}|${r.lineItem ?? ""}|${r.objectCode ?? ""}`;
+    if (seenKeys.has(k)) return false;
+    seenKeys.add(k);
+    return true;
+  });
+
+  let hierarchy = buildLevel(allUniqueRows, 0, () => true);
   let levelNames = revLevels.map(l => l.name);
 
   // Fallback if configured levels produce nothing
   if (hierarchy.length === 0 || hierarchy.every(n => (n.amounts[currentYear] || 0) === 0)) {
-    hierarchy = buildLevel(current, 0, () => true, DEFAULT_REVENUE_LEVELS);
+    hierarchy = buildLevel(allUniqueRows, 0, () => true, DEFAULT_REVENUE_LEVELS);
     levelNames = DEFAULT_REVENUE_LEVELS.map(l => l.name);
   }
 
