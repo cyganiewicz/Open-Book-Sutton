@@ -305,10 +305,20 @@ export default async function ExpensesPage({
   ];
 
   const allRowsTyped = allRowsClassified as BudgetRowLike[];
-  const currentTyped = current as BudgetRowLike[];
+
+  // Build hierarchy from ALL unique rows across all years so that line items
+  // present in prior-year actuals (but not current budget) still get leaf nodes.
+  // Without this, parent totals include those rows but the table rows don't show them.
+  const expSeenKeys = new Set<string>();
+  const allUniqueExpRows = allRowsTyped.filter(r => {
+    const k = `${r.functionArea ?? ""}|${r.department ?? ""}|${r.category1 ?? ""}|${r.category2 ?? ""}|${r.lineItem ?? ""}|${r.objectCode ?? ""}`;
+    if (expSeenKeys.has(k)) return false;
+    expSeenKeys.add(k);
+    return true;
+  });
 
   const hierarchyRaw = buildHierarchyV2(
-    currentTyped,
+    allUniqueExpRows,
     allRowsTyped,
     expLevels,
     0,
