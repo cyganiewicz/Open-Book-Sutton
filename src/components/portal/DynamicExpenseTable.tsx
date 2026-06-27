@@ -303,7 +303,6 @@ export default function DynamicExpenseTable({
   const grandTotals: Record<string, number> = {};
   for (const col of displayCols) {
     grandTotals[col.colKey] = hierarchy
-      .filter(n => n.key !== "_direct")
       .reduce((s, n) => s + getAmt(n.amounts, col), 0);
   }
 
