@@ -57,7 +57,7 @@ export async function POST(
         }
       } else if (row.dataCategory === "expenses") {
         if (!row.objectCode) continue;
-        const derived = applyAccountCodeConfig(row.objectCode, acConfig);
+        const derived = applyAccountCodeConfig(row.objectCode, row.department ?? null, acConfig);
         if (!derived.functionArea && !derived.department && !derived.category1) continue;
 
         const changed =
