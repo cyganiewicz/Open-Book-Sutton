@@ -13,9 +13,7 @@ export async function GET(
     select: { accountCodeRules: true },
   });
 
-  const acConfig = town?.accountCodeConfig
-    ? parseAccountCodeConfig(town.accountCodeRules || "")
-    : null;
+  const acConfig = parseAccountCodeConfig(town?.accountCodeRules || "");
 
 
   // Get all rows, deduplicated by the key fields
