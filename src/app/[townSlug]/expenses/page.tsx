@@ -123,12 +123,20 @@ export function buildHierarchyV2(
       for (const y of tableYears) {
         const preferredType = y === currentYear ? "budget" : (yearTypes[y] ?? "budget");
         const primary = allYearRows
-          .filter(r => r.objectCode === acct && r.lineItem === desc && r.fiscalYear === y && r.amountType === preferredType)
+          .filter(r =>
+            ancestorFilter(r) &&
+            r.objectCode === acct && r.lineItem === desc &&
+            r.fiscalYear === y && r.amountType === preferredType
+          )
           .reduce((s, r) => s + r.amount, 0);
         if (primary) amounts[y] = primary;
         for (const t of ["budget", "actual"] as const) {
           const val = allYearRows
-            .filter(r => r.objectCode === acct && r.lineItem === desc && r.fiscalYear === y && r.amountType === t)
+            .filter(r =>
+              ancestorFilter(r) &&
+              r.objectCode === acct && r.lineItem === desc &&
+              r.fiscalYear === y && r.amountType === t
+            )
             .reduce((s, r) => s + r.amount, 0);
           if (val) amounts[`${y}:${t}`] = val;
         }
