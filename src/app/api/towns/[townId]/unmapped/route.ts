@@ -18,7 +18,7 @@ export async function GET(
   // Fetch uploads so we can show filename with each unmapped item
   const uploads = await prisma.upload.findMany({
     where: { townId },
-    select: { id: true, fileName: true, dataCategory: true, fiscalYear: true },
+    select: { id: true, fileName: true, dataCategory: true },
   });
   const uploadMap = new Map(uploads.map(u => [u.id, u]));
 
@@ -67,7 +67,7 @@ export async function GET(
   for (const row of unique) {
     const upload = uploadMap.get(row.uploadId);
     const fileName = upload?.fileName ?? "Unknown file";
-    const fiscalYear = upload?.fiscalYear ?? row.fiscalYear ?? null;
+    const fiscalYear = row.fiscalYear ?? null;
 
     if (row.dataCategory === "revenues") {
       const derived = acConfig?.revenueConfig
