@@ -141,6 +141,7 @@ export default async function RevenuesPage({
           id: row.id,
           label: row.lineItem || row.category2 || row.category1 || "",
           amounts: getYearAmounts(r =>
+            nodeMatchFn(r) &&
             r.lineItem === row.lineItem &&
             r.category1 === row.category1 &&
             r.category2 === row.category2
