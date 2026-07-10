@@ -444,7 +444,7 @@ export default function DynamicExpenseTable({
         <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "75vh" }} ref={tableScrollRef}>
           <table className="text-sm" style={{ minWidth: 900, tableLayout: "auto", borderCollapse: "separate", borderSpacing: 0 }}>
             <thead>
-              <tr style{{ borderBottom: "2px solid #e5e7eb" }}>
+              <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
                 <th style={{ position: "sticky", top: 0, left: 0, zIndex: 30, backgroundColor: "#f9fafb", width: 260, minWidth: 260, padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#9ca3af", whiteSpace: "nowrap", boxShadow: "2px 0 0 0 #e5e7eb" }}>
                   Description
                 </th>
