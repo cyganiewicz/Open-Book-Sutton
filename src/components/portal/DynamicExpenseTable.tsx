@@ -67,10 +67,10 @@ function NodeRow({
         // Function-level row: dark ink band, not heavy full-green
         <tr
           className="cursor-pointer transition-opacity border-t border-gray-200 group"
-          style={{ backgroundColor: tint(townColor, 0.12) }}
+          style={{ backgroundColor: tint(townColor, 0.18) }}
           onClick={() => setCollapsed(c => !c)}
         >
-          <td className="sticky left-0 z-10 px-5 py-3" style={{ backgroundColor: tint(townColor, 0.12), minWidth: "200px" }}>
+          <td className="sticky left-0 z-10 px-5 py-3" style={{ backgroundColor: tint(townColor, 0.18), minWidth: "200px" }}>
             <span className="inline-flex items-center gap-2">
               <span
                 className="text-[10px] flex-shrink-0 transition-transform duration-150"
@@ -95,7 +95,7 @@ function NodeRow({
               )}
             </span>
           </td>
-          <td className="sticky left-[200px] z-10 px-2 py-3" style={{ backgroundColor: tint(townColor, 0.12), minWidth: "72px" }} />
+          <td className="sticky left-[200px] z-10 px-2 py-3" style={{ backgroundColor: tint(townColor, 0.18), minWidth: "72px" }} />
           {displayCols.map(col => (
             <td
               key={col.colKey}
@@ -119,7 +119,7 @@ function NodeRow({
           style={{ backgroundColor: "rgba(248,250,248,0.8)" }}
           onClick={() => setCollapsed(c => !c)}
         >
-          <td className="sticky left-0 z-10 bg-[rgba(248,250,248,0.95)] py-2.5 pr-3" style={{ paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, minWidth: "200px" }}>
+          <td className="sticky left-0 z-10 bg-[rgb(248,250,248)] py-2.5 pr-3" style={{ paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, minWidth: "200px" }}>
             <span className="inline-flex items-center gap-2">
               <span
                 className="text-gray-400 text-[10px] flex-shrink-0 transition-transform duration-150"
@@ -137,7 +137,7 @@ function NodeRow({
               )}
             </span>
           </td>
-          <td className="sticky left-[200px] z-10 bg-[rgba(248,250,248,0.95)] px-2 py-2.5 text-gray-300 text-[11px] font-mono" style={{ minWidth: "72px" }} />
+          <td className="sticky left-[200px] z-10 bg-[rgb(248,250,248)] px-2 py-2.5 text-gray-300 text-[11px] font-mono" style={{ minWidth: "72px" }} />
           {displayCols.map(col => (
             <td
               key={col.colKey}
@@ -153,7 +153,7 @@ function NodeRow({
           className="border-t border-gray-50 cursor-pointer hover:bg-gray-50/40 transition-colors"
           onClick={() => setCollapsed(c => !c)}
         >
-          <td className="sticky left-0 z-10 bg-white/95 py-2 pr-3" style={{ paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, minWidth: "200px" }}>
+          <td className="sticky left-0 z-10 bg-white py-2 pr-3" style={{ paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, minWidth: "200px" }}>
             <span className="inline-flex items-center gap-2">
               <span
                 className="text-gray-300 text-[10px] flex-shrink-0 transition-transform duration-150"
@@ -164,7 +164,7 @@ function NodeRow({
               <span className="font-medium text-gray-600 text-sm">{node.key}</span>
             </span>
           </td>
-          <td className="sticky left-[200px] z-10 bg-white/95 px-2 py-2 text-gray-300 text-[11px] font-mono" style={{ minWidth: "72px" }} />
+          <td className="sticky left-[200px] z-10 bg-white px-2 py-2 text-gray-300 text-[11px] font-mono" style={{ minWidth: "72px" }} />
           {displayCols.map(col => (
             <td
               key={col.colKey}
@@ -232,9 +232,9 @@ function LeafRow({
 }) {
   const tooltip = lineItemTooltips[row.objectCode || ""] || lineItemTooltips[row.label] || "";
   return (
-    <tr className="border-t border-gray-50 hover:bg-gray-50/50 transition-colors">
+    <tr className="border-t border-gray-50 hover:bg-gray-50/40 transition-colors group">
       <td
-        className="sticky left-0 z-10 bg-white/95 hover:bg-gray-50/80 py-1.5 pr-2 text-gray-500 text-sm"
+        className="sticky left-0 z-10 bg-white group-hover:bg-gray-50/90 py-1.5 pr-2 text-gray-500 text-sm transition-colors"
         style={{ paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, minWidth: "200px" }}
       >
         <span className="leading-snug inline-flex items-center gap-1">
@@ -249,7 +249,7 @@ function LeafRow({
         </span>
       </td>
       <td
-        className="sticky left-[200px] z-10 bg-white/95 px-2 py-1.5 text-gray-300 text-[10px] font-mono"
+        className="sticky left-[200px] z-10 bg-white group-hover:bg-gray-50/90 px-2 py-1.5 text-gray-300 text-[10px] font-mono transition-colors"
         style={{ minWidth: "72px" }}
         title={row.objectCode || ""}
       >
