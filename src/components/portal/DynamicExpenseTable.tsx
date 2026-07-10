@@ -467,12 +467,12 @@ export default function DynamicExpenseTable({
               <col style={{ width: 130 }} />
               {displayCols.map(col => <col key={col.colKey} style={{ width: 140 }} />)}
             </colgroup>
-            <thead>
+            <thead style={{ position: "sticky", top: 64, zIndex: 99 }}>
               <tr style={{ borderBottom: "2px solid #e5e7eb", backgroundColor: "#f9fafb" }}>
-                <th style={{ position: "sticky", top: 0, left: 0, zIndex: 100, backgroundColor: "#f9fafb", padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#9ca3af", whiteSpace: "nowrap", boxShadow: "2px 0 0 0 #e5e7eb" }}>
+                <th style={{ position: "sticky", top: 64, left: 0, zIndex: 100, backgroundColor: "#f9fafb", padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#9ca3af", whiteSpace: "nowrap", boxShadow: "2px 0 0 0 #e5e7eb" }}>
                   Description
                 </th>
-                <th style={{ position: "sticky", top: 0, left: 260, zIndex: 100, backgroundColor: "#f9fafb", padding: "10px 8px", textAlign: "left", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#d1d5db", whiteSpace: "nowrap" }}>
+                <th style={{ position: "sticky", top: 64, left: 260, zIndex: 100, backgroundColor: "#f9fafb", padding: "10px 8px", textAlign: "left", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#d1d5db", whiteSpace: "nowrap" }}>
                   Acct
                 </th>
                 {displayCols.map(col => (
