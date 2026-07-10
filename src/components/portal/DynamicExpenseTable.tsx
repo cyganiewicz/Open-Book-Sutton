@@ -95,7 +95,7 @@ function NodeRow({
               )}
             </span>
           </td>
-          <td className="sticky left-[200px] z-10 px-2 py-3" style={{ backgroundColor: tint(townColor, 0.18), minWidth: "72px" }} />
+          <td className="sticky z-10 px-2 py-3" style={{ left: "200px", minWidth: "96px", backgroundColor: tint(townColor, 0.18) }} />
           {displayCols.map(col => (
             <td
               key={col.colKey}
@@ -137,7 +137,7 @@ function NodeRow({
               )}
             </span>
           </td>
-          <td className="sticky left-[200px] z-10 bg-[rgb(248,250,248)] px-2 py-2.5 text-gray-300 text-[11px] font-mono" style={{ minWidth: "72px" }} />
+          <td className="sticky z-10 bg-[rgb(248,250,248)] px-2 py-2.5 text-gray-300 text-[11px] font-mono" style={{ left: "200px", minWidth: "96px" }} />
           {displayCols.map(col => (
             <td
               key={col.colKey}
@@ -164,7 +164,7 @@ function NodeRow({
               <span className="font-medium text-gray-600 text-sm">{node.key}</span>
             </span>
           </td>
-          <td className="sticky left-[200px] z-10 bg-white px-2 py-2 text-gray-300 text-[11px] font-mono" style={{ minWidth: "72px" }} />
+          <td className="sticky z-10 bg-white px-2 py-2 text-gray-300 text-[11px] font-mono" style={{ left: "200px", minWidth: "96px" }} />
           {displayCols.map(col => (
             <td
               key={col.colKey}
@@ -249,8 +249,8 @@ function LeafRow({
         </span>
       </td>
       <td
-        className="sticky left-[200px] z-10 bg-white group-hover:bg-gray-50/90 px-2 py-1.5 text-gray-300 text-[10px] font-mono transition-colors"
-        style={{ minWidth: "72px" }}
+        className="sticky z-10 bg-white group-hover:bg-gray-50/90 px-2 py-1.5 text-gray-300 text-[10px] font-mono transition-colors"
+        style={{ left: "200px", minWidth: "96px" }}
         title={row.objectCode || ""}
       >
         {row.objectCode || ""}
@@ -452,7 +452,7 @@ export default function DynamicExpenseTable({
                 <th className="sticky left-0 z-20 bg-gray-50/95 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap" style={{ minWidth: "200px" }}>
                   Description
                 </th>
-                <th className="sticky left-[200px] z-20 bg-gray-50/95 px-2 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-gray-300 whitespace-nowrap" style={{ minWidth: "72px" }}>
+                <th className="sticky z-20 bg-gray-50/95 px-2 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-gray-300 whitespace-nowrap" style={{ left: "200px", minWidth: "96px" }}>
                   Acct
                 </th>
                 {displayCols.map(col => (
