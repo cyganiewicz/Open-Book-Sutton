@@ -499,7 +499,7 @@ export default function DynamicExpenseTable({
               ))}
               {/* Grand total row */}
               <tr className="border-t-2 border-gray-200 bg-gray-50">
-                <td colSpan={2} style{{ position: "sticky", left: 0, zIndex: 10, backgroundColor: "#f9fafb", padding: "10px 16px", fontWeight: 700, color: "#111827", fontSize: 13, width: 390, minWidth: 390 }}>
+                <td colSpan={2} style={{ position: "sticky", left: 0, zIndex: 10, backgroundColor: "#f9fafb", padding: "10px 16px", fontWeight: 700, color: "#111827", fontSize: 13, width: 390, minWidth: 390 }}>
                   Total Expenses
                 </td>
                 {displayCols.map(col => (
