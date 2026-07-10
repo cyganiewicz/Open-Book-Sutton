@@ -38,6 +38,7 @@ interface ExpenseHeaderProps {
   spendingTypeSegmentIndex: number | null;
   accountSegments: AccountSegment[];
   allYearTotals?: Record<string, number>;
+  budgetOnlyYears?: string[];
   expenseExplainerItems?: { heading: string; body: string }[];
 }
 
@@ -85,6 +86,7 @@ export default function ExpenseHeader({
   tiles, hierarchy, years, currentYear, townColor,
   totalBudget, prevTotal, spendingTypeSegmentIndex, accountSegments,
   allYearTotals = {},
+  budgetOnlyYears,
   expenseExplainerItems,
 }: ExpenseHeaderProps) {
   const [drillFn, setDrillFn] = useState<string | null>(null);
@@ -167,8 +169,10 @@ export default function ExpenseHeader({
   }, [fnNodes, hierarchy, drillFn, currentYear, trendView, spendingTypeSorted, years]);
 
   const growthData = useMemo(() => {
-    // Only include years that have budget data — skip years with no budget upload
-    const budgetYears = [...years].sort().filter(y => (allYearTotals[y] ?? 0) > 0);
+    // Only include years that have budget data (passed from server, avoids zeros from actual-only uploads)
+    const budgetYears = budgetOnlyYears && budgetOnlyYears.length >= 2
+      ? [...budgetOnlyYears].sort()
+      : [...years].sort().filter(y => (allYearTotals[y] ?? 0) > 0);
     if (budgetYears.length < 2) return null;
     const dataYears = budgetYears.slice(1);
     const labels = dataYears.map(y => `FY${y}`);
@@ -206,7 +210,7 @@ export default function ExpenseHeader({
       borderDash: [6, 3],
     };
     return { labels, datasets: [...fnDatasets, totalDataset] };
-  }, [fnNodes, years, allYearTotals, townColor]);
+  }, [fnNodes, years, allYearTotals, townColor, budgetOnlyYears]);
 
   const barData = {
     labels: displayYears.map(y => `FY${y}`),
