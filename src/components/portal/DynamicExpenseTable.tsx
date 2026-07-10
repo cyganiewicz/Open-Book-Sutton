@@ -67,6 +67,7 @@ function NodeRow({
         // Function-level row: dark ink band, not heavy full-green
         <tr
           className="cursor-pointer transition-opacity border-t border-gray-200 group"
+          style={{ isolation: "isolate" }}
           onClick={() => setCollapsed(c => !c)}
         >
           <td colSpan={2} style={{ position: "sticky", left: 0, zIndex: 11, backgroundColor: tint(townColor, 0.18), width: 390, minWidth: 390, padding: "10px 16px", boxShadow: "2px 0 0 0 rgba(0,0,0,0.06)" }}>
@@ -116,6 +117,7 @@ function NodeRow({
         // Department-level row: soft sage tint
         <tr
           className="border-t border-gray-100 cursor-pointer transition-colors"
+          style={{ isolation: "isolate" }}
           onClick={() => setCollapsed(c => !c)}
         >
           <td colSpan={2} style={{ position: "sticky", left: 0, zIndex: 11, backgroundColor: "rgb(248,250,248)", width: 390, minWidth: 390, paddingTop: 8, paddingBottom: 8, paddingRight: 8, paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, boxShadow: "2px 0 0 0 rgba(0,0,0,0.04)" }}>
@@ -150,7 +152,8 @@ function NodeRow({
       ) : (
         // Deeper group rows
         <tr
-          className="border-t border-gray-50 cursor-pointer hover:bg-gray-50/40 transition-colors"
+          className="border-t border-gray-50 cursor-pointer transition-colors"
+          style={{ isolation: "isolate" }}
           onClick={() => setCollapsed(c => !c)}
         >
           <td colSpan={2} style={{ position: "sticky", left: 0, zIndex: 11, backgroundColor: "#ffffff", width: 390, minWidth: 390, paddingTop: 6, paddingBottom: 6, paddingRight: 8, paddingLeft: `calc(${getIndent(depth)} + 1.25rem)` }}>
@@ -169,6 +172,7 @@ function NodeRow({
             <td
               key={col.colKey}
               className="px-4 py-2 text-right tabular-nums whitespace-nowrap text-sm text-gray-600 font-medium"
+              style={{ backgroundColor: "#ffffff" }}
             >
               {formatCurrency(getAmt(node.amounts, col))}
             </td>
@@ -232,7 +236,7 @@ function LeafRow({
 }) {
   const tooltip = lineItemTooltips[row.objectCode || ""] || lineItemTooltips[row.label] || "";
   return (
-    <tr className="border-t border-gray-50 hover:bg-gray-50/40 transition-colors group">
+    <tr className="border-t border-gray-50 transition-colors group" style={{ isolation: "isolate" }}>
       <td style={{ position: "sticky", left: 0, zIndex: 10, backgroundColor: "#ffffff", width: 260, minWidth: 260, paddingTop: 5, paddingBottom: 5, paddingRight: 6, paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, color: "#6b7280", fontSize: 12, lineHeight: "1.3" }}>
         <span className="leading-snug inline-flex items-center gap-1">
           <span style={{ fontSize: 11, lineHeight: "1.3" }}>{row.label}</span>
@@ -441,10 +445,10 @@ export default function DynamicExpenseTable({
         </div>
 
         {/* Table */}
-        <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "75vh" }} ref={tableScrollRef}>
+        <div style={{ overflowX: "auto" }} ref={tableScrollRef}>
           <table className="text-sm" style={{ minWidth: 900, tableLayout: "auto", borderCollapse: "separate", borderSpacing: 0 }}>
             <thead>
-              <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+              <tr style={{ borderBottom: "2px solid #e5e7eb", backgroundColor: "#f9fafb" }}>
                 <th style={{ position: "sticky", top: 0, left: 0, zIndex: 30, backgroundColor: "#f9fafb", width: 260, minWidth: 260, padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#9ca3af", whiteSpace: "nowrap", boxShadow: "2px 0 0 0 #e5e7eb" }}>
                   Description
                 </th>
@@ -506,6 +510,7 @@ export default function DynamicExpenseTable({
                   <td
                     key={col.colKey}
                     className="px-4 py-3 text-right tabular-nums font-bold text-gray-900 text-sm whitespace-nowrap"
+                    style={{ backgroundColor: "#f9fafb" }}
                   >
                     {formatCurrency(grandTotals[col.colKey] || 0)}
                   </td>
