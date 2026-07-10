@@ -67,7 +67,6 @@ function NodeRow({
         // Function-level row: dark ink band, not heavy full-green
         <tr
           className="cursor-pointer transition-opacity border-t border-gray-200 group"
-          style={{ backgroundColor: tint(townColor, 0.18) }}
           onClick={() => setCollapsed(c => !c)}
         >
           <td colSpan={2} style={{ position: "sticky", left: 0, zIndex: 11, backgroundColor: tint(townColor, 0.18), width: 390, minWidth: 390, padding: "10px 16px", boxShadow: "2px 0 0 0 rgba(0,0,0,0.06)" }}>
@@ -101,6 +100,7 @@ function NodeRow({
               key={col.colKey}
               className="px-4 py-3 text-right tabular-nums whitespace-nowrap font-semibold text-sm"
               style={{
+                backgroundColor: tint(townColor, 0.18),
                 color:
                   col.year === currentYear && col.type === "budget"
                     ? darkColor
@@ -115,8 +115,7 @@ function NodeRow({
       ) : isDepth1 ? (
         // Department-level row: soft sage tint
         <tr
-          className="border-t border-gray-100 cursor-pointer hover:bg-gray-50/60 transition-colors"
-          style={{ backgroundColor: "rgba(248,250,248,0.8)" }}
+          className="border-t border-gray-100 cursor-pointer transition-colors"
           onClick={() => setCollapsed(c => !c)}
         >
           <td colSpan={2} style={{ position: "sticky", left: 0, zIndex: 11, backgroundColor: "rgb(248,250,248)", width: 390, minWidth: 390, paddingTop: 8, paddingBottom: 8, paddingRight: 8, paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, boxShadow: "2px 0 0 0 rgba(0,0,0,0.04)" }}>
@@ -142,6 +141,7 @@ function NodeRow({
             <td
               key={col.colKey}
               className="px-4 py-2.5 text-right tabular-nums whitespace-nowrap text-sm font-semibold text-gray-700"
+              style={{ backgroundColor: "rgb(248,250,248)" }}
             >
               {formatCurrency(getAmt(node.amounts, col))}
             </td>
