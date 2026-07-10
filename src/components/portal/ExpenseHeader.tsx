@@ -182,7 +182,7 @@ export default function ExpenseHeader({
       if (prev === 0) return null;
       return +((cur - prev) / prev * 100).toFixed(2);
     });
-    const fnDatasets = fnNodes.slice(0, 6).map((fn, i) => ({
+    const fnDatasets = fnNodes.slice(0, 10).map((fn, i) => ({
       label: fn.key,
       data: dataYears.map((y, idx) => {
         // Strict budget-to-budget: if no :budget key exists for a year, return null (gap) not fallback to actual
