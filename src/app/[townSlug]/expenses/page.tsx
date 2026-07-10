@@ -277,6 +277,8 @@ export default async function ExpensesPage({
       .filter(r => r.fiscalYear === y && r.amountType === "budget")
       .reduce((s, r) => s + r.amount, 0);
   }
+  // Years that actually have budget data — used to filter growth chart
+  const budgetOnlyYears = tableYears.filter(y => (allYearTotals[y] ?? 0) > 0);
 
   const current = allRowsClassified.filter(
     (r) => r.fiscalYear === currentYear && r.amountType === "budget"
@@ -371,6 +373,7 @@ export default async function ExpensesPage({
           spendingTypeSegmentIndex={acConfig?.spendingTypeSegment ?? null}
           accountSegments={acConfig?.segments ?? []}
           allYearTotals={allYearTotals}
+          budgetOnlyYears={budgetOnlyYears}
         />
 
         <DynamicExpenseTable
