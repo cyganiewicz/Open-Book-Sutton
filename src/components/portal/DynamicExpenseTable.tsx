@@ -70,7 +70,7 @@ function NodeRow({
           style={{ backgroundColor: tint(townColor, 0.18) }}
           onClick={() => setCollapsed(c => !c)}
         >
-          <td className="sticky left-0 z-10 px-5 py-3" style={{ backgroundColor: tint(townColor, 0.18), minWidth: "200px" }}>
+          <td className="sticky left-0 z-10 px-5 py-3" colSpan={2} style={{ backgroundColor: tint(townColor, 0.18), width: "330px", minWidth: "330px" }}>
             <span className="inline-flex items-center gap-2">
               <span
                 className="text-[10px] flex-shrink-0 transition-transform duration-150"
@@ -95,7 +95,7 @@ function NodeRow({
               )}
             </span>
           </td>
-          <td className="sticky z-10 px-2 py-3" style={{ left: "200px", minWidth: "96px", backgroundColor: tint(townColor, 0.18) }} />
+
           {displayCols.map(col => (
             <td
               key={col.colKey}
@@ -119,7 +119,7 @@ function NodeRow({
           style={{ backgroundColor: "rgba(248,250,248,0.8)" }}
           onClick={() => setCollapsed(c => !c)}
         >
-          <td className="sticky left-0 z-10 bg-[rgb(248,250,248)] py-2.5 pr-3" style={{ paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, minWidth: "200px" }}>
+          <td className="sticky left-0 z-10 bg-[rgb(248,250,248)] py-2.5 pr-3" colSpan={2} style={{ paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, width: "330px", minWidth: "330px" }}>
             <span className="inline-flex items-center gap-2">
               <span
                 className="text-gray-400 text-[10px] flex-shrink-0 transition-transform duration-150"
@@ -137,7 +137,7 @@ function NodeRow({
               )}
             </span>
           </td>
-          <td className="sticky z-10 bg-[rgb(248,250,248)] px-2 py-2.5 text-gray-300 text-[11px] font-mono" style={{ left: "200px", minWidth: "96px" }} />
+
           {displayCols.map(col => (
             <td
               key={col.colKey}
@@ -153,7 +153,7 @@ function NodeRow({
           className="border-t border-gray-50 cursor-pointer hover:bg-gray-50/40 transition-colors"
           onClick={() => setCollapsed(c => !c)}
         >
-          <td className="sticky left-0 z-10 bg-white py-2 pr-3" style={{ paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, minWidth: "200px" }}>
+          <td className="sticky left-0 z-10 bg-white py-2 pr-3" colSpan={2} style={{ paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, width: "330px", minWidth: "330px" }}>
             <span className="inline-flex items-center gap-2">
               <span
                 className="text-gray-300 text-[10px] flex-shrink-0 transition-transform duration-150"
@@ -164,7 +164,7 @@ function NodeRow({
               <span className="font-medium text-gray-600 text-sm">{node.key}</span>
             </span>
           </td>
-          <td className="sticky z-10 bg-white px-2 py-2 text-gray-300 text-[11px] font-mono" style={{ left: "200px", minWidth: "96px" }} />
+
           {displayCols.map(col => (
             <td
               key={col.colKey}
@@ -235,7 +235,7 @@ function LeafRow({
     <tr className="border-t border-gray-50 hover:bg-gray-50/40 transition-colors group">
       <td
         className="sticky left-0 z-10 bg-white group-hover:bg-gray-50/90 py-1.5 pr-2 text-gray-500 text-sm transition-colors"
-        style={{ paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, minWidth: "200px" }}
+        style={{ paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, width: "220px", minWidth: "220px" }}
       >
         <span className="leading-snug inline-flex items-center gap-1">
           {row.label}
@@ -250,7 +250,7 @@ function LeafRow({
       </td>
       <td
         className="sticky z-10 bg-white group-hover:bg-gray-50/90 px-2 py-1.5 text-gray-300 text-[10px] font-mono transition-colors"
-        style={{ left: "200px", minWidth: "96px" }}
+        style={{ left: "220px", width: "110px", minWidth: "110px" }}
         title={row.objectCode || ""}
       >
         {row.objectCode || ""}
@@ -446,13 +446,13 @@ export default function DynamicExpenseTable({
 
         {/* Table */}
         <div className="overflow-x-auto" ref={tableScrollRef}>
-          <table className="text-sm" style={{ minWidth: "max-content", width: "100%" }}>
+          <table className="w-full text-sm" style={{ minWidth: "900px" }}>
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-gray-200 bg-gray-50/80">
-                <th className="sticky left-0 z-20 bg-gray-50/95 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap" style={{ minWidth: "200px" }}>
+                <th className="sticky left-0 z-20 bg-gray-50/95 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-gray-400" style={{ width: "220px", minWidth: "220px" }}>
                   Description
                 </th>
-                <th className="sticky z-20 bg-gray-50/95 px-2 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-gray-300 whitespace-nowrap" style={{ left: "200px", minWidth: "96px" }}>
+                <th className="sticky z-20 bg-gray-50/95 px-2 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-gray-300" style={{ left: "220px", width: "110px", minWidth: "110px" }}>
                   Acct
                 </th>
                 {displayCols.map(col => (
