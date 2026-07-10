@@ -30,6 +30,18 @@ function tint(hex: string, opacity: number) {
   return `rgba(${r},${g},${b},${opacity})`;
 }
 
+// Returns a solid color equivalent of tint(hex, opacity) blended over white
+// Use this for sticky cells — semi-transparent backgrounds don't cover content beneath them
+function solidTint(hex: string, opacity: number) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const sr = Math.round(r * opacity + 255 * (1 - opacity));
+  const sg = Math.round(g * opacity + 255 * (1 - opacity));
+  const sb = Math.round(b * opacity + 255 * (1 - opacity));
+  return `rgb(${sr},${sg},${sb})`;
+}
+
 const INDENT_REM = [0, 1.5, 3.0, 4.5, 6.0];
 const getIndent = (depth: number) => `${INDENT_REM[Math.min(depth, INDENT_REM.length - 1)]}rem`;
 
@@ -70,7 +82,7 @@ function NodeRow({
           
           onClick={() => setCollapsed(c => !c)}
         >
-          <td style={{ position: "sticky", left: 0, zIndex: 50, backgroundColor: tint(townColor, 0.18), padding: "10px 16px", boxShadow: "1px 0 0 0 rgba(0,0,0,0.04)" }}>
+          <td style={{ position: "sticky", left: 0, zIndex: 50, backgroundColor: solidTint(townColor, 0.18), padding: "10px 16px", boxShadow: "1px 0 0 0 rgba(0,0,0,0.04)" }}>
             <span className="inline-flex items-center gap-2">
               <span
                 className="text-[10px] flex-shrink-0 transition-transform duration-150"
@@ -95,7 +107,7 @@ function NodeRow({
               )}
             </span>
           </td>
-          <td style={{ position: "sticky", left: 260, zIndex: 50, backgroundColor: tint(townColor, 0.18), padding: "10px 8px" }} />
+          <td style={{ position: "sticky", left: 260, zIndex: 50, backgroundColor: solidTint(townColor, 0.18), padding: "10px 8px" }} />
 
           {displayCols.map(col => (
             <td
