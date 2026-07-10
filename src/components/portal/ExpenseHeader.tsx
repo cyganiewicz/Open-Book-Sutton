@@ -167,12 +167,13 @@ export default function ExpenseHeader({
   }, [fnNodes, hierarchy, drillFn, currentYear, trendView, spendingTypeSorted, years]);
 
   const growthData = useMemo(() => {
-    const sortedYears = [...years].sort();
-    if (sortedYears.length < 2) return null;
-    const dataYears = sortedYears.slice(1);
+    // Only include years that have budget data — skip years with no budget upload
+    const budgetYears = [...years].sort().filter(y => (allYearTotals[y] ?? 0) > 0);
+    if (budgetYears.length < 2) return null;
+    const dataYears = budgetYears.slice(1);
     const labels = dataYears.map(y => `FY${y}`);
     const totalGrowth = dataYears.map((y, i) => {
-      const prev = allYearTotals[sortedYears[i]] || 0;
+      const prev = allYearTotals[budgetYears[i]] || 0;
       const cur = allYearTotals[y] || 0;
       if (prev === 0) return null;
       return +((cur - prev) / prev * 100).toFixed(2);
@@ -180,9 +181,9 @@ export default function ExpenseHeader({
     const fnDatasets = fnNodes.slice(0, 6).map((fn, i) => ({
       label: fn.key,
       data: dataYears.map((y, idx) => {
-        // Always compare budget-to-budget across years
-        const prev = fn.amounts[`${sortedYears[idx]}:budget`] ?? fn.amounts[sortedYears[idx]] ?? 0;
-        const cur = fn.amounts[`${y}:budget`] ?? fn.amounts[y] ?? 0;
+        // Strict budget-to-budget: if no :budget key exists for a year, return null (gap) not fallback to actual
+        const prev = fn.amounts[`${budgetYears[idx]}:budget`] ?? 0;
+        const cur = fn.amounts[`${y}:budget`] ?? 0;
         if (prev === 0) return null;
         return +((cur - prev) / prev * 100).toFixed(2);
       }),
