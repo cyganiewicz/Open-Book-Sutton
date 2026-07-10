@@ -70,7 +70,7 @@ function NodeRow({
           style={{ isolation: "isolate" }}
           onClick={() => setCollapsed(c => !c)}
         >
-          <td colSpan={2} style={{ position: "sticky", left: 0, zIndex: 11, backgroundColor: tint(townColor, 0.18), width: 390, minWidth: 390, padding: "10px 16px", boxShadow: "2px 0 0 0 rgba(0,0,0,0.06)" }}>
+          <td style={{ position: "sticky", left: 0, zIndex: 11, backgroundColor: tint(townColor, 0.18), width: 260, minWidth: 260, padding: "10px 16px", boxShadow: "1px 0 0 0 rgba(0,0,0,0.04)" }}>
             <span className="inline-flex items-center gap-2">
               <span
                 className="text-[10px] flex-shrink-0 transition-transform duration-150"
@@ -82,7 +82,7 @@ function NodeRow({
               >
                 ▾
               </span>
-              <span style={{ fontWeight: 700, fontSize: 13, color: darkColor, whiteSpace: "nowrap" }}>
+              <span style={{ fontWeight: 700, fontSize: 13, color: darkColor, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>
                 {node.key}
               </span>
               {categoryTooltips[node.key] && (
@@ -95,6 +95,7 @@ function NodeRow({
               )}
             </span>
           </td>
+          <td style={{ position: "sticky", left: 260, zIndex: 11, backgroundColor: tint(townColor, 0.18), width: 130, minWidth: 130, padding: "10px 8px" }} />
 
           {displayCols.map(col => (
             <td
@@ -120,7 +121,7 @@ function NodeRow({
           style={{ isolation: "isolate" }}
           onClick={() => setCollapsed(c => !c)}
         >
-          <td colSpan={2} style={{ position: "sticky", left: 0, zIndex: 11, backgroundColor: "rgb(248,250,248)", width: 390, minWidth: 390, paddingTop: 8, paddingBottom: 8, paddingRight: 8, paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, boxShadow: "2px 0 0 0 rgba(0,0,0,0.04)" }}>
+          <td style={{ position: "sticky", left: 0, zIndex: 11, backgroundColor: "rgb(248,250,248)", width: 260, minWidth: 260, paddingTop: 8, paddingBottom: 8, paddingRight: 8, paddingLeft: `calc(${getIndent(depth)} + 1.25rem)` }}>
             <span className="inline-flex items-center gap-2">
               <span
                 className="text-gray-400 text-[10px] flex-shrink-0 transition-transform duration-150"
@@ -128,7 +129,7 @@ function NodeRow({
               >
                 ▾
               </span>
-              <span style={{ fontWeight: 600, fontSize: 12, color: "#374151", whiteSpace: "nowrap" }}>{node.key}</span>
+              <span style={{ fontWeight: 600, fontSize: 12, color: "#374151", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>{node.key}</span>
               {categoryTooltips[node.key] && (
                 <span
                   title={categoryTooltips[node.key]}
@@ -138,6 +139,7 @@ function NodeRow({
               )}
             </span>
           </td>
+          <td style={{ position: "sticky", left: 260, zIndex: 11, backgroundColor: "rgb(248,250,248)", width: 130, minWidth: 130, padding: "8px 8px" }} />
 
           {displayCols.map(col => (
             <td
@@ -156,7 +158,7 @@ function NodeRow({
           style={{ isolation: "isolate" }}
           onClick={() => setCollapsed(c => !c)}
         >
-          <td colSpan={2} style={{ position: "sticky", left: 0, zIndex: 11, backgroundColor: "#ffffff", width: 390, minWidth: 390, paddingTop: 6, paddingBottom: 6, paddingRight: 8, paddingLeft: `calc(${getIndent(depth)} + 1.25rem)` }}>
+          <td style={{ position: "sticky", left: 0, zIndex: 11, backgroundColor: "#ffffff", width: 260, minWidth: 260, paddingTop: 6, paddingBottom: 6, paddingRight: 8, paddingLeft: `calc(${getIndent(depth)} + 1.25rem)` }}>
             <span className="inline-flex items-center gap-2">
               <span
                 className="text-gray-300 text-[10px] flex-shrink-0 transition-transform duration-150"
@@ -164,9 +166,10 @@ function NodeRow({
               >
                 ▾
               </span>
-              <span style={{ fontWeight: 500, fontSize: 12, color: "#4b5563", whiteSpace: "nowrap" }}>{node.key}</span>
+              <span style={{ fontWeight: 500, fontSize: 12, color: "#4b5563", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>{node.key}</span>
             </span>
           </td>
+          <td style={{ position: "sticky", left: 260, zIndex: 11, backgroundColor: "#ffffff", width: 130, minWidth: 130, padding: "6px 8px" }} />
 
           {displayCols.map(col => (
             <td
@@ -503,9 +506,10 @@ export default function DynamicExpenseTable({
               ))}
               {/* Grand total row */}
               <tr className="border-t-2 border-gray-200 bg-gray-50">
-                <td colSpan={2} style={{ position: "sticky", left: 0, zIndex: 10, backgroundColor: "#f9fafb", padding: "10px 16px", fontWeight: 700, color: "#111827", fontSize: 13, width: 390, minWidth: 390 }}>
+                <td style={{ position: "sticky", left: 0, zIndex: 10, backgroundColor: "#f9fafb", padding: "10px 16px", fontWeight: 700, color: "#111827", fontSize: 13, width: 260, minWidth: 260 }}>
                   Total Expenses
                 </td>
+                <td style={{ position: "sticky", left: 260, zIndex: 10, backgroundColor: "#f9fafb", width: 130, minWidth: 130 }} />
                 {displayCols.map(col => (
                   <td
                     key={col.colKey}
