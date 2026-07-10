@@ -70,7 +70,7 @@ function NodeRow({
           style={{ backgroundColor: tint(townColor, 0.18) }}
           onClick={() => setCollapsed(c => !c)}
         >
-          <td className="sticky left-0 z-10 px-5 py-3" colSpan={2} style={{ backgroundColor: tint(townColor, 0.18), width: "330px", minWidth: "330px" }}>
+          <td colSpan={2} style={{ position: "sticky", left: 0, zIndex: 11, backgroundColor: tint(townColor, 0.18), width: 330, minWidth: 330, padding: "12px 20px" }}>
             <span className="inline-flex items-center gap-2">
               <span
                 className="text-[10px] flex-shrink-0 transition-transform duration-150"
@@ -119,7 +119,7 @@ function NodeRow({
           style={{ backgroundColor: "rgba(248,250,248,0.8)" }}
           onClick={() => setCollapsed(c => !c)}
         >
-          <td className="sticky left-0 z-10 bg-[rgb(248,250,248)] py-2.5 pr-3" colSpan={2} style={{ paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, width: "330px", minWidth: "330px" }}>
+          <td colSpan={2} style={{ position: "sticky", left: 0, zIndex: 11, backgroundColor: "rgb(248,250,248)", width: 330, minWidth: 330, paddingTop: 10, paddingBottom: 10, paddingRight: 12, paddingLeft: `calc(${getIndent(depth)} + 1.25rem)` }}>
             <span className="inline-flex items-center gap-2">
               <span
                 className="text-gray-400 text-[10px] flex-shrink-0 transition-transform duration-150"
@@ -153,7 +153,7 @@ function NodeRow({
           className="border-t border-gray-50 cursor-pointer hover:bg-gray-50/40 transition-colors"
           onClick={() => setCollapsed(c => !c)}
         >
-          <td className="sticky left-0 z-10 bg-white py-2 pr-3" colSpan={2} style={{ paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, width: "330px", minWidth: "330px" }}>
+          <td colSpan={2} style={{ position: "sticky", left: 0, zIndex: 11, backgroundColor: "#ffffff", width: 330, minWidth: 330, paddingTop: 8, paddingBottom: 8, paddingRight: 12, paddingLeft: `calc(${getIndent(depth)} + 1.25rem)` }}>
             <span className="inline-flex items-center gap-2">
               <span
                 className="text-gray-300 text-[10px] flex-shrink-0 transition-transform duration-150"
@@ -233,10 +233,7 @@ function LeafRow({
   const tooltip = lineItemTooltips[row.objectCode || ""] || lineItemTooltips[row.label] || "";
   return (
     <tr className="border-t border-gray-50 hover:bg-gray-50/40 transition-colors group">
-      <td
-        className="sticky left-0 z-10 bg-white group-hover:bg-gray-50/90 py-1.5 pr-2 text-gray-500 text-sm transition-colors"
-        style={{ paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, width: "220px", minWidth: "220px" }}
-      >
+      <td style={{ position: "sticky", left: 0, zIndex: 10, backgroundColor: "#ffffff", width: 220, minWidth: 220, paddingTop: 6, paddingBottom: 6, paddingRight: 8, paddingLeft: `calc(${getIndent(depth)} + 1.25rem)`, color: "#6b7280", fontSize: 14 }}>
         <span className="leading-snug inline-flex items-center gap-1">
           {row.label}
           {tooltip && (
@@ -249,8 +246,7 @@ function LeafRow({
         </span>
       </td>
       <td
-        className="sticky z-10 bg-white group-hover:bg-gray-50/90 px-2 py-1.5 text-gray-300 text-[10px] font-mono transition-colors"
-        style={{ left: "220px", width: "110px", minWidth: "110px" }}
+        style={{ position: "sticky", left: 220, zIndex: 10, backgroundColor: "#ffffff", width: 110, minWidth: 110, padding: "6px 8px", color: "#d1d5db", fontSize: 10, fontFamily: "monospace" }}
         title={row.objectCode || ""}
       >
         {row.objectCode || ""}
@@ -447,12 +443,12 @@ export default function DynamicExpenseTable({
         {/* Table */}
         <div className="overflow-x-auto" ref={tableScrollRef}>
           <table className="w-full text-sm" style={{ minWidth: "900px" }}>
-            <thead className="sticky top-0 z-10">
-              <tr className="border-b border-gray-200 bg-gray-50/80">
-                <th className="sticky left-0 z-20 bg-gray-50/95 px-5 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-gray-400" style={{ width: "220px", minWidth: "220px" }}>
+            <thead style={{ position: "sticky", top: 0, zIndex: 20 }}>
+              <tr style={{ borderBottom: "1px solid #e5e7eb", backgroundColor: "#f9fafb" }}>
+                <th style={{ position: "sticky", left: 0, zIndex: 21, backgroundColor: "#f9fafb", width: 220, minWidth: 220, padding: "12px 20px", textAlign: "left", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#9ca3af", whiteSpace: "nowrap" }}>
                   Description
                 </th>
-                <th className="sticky z-20 bg-gray-50/95 px-2 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-gray-300" style={{ left: "220px", width: "110px", minWidth: "110px" }}>
+                <th style={{ position: "sticky", left: 220, zIndex: 21, backgroundColor: "#f9fafb", width: 110, minWidth: 110, padding: "12px 8px", textAlign: "left", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#d1d5db", whiteSpace: "nowrap" }}>
                   Acct
                 </th>
                 {displayCols.map(col => (
@@ -503,7 +499,7 @@ export default function DynamicExpenseTable({
               ))}
               {/* Grand total row */}
               <tr className="border-t-2 border-gray-200 bg-gray-50">
-                <td className="px-5 py-3 font-bold text-gray-900 text-sm" colSpan={2}>
+                <td colSpan={2} style={{ position: "sticky", left: 0, zIndex: 10, backgroundColor: "#f9fafb", padding: "12px 20px", fontWeight: 700, color: "#111827", fontSize: 14 }}>
                   Total Expenses
                 </td>
                 {displayCols.map(col => (
