@@ -270,15 +270,14 @@ export default async function ExpensesPage({
     }
   }
 
-  // allYearTotals: always budget-only for chart comparisons (avoids partial-year actual distortion)
-  const allYearTotals: Record<string, number> = {};
+  // allYearTotals placeholder — will be recomputed from hierarchy after it's built
+  // Use raw DB totals as initial pass for detectCurrentAndPreviousYear only
+  const rawYearTotals: Record<string, number> = {};
   for (const y of tableYears) {
-    allYearTotals[y] = allRowsClassified
+    rawYearTotals[y] = allRowsClassified
       .filter(r => r.fiscalYear === y && r.amountType === "budget")
       .reduce((s, r) => s + r.amount, 0);
   }
-  // Years that actually have budget data — used to filter growth chart
-  const budgetOnlyYears = tableYears.filter(y => (allYearTotals[y] ?? 0) > 0);
 
   const current = allRowsClassified.filter(
     (r) => r.fiscalYear === currentYear && r.amountType === "budget"
@@ -334,6 +333,13 @@ export default async function ExpensesPage({
     acConfig?.segments ?? [],
     acConfig?.spendingTypeSegment ?? null
   );
+
+  // Compute allYearTotals from hierarchy so it matches exactly what the chart nodes show
+  const allYearTotals: Record<string, number> = {};
+  for (const y of tableYears) {
+    allYearTotals[y] = hierarchy.reduce((s, node) => s + (node.amounts[`${y}:budget`] ?? 0), 0);
+  }
+  const budgetOnlyYears = tableYears.filter(y => (allYearTotals[y] ?? 0) > 0);
 
   const exportData = current.map(r => {
     const row: Record<string, string> = {
