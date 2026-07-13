@@ -11,7 +11,7 @@
 //      these during CSV import) and swap the values in CATEGORY below.
 
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma'; // ✎ EDIT if your Prisma client lives elsewhere
+import { prisma } from '@/lib/db';
 
 const TOWN_SLUG = 'sutton'; // ✎ EDIT: confirm this matches Town.slug in your DB
 
