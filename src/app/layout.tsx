@@ -33,7 +33,7 @@ export default function RootLayout({
         {children}
         <Script
           defer
-          data-domain="finance.suttonma.gov"
+          data-domain="finance.suttonma.gov/openbook"
           src="https://plausible.io/js/script.js"
           strategy="afterInteractive"
         />
