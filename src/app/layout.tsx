@@ -13,6 +13,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const GA_ID = "G-YNYBDJ25XK"; // Replace with your Google Analytics Measurement ID
+
   return (
     <html lang="en" className="h-full">
       <head>
@@ -31,12 +33,20 @@ export default function RootLayout({
           Skip to main content
         </a>
         {children}
+
+        {/* Google Analytics */}
         <Script
-          defer
-          data-domain="finance.suttonma.gov/openbook"
-          src="https://plausible.io/js/script.js"
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
           strategy="afterInteractive"
         />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GA_ID}');
+          `}
+        </Script>
       </body>
     </html>
   );
