@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { label: "Revenues", path: "/revenues" },
   { label: "Capital", path: "/capital" },
   { label: "Reserves", path: "/reserves" },
+  { label: "Checkbook", path: "/checkbook" },
   { label: "Documents", path: "/documents" },
   { label: "Budget Book", path: "/budget-book" },
   { label: "FAQ", path: "/faq" },
