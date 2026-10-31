@@ -17,6 +17,7 @@ model Town {
   aboutText    String?
   heroImageUrl String?
   siteText     String   @default("")
+  checkbookSettings String @default("")
   inviteCode      String   @default("")
   allowedDomains  String   @default("")
   accountCodeRules String   @default("")
@@ -35,6 +36,9 @@ model Town {
   staffInvites     StaffInvite[]
   capitalRequests  CapitalRequest[]
   faqEntries       FaqEntry[]
+  checkbookBatches  CheckbookBatch[]
+  checkbookVendors  CheckbookVendor[]
+  checkbookPayments CheckbookPayment[]
 }
 
 model AdminUser {
@@ -240,4 +244,106 @@ model CapitalRequest {
 
   @@index([townId, status])
   @@index([staffUserId])
+}
+
+// ── Open Checkbook ─────────────────────────────────────────────────────────
+// Vendor payments from the ERP "Invoice History" extract, grouped by warrant.
+// Only CheckbookPayment / CheckbookVendor.displayName are ever shown publicly.
+// Anything sensitive (original vendor names, raw memos) lives in admin-only fields.
+
+model CheckbookBatch {
+  id             String   @id @default(cuid())
+  townId         String
+  town           Town     @relation(fields: [townId], references: [id], onDelete: Cascade)
+  fileName       String
+  fileHash       String
+  uploadedBy     String?
+  rowCount       Int      @default(0)
+  newCount       Int      @default(0)
+  duplicateCount Int      @default(0)
+  changedCount   Int      @default(0)
+  heldCount      Int      @default(0)
+  excludedCount  Int      @default(0)
+  flaggedCount   Int      @default(0)
+  totalAmount    Float    @default(0)
+  summary        String   @default("{}")
+  createdAt      DateTime @default(now())
+
+  payments CheckbookPayment[]
+
+  @@index([townId, createdAt])
+  @@index([townId, fileHash])
+}
+
+model CheckbookVendor {
+  id            String   @id @default(cuid())
+  townId        String
+  town          Town     @relation(fields: [townId], references: [id], onDelete: Cascade)
+  erpVendorId   String
+  rawName       String   // ADMIN ONLY: name exactly as it appears in the ERP
+  displayName   String   // what the public sees
+  kind          String   @default("review") // "business" | "individual" | "review"
+  suggestedKind String?  // heuristic hint for the reviewer
+  decidedBy     String?
+  decidedAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  payments CheckbookPayment[]
+
+  @@unique([townId, erpVendorId])
+  @@index([townId, kind])
+}
+
+model CheckbookPayment {
+  id          String   @id @default(cuid())
+  townId      String
+  town        Town     @relation(fields: [townId], references: [id], onDelete: Cascade)
+  batchId     String
+  batch       CheckbookBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  vendorId    String
+  vendor      CheckbookVendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  erpVendorId String
+  naturalKey  String   // DOCUMENT|VOUCHER|ACCOUNT (+ #n if repeated) -- identity of a payment line
+  contentHash String   // fingerprint of every field; detects changed lines
+  fiscalYear  String
+  period      Int?
+  warrant     String?
+  paymentType String   @default("payment") // "payment" | "credit" | "direct"
+  amount      Float
+  invoiceDate DateTime?
+  invoiceNo   String?
+  functionArea String?
+  department  String?
+  category    String?
+  glAccount   String?
+  memo        String?  // PUBLIC, sanitized
+  status      String   @default("published") // "published" | "held" | "excluded"
+  holdReason  String?
+  flags       String   @default("[]")
+  reviewed    Boolean  @default(false)
+  revision    Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  raw CheckbookPaymentRaw?
+
+  @@unique([townId, naturalKey])
+  @@index([townId, status, fiscalYear])
+  @@index([townId, status, warrant])
+  @@index([townId, vendorId])
+  @@index([townId, invoiceNo])
+  @@index([batchId])
+}
+
+// ADMIN ONLY. Never select from this table in any public query.
+model CheckbookPaymentRaw {
+  paymentId String   @id
+  payment   CheckbookPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  memoRaw   String?
+  invoiceRaw String?
+  checkNo   String?
+  document  String
+  voucher   String?
+  po        String?
 }
