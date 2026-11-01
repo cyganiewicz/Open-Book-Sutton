@@ -6,10 +6,11 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import {
   CATEGORIES, ESTIMATE_TYPES, FUNDING_SOURCES, PROJECT_STATUSES, REQUEST_STATUSES, fundingLabel,
-  parseCapitalSettings, planYears, type CapitalSettings,
+  isValidDecisionYear, parseCapitalSettings, planYears, type CapitalSettings,
 } from "./constants";
 import { capabilitiesFor, filterFieldPatch, isFunded, type Actor, type Capabilities } from "./permissions";
 import { compositeScore, effectivePriority, readiness, type ScoreResult } from "./scoring";
+import { inBackground, notifyChangeRequest, notifyDecision, notifySubmitted } from "./notify";
 
 // ── DTOs ─────────────────────────────────────────────────────────────────────
 
@@ -296,7 +297,7 @@ export async function createProject(actor: Actor, input: { departmentId: string;
 export async function updateProject(
   actor: Actor, id: string, body: { fields?: Record<string, unknown>; years?: Record<string, YearPatch> }
 ): Promise<{ project: ProjectDTO; refused: string[] }> {
-  const { p, caps } = await loadForActor(actor, id);
+  const { p, caps, settings } = await loadForActor(actor, id);
   const isAdmin = actor.kind === "admin";
   const { allowed, refused } = filterFieldPatch(body.fields ?? {}, caps, ADMIN_ONLY_FIELDS);
   const data = cleanFields(allowed as Record<string, unknown>);
@@ -304,7 +305,7 @@ export async function updateProject(
   const yearOps: { fiscalYear: string; patch: ReturnType<typeof cleanYear> }[] = [];
   for (const [fy, raw] of Object.entries(body.years ?? {})) {
     if (!/^\d{4}$/.test(fy)) continue;
-    const allowedYear = caps.editableYears.includes(fy) || (isAdmin && p.years.some(y => y.fiscalYear === fy));
+    const allowedYear = caps.editableYears.includes(fy) || (isAdmin && isValidDecisionYear(fy, settings));
     if (!allowedYear) { refused.push(`FY${fy}`); continue; }
     yearOps.push({ fiscalYear: fy, patch: cleanYear(raw, isAdmin) });
   }
@@ -364,6 +365,7 @@ export async function performAction(actor: Actor, id: string, action: ActionName
       const probs = submitProblems(p, settings);
       if (probs.length) throw new CapitalError("This request isn't ready to submit yet.", 400, probs);
       await prisma.capitalProject.update({ where: { id }, data: { requestStatus: "submitted", submittedAt: new Date() } });
+      inBackground(notifySubmitted(id, { name: actor.name, email: actor.email, kind: actor.kind }, action === "resubmit"));
       break;
     }
     case "withdraw":
@@ -377,12 +379,13 @@ export async function performAction(actor: Actor, id: string, action: ActionName
       if (!REQUEST_STATUSES.some(s => s.key === status) || status === "approved") throw new CapitalError("Use “Fund this project” to approve a project.");
       if (isFunded({ departmentId: p.departmentId, requestStatus: p.requestStatus, years: p.years })) throw new CapitalError("This project is funded. Remove the approval first.");
       await prisma.capitalProject.update({ where: { id }, data: { requestStatus: status } });
+      if (status === "not_funded" || status === "recommended") inBackground(notifyDecision(id, status));
       break;
     }
     case "approveYear": {
       need(isAdmin);
       const fy = String(payload.fiscalYear);
-      if (!planYears(settings).includes(fy)) throw new CapitalError("That fiscal year isn't in the plan.");
+      if (!isValidDecisionYear(fy, settings)) throw new CapitalError("That fiscal year is outside the range of this plan.");
       const amount = num(payload.amount);
       if (amount === null || Number.isNaN(amount) || amount <= 0) throw new CapitalError("Enter the approved amount.");
       const funding: Record<string, number> = {};
@@ -406,6 +409,7 @@ export async function performAction(actor: Actor, id: string, action: ActionName
           data: { projectId: id, status: "not_started", note: `Funded in the FY${fy} capital budget: $${amount.toLocaleString()} (${Object.entries(funding).map(([k, v]) => `${fundingLabel(k)} $${v.toLocaleString()}`).join(", ")}).`, authorName: actor.name, authorRole: "system" },
         }),
       ]);
+      inBackground(notifyDecision(id, "funded", { fiscalYear: fy, amount }));
       break;
     }
     case "unapproveYear": {
@@ -463,6 +467,7 @@ export async function performAction(actor: Actor, id: string, action: ActionName
       else if (kind === "change_request") need(caps.canRequestChange, "Change requests are for funded projects.");
       else if (!["note"].includes(kind)) throw new CapitalError("Unknown comment type.");
       await prisma.capitalComment.create({ data: { projectId: id, kind, body: body.slice(0, 3000), authorName: actor.name, authorRole: role } });
+      if (kind === "change_request") inBackground(notifyChangeRequest(id, actor.name, body));
       break;
     }
     case "resolveComment": {

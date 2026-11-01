@@ -23,19 +23,11 @@ export default async function StaffLayout({
           <Link href="/staff" className="text-lg font-semibold tracking-tight">
             OpenBook <span className="text-white/70 font-normal">Staff Portal</span>
           </Link>
-          <nav className="flex items-center gap-4 text-sm" aria-label="Staff navigation">
-            <Link href="/staff" className="text-white/80 hover:text-white">
-              Dashboard
-            </Link>
-            <Link href="/staff/capital" className="text-white/80 hover:text-white">
+          <nav className="flex items-center gap-5 text-sm" aria-label="Staff navigation">
+            <Link href="/staff/capital" className="text-white/90 hover:text-white font-medium">
               Capital Projects
             </Link>
-            <Link href="/staff/submit" className="text-white/80 hover:text-white">
-              Submit Request
-            </Link>
-            <Link href="/staff/history" className="text-white/80 hover:text-white">
-              History
-            </Link>
+            <span className="hidden sm:inline text-white/60" title={staff.email}>{staff.name}</span>
             <StaffLogoutButton />
           </nav>
         </div>

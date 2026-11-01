@@ -44,7 +44,7 @@ export default function RegisterPage() {
         const link = `${window.location.origin}/verify?token=${data.verificationToken}`;
         setVerificationLink(link);
       } else {
-        router.push("/admin/setup");
+        router.push("/admin");
       }
     } catch {
       setError("Something went wrong");

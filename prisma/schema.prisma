@@ -506,3 +506,17 @@ model CapitalAttachment {
 
   @@index([projectId, kind])
 }
+
+// ── Outgoing email log (what was sent, and whether Resend accepted it) ─────
+model EmailLog {
+  id        String   @id @default(cuid())
+  townId    String?
+  kind      String
+  toAddress String
+  subject   String
+  status    String   // "sent" | "failed" | "skipped"
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

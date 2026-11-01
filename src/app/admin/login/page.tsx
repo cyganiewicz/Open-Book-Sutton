@@ -31,7 +31,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/admin/setup");
+      router.push("/admin");
     } catch {
       setError("Something went wrong");
     } finally {

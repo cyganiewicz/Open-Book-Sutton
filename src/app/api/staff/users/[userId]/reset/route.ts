@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { appBaseUrl, sendPasswordResetEmail } from "@/lib/email";
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ userId: string }> }
 ) {
   const admin = await getCurrentUser();
@@ -26,5 +27,8 @@ export async function POST(
     data: { resetToken },
   });
 
-  return NextResponse.json({ resetToken, email: user.email });
+  const resetUrl = `${await appBaseUrl(request)}/staff/reset?token=${resetToken}`;
+  const sent = await sendPasswordResetEmail({ to: user.email, name: user.name, resetUrl, townId: user.townId });
+
+  return NextResponse.json({ resetToken, email: user.email, emailed: sent.ok, emailError: sent.ok ? null : sent.error ?? "The email could not be sent." });
 }

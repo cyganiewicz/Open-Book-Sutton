@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { hashPassword } from "@/lib/staff-auth";
-import { sendWelcomeEmail } from "@/lib/email";
+import { appBaseUrl, sendWelcomeEmail } from "@/lib/email";
 
 export async function GET() {
   const admin = await getCurrentUser();
@@ -25,11 +25,12 @@ export async function GET() {
       department: true,
       emailVerified: true,
       createdAt: true,
+      capitalMemberships: { select: { department: { select: { name: true } } } },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(users);
+  return NextResponse.json(users.map(({ capitalMemberships, ...u }) => ({ ...u, capitalDepartments: capitalMemberships.map(m => m.department.name) })));
 }
 
 export async function POST(request: Request) {
@@ -81,7 +82,10 @@ export async function POST(request: Request) {
     },
   });
 
-  await sendWelcomeEmail(email, name, town.name, password);
+  // Email a link to choose their own password; the password you typed is never emailed
+  const resetToken = randomUUID();
+  await prisma.staffUser.update({ where: { id: user.id }, data: { resetToken } });
+  await sendWelcomeEmail(email, name, town.name, `${await appBaseUrl(request)}/staff/reset?token=${resetToken}`, town.id);
 
   return NextResponse.json({
     id: user.id,

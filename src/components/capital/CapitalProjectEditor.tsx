@@ -490,7 +490,7 @@ function FilesSection({ project, caps, onChange, baseUrl, fail }: { project: Pro
 // ── Status updates for funded projects ───────────────────────────────────────
 
 function StatusSection({ project, canPost, onPost, busy }: { project: ProjectDTO; canPost: boolean; onPost: (p: Record<string, unknown>) => Promise<boolean>; busy: boolean }) {
-  const [status, setStatus] = useState(project.projectStatus);
+  const [status, setStatus] = useState(project.projectStatus === "unreported" ? "not_started" : project.projectStatus);
   const [pct, setPct] = useState(String(project.percentComplete ?? 0));
   const [note, setNote] = useState("");
   const [actual, setActual] = useState("");
@@ -505,7 +505,7 @@ function StatusSection({ project, canPost, onPost, busy }: { project: ProjectDTO
         <form className="grid md:grid-cols-4 gap-3 items-end" onSubmit={async e => { e.preventDefault(); if (await onPost({ status, percentComplete: pct, note, actualCost: status === "complete" ? actual : undefined })) setNote(""); }}>
           <Field label="Status" htmlFor="ps">
             <select id="ps" value={status} onChange={e => { setStatus(e.target.value as typeof status); if (e.target.value === "complete") setPct("100"); }} className={inputCls}>
-              {PROJECT_STATUSES.map(x => <option key={x.key} value={x.key}>{x.label}</option>)}
+              {PROJECT_STATUSES.filter(x => x.key !== "unreported").map(x => <option key={x.key} value={x.key}>{x.label}</option>)}
             </select>
           </Field>
           <Field label={`Percent complete (${pct}%)`} htmlFor="pp">

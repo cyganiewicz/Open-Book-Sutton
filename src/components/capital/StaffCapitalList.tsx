@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { ProjectRow } from "@/lib/capital/projects";
 import type { CapitalSettings } from "@/lib/capital/constants";
-import { planYears, submissionsOpenNow } from "@/lib/capital/constants";
+import { displayYears, submissionsOpenNow } from "@/lib/capital/constants";
 import { ErrorBox, Meter, ProjectStatusPill, StatusPill, api, moneyShort, fy } from "@/components/capital/parts";
 
 export default function StaffCapitalList() {
@@ -15,7 +15,7 @@ export default function StaffCapitalList() {
   if (error) return <ErrorBox message={error} />;
   if (!data) return <p className="text-gray-500">Loading…</p>;
   const { rows, settings } = data;
-  const years = planYears(settings);
+  const years = displayYears(settings);
   const open = submissionsOpenNow(settings);
   const attention = rows.filter(r => ["draft", "not_funded"].includes(r.requestStatus));
   const funded = rows.filter(r => r.requestStatus === "approved");

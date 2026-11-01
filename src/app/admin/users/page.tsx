@@ -8,6 +8,7 @@ interface StaffUser {
   email: string;
   name: string;
   department: string | null;
+  capitalDepartments?: string[];
   emailVerified: boolean;
   createdAt: string;
 }
@@ -93,20 +94,33 @@ export default function UsersPage() {
 
       setInviteEmail("");
       await loadData();
-      setCopiedToken(data.token);
-      const link = `${window.location.origin}/staff/join?token=${data.token}`;
-      try {
-        await navigator.clipboard.writeText(link);
-        setSuccess(`Invite link for ${data.email} copied to clipboard`);
-      } catch {
-        setSuccess(`Invite created for ${data.email}`);
+      if (data.emailed) {
+        setSuccess(`Invitation emailed to ${data.email}.`);
+      } else {
+        // Email couldn't go out: keep the old copy-the-link behavior as a safety net
+        const link = `${window.location.origin}/staff/join?token=${data.token}`;
+        setCopiedToken(data.token);
+        try { await navigator.clipboard.writeText(link); } catch { /* ignore */ }
+        setError(`Invite created for ${data.email}, but the email couldn't be sent (${data.emailError}). The link was copied to your clipboard so you can send it yourself. Check Admin → Email.`);
       }
-      setTimeout(() => setSuccess(""), 5000);
+      setTimeout(() => setSuccess(""), 6000);
     } catch {
       setError("Failed to create invite");
     } finally {
       setInviting(false);
     }
+  };
+
+  const handleResendInvite = async (invite: Invite) => {
+    setError(""); setSuccess("");
+    try {
+      const res = await fetch(`/api/staff/invites/${invite.id}/resend`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Could not resend"); return; }
+      if (data.emailed) setSuccess(`Invitation re-sent to ${invite.email}.`);
+      else setError(`The email couldn't be sent (${data.emailError}). Use Copy Link instead.`);
+      setTimeout(() => setSuccess(""), 6000);
+    } catch { setError("Could not resend"); }
   };
 
   const handleCopyLink = async (token: string) => {
@@ -155,13 +169,13 @@ export default function UsersPage() {
         return;
       }
 
-      const link = `${window.location.origin}/staff/reset?token=${data.resetToken}`;
-      setCopiedResetLink(user.id);
-      try {
-        await navigator.clipboard.writeText(link);
-        setSuccess(`Password reset link for ${user.email} copied to clipboard`);
-      } catch {
-        setSuccess(`Reset link created for ${user.email}`);
+      if (data.emailed) {
+        setSuccess(`A password reset link was emailed to ${user.email}.`);
+      } else {
+        const link = `${window.location.origin}/staff/reset?token=${data.resetToken}`;
+        setCopiedResetLink(user.id);
+        try { await navigator.clipboard.writeText(link); } catch { /* ignore */ }
+        setError(`The reset email couldn't be sent (${data.emailError}). The link was copied to your clipboard instead.`);
       }
       setTimeout(() => {
         setSuccess("");
@@ -225,10 +239,9 @@ export default function UsersPage() {
 
       <HelpBox variant="info">
         <p>
-          Invite staff by entering their email below. They&apos;ll get a unique
-          link to create their account — copy the link and send it to them
-          however you prefer (email, text, in person). Without the invite
-          link, nobody can register.
+          Enter a staff member&apos;s email below and OpenBook emails them a
+          personal link to create their account. You can resend it any time.
+          Without an invitation, nobody can register.
         </p>
       </HelpBox>
 
@@ -251,11 +264,11 @@ export default function UsersPage() {
             disabled={inviting}
             className="px-4 py-2 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors whitespace-nowrap"
           >
-            {inviting ? "Creating..." : "Create Invite"}
+            {inviting ? "Sending..." : "Send Invite"}
           </button>
         </div>
         <p className="text-xs text-gray-500 mt-2">
-          The invite link will be automatically copied to your clipboard.
+          The invitation is emailed automatically. If email is ever unavailable, the link is copied to your clipboard instead.
         </p>
       </form>
 
@@ -273,12 +286,20 @@ export default function UsersPage() {
                     Invited {new Date(invite.createdAt).toLocaleDateString()}
                   </span>
                 </div>
+                <div className="flex gap-2">
+                <button
+                  onClick={() => handleResendInvite(invite)}
+                  className="px-3 py-1.5 bg-white border border-gray-200 rounded-md text-xs font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Resend Email
+                </button>
                 <button
                   onClick={() => handleCopyLink(invite.token)}
                   className="px-3 py-1.5 bg-white border border-gray-200 rounded-md text-xs font-medium hover:bg-gray-50 transition-colors"
                 >
                   {copiedToken === invite.token ? "Copied!" : "Copy Link"}
                 </button>
+                </div>
               </div>
             ))}
           </div>
@@ -375,7 +396,8 @@ export default function UsersPage() {
                   <tr key={user.id} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium">{user.name}</td>
                     <td className="px-4 py-3 text-gray-600">{user.email}</td>
-                    <td className="px-4 py-3 text-gray-500">{user.department || "—"}</td>
+                    <td className="px-4 py-3 text-gray-500">{user.department || "—"}
+                      <p className="text-xs mt-0.5">{user.capitalDepartments && user.capitalDepartments.length > 0 ? <span className="text-emerald-700">Capital: {user.capitalDepartments.join(", ")}</span> : <a href="/admin/capital" className="text-amber-700 hover:underline">No capital department yet</a>}</p></td>
                     <td className="px-4 py-3 text-gray-500">
                       {new Date(user.createdAt).toLocaleDateString()}
                     </td>
@@ -386,7 +408,7 @@ export default function UsersPage() {
                         className="text-blue-600 hover:text-blue-800 text-sm disabled:opacity-50"
                         aria-label={`Reset password for ${user.name}`}
                       >
-                        {resetting === user.id ? "Creating..." : copiedResetLink === user.id ? "Link Copied!" : "Reset Password"}
+                        {resetting === user.id ? "Sending..." : copiedResetLink === user.id ? "Link Copied!" : "Email Reset Link"}
                       </button>
                       <button
                         onClick={() => handleDeleteUser(user)}

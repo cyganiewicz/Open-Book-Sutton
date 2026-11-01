@@ -16,10 +16,14 @@ interface CapRow {
 
 export default async function CapitalPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ townSlug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { townSlug } = await params;
+  const sp = await searchParams;
+  const fyParam = typeof sp.fy === "string" ? sp.fy : "";
   const town = await prisma.town.findUnique({ where: { slug: townSlug } });
   if (!town) return notFound();
 
@@ -44,20 +48,28 @@ export default async function CapitalPage({
       return [{
         id: `${p.id}-${y.fiscalYear}`, fiscalYear: y.fiscalYear, department: p.department, purpose: p.title, amount, fundingSource: source,
         href: `/${town.slug}/capital/${p.code}`, funded,
-        statusLabel: funded ? projectStatusLabel(p.projectStatus) : undefined, percent: p.percentComplete,
+        statusLabel: funded && !["not_started", "unreported"].includes(p.projectStatus) ? projectStatusLabel(p.projectStatus) : undefined, percent: p.percentComplete,
       }];
     }));
   }
 
   const color = town.primaryColor || "#2d6a4f";
   const sortedYears = [...new Set(allRows.map(r => r.fiscalYear))].sort();
-  // project mode: adopted year first, then future years in order; uploaded data: newest first
-  const years = projectMode ? sortedYears : [...sortedYears].reverse();
-  const latestYear = projectMode ? plan.settings.adoptedFY : (years[0] || "");
+  // Years with funded projects can be browsed (the adopted year, plus history). Future years are requests.
+  const adopted = plan.settings.adoptedFY;
+  const browseYears = projectMode
+    ? [...new Set([adopted, ...allRows.filter(r => r.funded).map(r => r.fiscalYear)])].sort().reverse()
+    : [];
+  const featuredYear = projectMode ? (browseYears.includes(fyParam) ? fyParam : adopted) : "";
+  // project mode: the featured year, then (when viewing the adopted year) the published future requests; uploaded data: newest first
+  const years = projectMode
+    ? [featuredYear, ...(featuredYear === adopted ? sortedYears.filter(y => y > adopted) : [])]
+    : [...sortedYears].reverse();
+  const latestYear = projectMode ? featuredYear : (years[0] || "");
   const latestRows = allRows.filter(r => r.fiscalYear === latestYear);
 
   const totalLatest = latestRows.reduce((s, r) => s + r.amount, 0);
-  const totalAll = allRows.reduce((s, r) => s + r.amount, 0);
+  const totalAll = (projectMode ? allRows.filter(r => years.includes(r.fiscalYear)) : allRows).reduce((s, r) => s + r.amount, 0);
 
   const byDept: Record<string, number> = {};
   for (const r of latestRows) byDept[r.department || "Other"] = (byDept[r.department || "Other"] || 0) + r.amount;
@@ -91,7 +103,7 @@ export default async function CapitalPage({
 
   const hasData = allRows.length > 0;
 
-  const yearlyData = years.map(year => {
+  const yearlyData = (projectMode ? sortedYears : years).map(year => {
     const rows = allRows.filter(r => r.fiscalYear === year);
     const depts: Record<string, number> = {};
     for (const r of rows) depts[r.department || "Other"] = (depts[r.department || "Other"] || 0) + r.amount;
@@ -143,6 +155,21 @@ export default async function CapitalPage({
         </div>
       ) : (
         <div className="space-y-8">
+          {browseYears.length > 1 && (
+            <nav aria-label="Capital budget year" className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-widest text-gray-400 mr-1">Capital budget year</span>
+              {browseYears.map(y => {
+                const on = y === featuredYear;
+                return (
+                  <a key={y} href={y === adopted ? `/${town.slug}/capital` : `/${town.slug}/capital?fy=${y}`} aria-current={on ? "page" : undefined}
+                    className="px-3 py-1 rounded-full text-sm font-semibold border transition-colors"
+                    style={on ? { backgroundColor: color, color: "#fff", borderColor: color } : { borderColor: "#d1d5db", color: "#374151", backgroundColor: "#fff" }}>
+                    FY{y}{y === adopted ? " (adopted)" : ""}
+                  </a>
+                );
+              })}
+            </nav>
+          )}
           {/* ── Capital Hero: editorial 3-column layout ─────── */}
           <div className="rounded-2xl overflow-hidden border border-gray-200/60 bg-white shadow-sm">
             <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-gray-100">

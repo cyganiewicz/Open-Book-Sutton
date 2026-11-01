@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface PortalHeaderProps {
   townName: string;
@@ -11,6 +11,7 @@ interface PortalHeaderProps {
   logoUrl?: string | null;
 }
 
+const PRIMARY_LABELS = ["Overview", "Expenses", "Revenues", "Capital", "Checkbook"];
 const NAV_ITEMS = [
   { label: "Overview", path: "" },
   { label: "Expenses", path: "/expenses" },
@@ -23,6 +24,9 @@ const NAV_ITEMS = [
   { label: "FAQ", path: "/faq" },
 ];
 
+const PRIMARY = () => NAV_ITEMS.filter(i => PRIMARY_LABELS.includes(i.label));
+const MORE = () => NAV_ITEMS.filter(i => !PRIMARY_LABELS.includes(i.label));
+
 export default function PortalHeader({
   townName,
   townSlug,
@@ -32,6 +36,16 @@ export default function PortalHeader({
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setMoreOpen(false); }, [pathname]);
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => { if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMoreOpen(false); };
+    document.addEventListener("mousedown", onDown); document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -92,7 +106,7 @@ export default function PortalHeader({
 
             {/* Desktop nav */}
             <nav className="hidden md:flex items-center gap-0.5" aria-label="Main navigation">
-              {NAV_ITEMS.map((item) => (
+              {PRIMARY().map((item) => (
                 <Link
                   key={item.label}
                   href={`/${townSlug}${item.path}`}
@@ -111,6 +125,38 @@ export default function PortalHeader({
                   {item.label}
                 </Link>
               ))}
+              <div className="relative" ref={moreRef}>
+                {(() => {
+                  const moreActive = MORE().some(i => isActive(i.path));
+                  return (
+                    <button
+                      type="button"
+                      aria-haspopup="menu"
+                      aria-expanded={moreOpen}
+                      onClick={() => setMoreOpen(o => !o)}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-150 ${
+                        moreActive
+                          ? scrolled || !isOverview ? "text-white" : "bg-white/20 text-white"
+                          : scrolled || !isOverview ? "text-gray-600 hover:text-gray-900 hover:bg-gray-100" : "text-white/80 hover:text-white hover:bg-white/10"
+                      }`}
+                      style={moreActive && (scrolled || !isOverview) ? { backgroundColor: primaryColor } : {}}
+                    >
+                      More <span aria-hidden="true" className="text-[10px]">▾</span>
+                    </button>
+                  );
+                })()}
+                {moreOpen && (
+                  <div role="menu" className="absolute right-0 mt-1 w-48 rounded-lg border border-gray-200 bg-white shadow-lg py-1 z-50">
+                    {MORE().map(item => (
+                      <Link key={item.label} href={`/${townSlug}${item.path}`} role="menuitem"
+                        className={`block px-4 py-2 text-sm ${isActive(item.path) ? "bg-gray-100 font-semibold text-gray-900" : "text-gray-700 hover:bg-gray-50"}`}
+                        aria-current={isActive(item.path) ? "page" : undefined}>
+                        {item.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
             </nav>
 
             {/* Mobile hamburger */}

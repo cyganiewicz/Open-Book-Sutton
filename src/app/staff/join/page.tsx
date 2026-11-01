@@ -69,7 +69,7 @@ export default function JoinPage() {
       }
 
       setSuccess(true);
-      setTimeout(() => router.push("/staff"), 2000);
+      setTimeout(() => router.push("/staff/capital"), 2000);
     } catch {
       setError("Something went wrong");
     } finally {

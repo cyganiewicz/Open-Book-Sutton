@@ -1,7 +1,7 @@
 // Readiness checklist, composite priority score, and portfolio analysis.
 // All pure functions: no database, easy to test and to explain to a Select Board.
 
-import { CRITERIA, planYears, type CapitalSettings } from "./constants";
+import { CRITERIA, displayYears, type CapitalSettings } from "./constants";
 
 // ── Readiness ────────────────────────────────────────────────────────────────
 
@@ -104,7 +104,7 @@ export interface Analysis {
 }
 
 export function analyze(projects: AnalysisProject[], settings: CapitalSettings, majorThreshold = 1_000_000): Analysis {
-  const years = planYears(settings);
+  const years = displayYears(settings);
   const adopted = settings.adoptedFY;
   const nextYear = years[1];
   const live = projects.filter(p => COUNTED.includes(p.requestStatus));

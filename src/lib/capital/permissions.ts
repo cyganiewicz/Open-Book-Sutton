@@ -1,7 +1,7 @@
 // Who may change what. Pure functions so the rules can be tested exhaustively;
 // the API layer calls these and never trusts the browser.
 
-import { LOCKED_WHEN_APPROVED, planYears, submissionsOpenNow, type CapitalSettings } from "./constants";
+import { LOCKED_WHEN_APPROVED, displayYears, planYears, submissionsOpenNow, type CapitalSettings } from "./constants";
 
 export interface Actor {
   kind: "admin" | "staff";
@@ -56,7 +56,7 @@ export function capabilitiesFor(actor: Actor | null, project: ProjectForPerms | 
 
   if (actor.kind === "admin") {
     return {
-      ...none, isAdmin: true, canView: true, canEditFields: true, lockedFields: [], editableYears: years,
+      ...none, isAdmin: true, canView: true, canEditFields: true, lockedFields: [], editableYears: displayYears(settings),
       canSubmit: true, canResubmit: true, canWithdraw: true, canDelete: true, canPostStatus: true,
       canUploadFiles: true, canRequestChange: false, canApprove: true, canEvaluate: true, canPublish: true,
     };

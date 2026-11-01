@@ -48,7 +48,7 @@ export default async function CapitalProjectPage({ params }: { params: Promise<{
         <div className="lg:col-span-3 space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             {funded ? pill("#d1fae5", "#065f46", "Funded") : pill("#e5e7eb", "#4b5563", "Requested")}
-            {funded && pill("#eef2ff", "#3730a3", projectStatusLabel(p.projectStatus))}
+            {funded && p.projectStatus !== "unreported" && pill("#eef2ff", "#3730a3", projectStatusLabel(p.projectStatus))}
             <span className="text-sm text-gray-500">{p.department}{p.category ? ` · ${p.category}` : ""}</span>
           </div>
           <h1 className="text-4xl font-bold tracking-tight text-gray-900" style={{ fontFamily: "var(--font-display)" }}>{p.title}</h1>
@@ -65,7 +65,7 @@ export default async function CapitalProjectPage({ params }: { params: Promise<{
               </div>
             )}
           </div>
-          {funded && p.percentComplete !== null && p.projectStatus !== "not_started" && (
+          {funded && p.percentComplete !== null && !["not_started", "unreported"].includes(p.projectStatus) && (
             <div className="max-w-md pt-2">
               <div className="flex justify-between text-sm text-gray-600 mb-1"><span>{projectStatusLabel(p.projectStatus)}</span><span className="tabular-nums">{p.percentComplete}% complete</span></div>
               <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden" role="img" aria-label={`${p.percentComplete}% complete`}><div className="h-full rounded-full" style={{ width: `${p.percentComplete}%`, backgroundColor: color }} /></div>

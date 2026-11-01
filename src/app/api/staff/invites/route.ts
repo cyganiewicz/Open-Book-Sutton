@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { appBaseUrl, sendInviteEmail } from "@/lib/email";
 
 export async function GET() {
   const admin = await getCurrentUser();
@@ -61,26 +62,22 @@ export async function POST(request: Request) {
     );
   }
 
-  const existingInvite = await prisma.staffInvite.findFirst({
+  let invite = await prisma.staffInvite.findFirst({
     where: { email, townId: town.id, used: false },
   });
-  if (existingInvite) {
-    return NextResponse.json({
-      id: existingInvite.id,
-      email: existingInvite.email,
-      token: existingInvite.token,
-      used: existingInvite.used,
-      createdAt: existingInvite.createdAt,
+  if (!invite) {
+    invite = await prisma.staffInvite.create({
+      data: {
+        townId: town.id,
+        email,
+        token: randomUUID(),
+      },
     });
   }
 
-  const invite = await prisma.staffInvite.create({
-    data: {
-      townId: town.id,
-      email,
-      token: randomUUID(),
-    },
-  });
+  // Email the link so the administrator never has to copy and paste it
+  const joinUrl = `${await appBaseUrl(request)}/staff/join?token=${invite.token}`;
+  const sent = await sendInviteEmail({ to: invite.email, joinUrl, townId: town.id, invitedBy: admin.name || undefined });
 
   return NextResponse.json({
     id: invite.id,
@@ -88,5 +85,7 @@ export async function POST(request: Request) {
     token: invite.token,
     used: invite.used,
     createdAt: invite.createdAt,
+    emailed: sent.ok,
+    emailError: sent.ok ? null : sent.error ?? "The email could not be sent.",
   });
 }

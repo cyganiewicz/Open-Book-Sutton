@@ -1,10 +1,11 @@
 // Administrator-only capital operations: setup, departments, who belongs where, importing the FY27 plan.
 
 import { prisma } from "@/lib/db";
-import { parseCapitalSettings, planYears, type CapitalSettings } from "./constants";
+import { displayYears, parseCapitalSettings, type CapitalSettings } from "./constants";
 import { analyze, type Analysis } from "./scoring";
 import { CapitalError, loadAnalysisProjects, loadCapitalSettings } from "./projects";
 import { SEED_DEPARTMENTS, SEED_PROJECTS, SEED_REVIEW_NOTES } from "./seed-data";
+import { inBackground, notifyAssigned } from "./notify";
 
 export interface CapitalOverview {
   settings: CapitalSettings;
@@ -31,7 +32,7 @@ export async function getCapitalOverview(townId: string): Promise<CapitalOvervie
     prisma.capitalProject.findMany({ where: { townId, code: { in: SEED_PROJECTS.map(s => s.code) } }, select: { code: true } }),
   ]);
   return {
-    settings, planYears: planYears(settings),
+    settings, planYears: displayYears(settings),
     departments: depts.map(d => ({
       id: d.id, name: d.name, code: d.code, projectCount: d._count.projects,
       members: d.members.map(m => ({ staffUserId: m.staffUser.id, name: m.staffUser.name, email: m.staffUser.email })),
@@ -77,10 +78,13 @@ export async function setDepartmentMembers(townId: string, departmentId: string,
   const dept = await prisma.capitalDepartment.findFirst({ where: { id: departmentId, townId } });
   if (!dept) throw new CapitalError("Department not found.", 404);
   const valid = await prisma.staffUser.findMany({ where: { townId, id: { in: staffUserIds } }, select: { id: true } });
+  const before = new Set((await prisma.capitalDepartmentMember.findMany({ where: { departmentId }, select: { staffUserId: true } })).map(m => m.staffUserId));
   await prisma.$transaction([
     prisma.capitalDepartmentMember.deleteMany({ where: { departmentId } }),
     prisma.capitalDepartmentMember.createMany({ data: valid.map(v => ({ departmentId, staffUserId: v.id })) }),
   ]);
+  // Let newly added people know
+  for (const v of valid) if (!before.has(v.id)) inBackground(notifyAssigned(v.id, dept.name));
 }
 
 export async function bulkPublish(townId: string, statuses: string[], isPublic: boolean) {
@@ -106,7 +110,6 @@ export async function previewSeed(townId: string) {
 }
 
 export async function commitSeed(townId: string, importedBy: string) {
-  const settings = await loadCapitalSettings(townId);
   const existing = new Set((await prisma.capitalProject.findMany({ where: { townId }, select: { code: true } })).map(p => p.code));
   const fresh = SEED_PROJECTS.filter(p => !existing.has(p.code));
   if (!fresh.length) return { created: 0 };
@@ -119,7 +122,8 @@ export async function commitSeed(townId: string, importedBy: string) {
 
   await prisma.$transaction(async tx => {
     for (const p of fresh) {
-      const yearRows = planYears(settings).flatMap(fy => {
+      const seedYears = [...new Set([...Object.keys(p.requested), ...(p.approved ? [p.approved.fiscalYear] : [])])].sort();
+      const yearRows = seedYears.flatMap(fy => {
         const requested = p.requested[fy] ?? 0;
         const appr = p.approved && p.approved.fiscalYear === fy ? p.approved : null;
         if (!requested && !appr) return [];

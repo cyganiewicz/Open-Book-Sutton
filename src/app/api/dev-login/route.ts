@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     }
     const token = await createSession(user.id);
     await setSessionCookie(token);
-    return NextResponse.json({ ok: true, role: "admin", redirect: "/admin/setup" });
+    return NextResponse.json({ ok: true, role: "admin", redirect: "/admin" });
   }
 
   if (role === "staff") {

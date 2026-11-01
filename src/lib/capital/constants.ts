@@ -51,6 +51,7 @@ export const requestStatusLabel = (k: string) => REQUEST_STATUSES.find(s => s.ke
 
 // What is happening with a funded project
 export const PROJECT_STATUSES = [
+  { key: "unreported", label: "Not reported" },
   { key: "not_started", label: "Not started" },
   { key: "planning", label: "Planning / design" },
   { key: "procurement", label: "Procurement / bidding" },
@@ -112,6 +113,8 @@ export interface CapitalSettings {
   capacityByYear: Record<string, number>;
   weights: Record<string, number>;
   planLength: number;
+  /** Send capital-process emails to department heads and administrators */
+  emailsEnabled: boolean;
 }
 
 export const DEFAULT_CAPITAL_SETTINGS: CapitalSettings = {
@@ -121,6 +124,7 @@ export const DEFAULT_CAPITAL_SETTINGS: CapitalSettings = {
   capacityByYear: {},
   weights: Object.fromEntries(CRITERIA.map(c => [c.key, c.weight])),
   planLength: 6,
+  emailsEnabled: true,
 };
 
 export function parseCapitalSettings(json: string | null | undefined): CapitalSettings {
@@ -135,14 +139,29 @@ export function parseCapitalSettings(json: string | null | undefined): CapitalSe
       capacityByYear: p.capacityByYear && typeof p.capacityByYear === "object" ? p.capacityByYear : {},
       weights: { ...d.weights, ...(p.weights && typeof p.weights === "object" ? p.weights : {}) },
       planLength: Number.isInteger(p.planLength) && p.planLength! >= 3 && p.planLength! <= 10 ? p.planLength! : d.planLength,
+      emailsEnabled: typeof p.emailsEnabled === "boolean" ? p.emailsEnabled : d.emailsEnabled,
     };
   } catch { return d; }
 }
 
-/** Fiscal years covered by the plan, starting with the adopted year */
+/**
+ * The fiscal years departments are planning for: the six years AFTER the adopted budget.
+ * (FY2027 adopted -> the FY2028–FY2033 cycle.)
+ */
 export function planYears(s: CapitalSettings): string[] {
-  const start = Number(s.adoptedFY);
+  const start = Number(s.adoptedFY) + 1;
   return Array.from({ length: s.planLength }, (_, i) => String(start + i));
+}
+
+/** The adopted year plus the planning window: what the admin tables and analysis show */
+export function displayYears(s: CapitalSettings): string[] {
+  return [s.adoptedFY, ...planYears(s)];
+}
+
+/** A year an administrator may record a funding decision for, including past years (history) */
+export function isValidDecisionYear(fy: string, s: CapitalSettings): boolean {
+  const y = Number(fy), a = Number(s.adoptedFY);
+  return /^\d{4}$/.test(fy) && y >= a - 40 && y <= a + s.planLength;
 }
 
 /** Can departments edit right now? (admin toggle + optional deadline, end of day) */

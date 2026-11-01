@@ -30,7 +30,7 @@ export default function StaffLoginPage() {
         return;
       }
 
-      router.push("/staff");
+      router.push("/staff/capital");
     } catch {
       setError("Something went wrong");
     } finally {
