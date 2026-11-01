@@ -6,6 +6,7 @@ import { analyze, type Analysis } from "./scoring";
 import { CapitalError, loadAnalysisProjects, loadCapitalSettings } from "./projects";
 import { SEED_DEPARTMENTS, SEED_PROJECTS, SEED_REVIEW_NOTES } from "./seed-data";
 import { inBackground, notifyAssigned } from "./notify";
+import { appBaseUrl } from "@/lib/email";
 
 export interface CapitalOverview {
   settings: CapitalSettings;
@@ -84,7 +85,8 @@ export async function setDepartmentMembers(townId: string, departmentId: string,
     prisma.capitalDepartmentMember.createMany({ data: valid.map(v => ({ departmentId, staffUserId: v.id })) }),
   ]);
   // Let newly added people know
-  for (const v of valid) if (!before.has(v.id)) inBackground(notifyAssigned(v.id, dept.name));
+  const base = await appBaseUrl();
+  for (const v of valid) if (!before.has(v.id)) inBackground(notifyAssigned(v.id, dept.name, base));
 }
 
 export async function bulkPublish(townId: string, statuses: string[], isPublic: boolean) {

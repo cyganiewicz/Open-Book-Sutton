@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import HelpBox from "@/components/admin/HelpBox";
 
 interface Status {
-  config: { configured: boolean; from: string; domain: string | null; replyTo: string | null; usingDefaultSender: boolean; appUrl: string; appUrlFromEnv: boolean };
+  config: { configured: boolean; from: string; domain: string | null; replyTo: string | null; usingDefaultSender: boolean; appUrl: string; appUrlFromEnv: boolean; appUrlIsLocal: boolean };
   last30Days: Record<string, number>;
   log: { id: string; kind: string; toAddress: string; subject: string; status: string; error: string | null; createdAt: string }[];
   adminEmail: string;
@@ -52,7 +52,7 @@ export default function AdminEmailPage() {
         <ul className="divide-y divide-gray-100">
           <Row ok={c.configured} label="Resend API key" detail={c.configured ? "RESEND_API_KEY is set." : "Add RESEND_API_KEY in your Railway variables, then redeploy."} />
           <Row ok={!!c.domain && c.domain.endsWith("suttonma.gov")} label={`Sending from ${c.from}`} detail={c.usingDefaultSender ? "Using the default sender. To change it, set EMAIL_FROM, e.g. Sutton OpenBook <openbook@suttonma.gov>. The domain must be verified in Resend." : "Set by EMAIL_FROM. The domain must be verified in Resend."} />
-          <Row ok={c.appUrlFromEnv} label={`Links point to ${c.appUrl}`} detail={c.appUrlFromEnv ? "Set by NEXT_PUBLIC_APP_URL." : "Set NEXT_PUBLIC_APP_URL to your site's public address so links in emails are always correct."} />
+          <Row ok={c.appUrlFromEnv && !c.appUrlIsLocal} label={`Links in emails point to ${c.appUrl}`} detail={c.appUrlIsLocal ? "This is a private address, so people can't open the links. Set APP_URL in Railway to your public site address (for example https://finance.suttonma.gov) and redeploy." : c.appUrlFromEnv ? "Set by APP_URL." : "Detected automatically from this visit. For certainty, set APP_URL in Railway to your public site address."} />
           <Row ok={!!c.replyTo} label={c.replyTo ? `Replies go to ${c.replyTo}` : "Replies have no destination"} detail="Optional. Set EMAIL_REPLY_TO (for example the Town Manager's office) so replies reach a real person." />
         </ul>
         <div className="flex flex-wrap items-center gap-3 pt-1">

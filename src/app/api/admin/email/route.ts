@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { appBaseUrl, emailConfig, renderEmail, sendEmail } from "@/lib/email";
+import { appBaseUrl, emailConfig, isLocalAddress, renderEmail, sendEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   ]);
   const cfg = emailConfig();
   return NextResponse.json({
-    config: { ...cfg, appUrl: await appBaseUrl(request), appUrlFromEnv: !!process.env.NEXT_PUBLIC_APP_URL },
+    config: { ...cfg, appUrl: await appBaseUrl(request), appUrlFromEnv: !!(process.env["APP_URL"] || process.env["NEXT_PUBLIC_APP_URL"]), appUrlIsLocal: isLocalAddress(await appBaseUrl(request)) },
     last30Days: Object.fromEntries(counts.map(c => [c.status, c._count])),
     log: log.map(l => ({ ...l, createdAt: l.createdAt.toISOString() })),
     adminEmail: admin.email,

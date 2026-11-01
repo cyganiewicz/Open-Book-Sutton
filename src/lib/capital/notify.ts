@@ -7,10 +7,10 @@ import { fundingLabel, parseCapitalSettings, planYears, submissionsOpenNow } fro
 
 const money = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
-async function context(townId: string) {
+async function context(townId: string, base?: string) {
   const town = await prisma.town.findUnique({ where: { id: townId }, select: { name: true, primaryColor: true, capitalSettings: true } });
   const settings = parseCapitalSettings(town?.capitalSettings);
-  return { townName: town?.name ?? "Your Town", color: town?.primaryColor ?? undefined, settings, base: await appBaseUrl() };
+  return { townName: town?.name ?? "Your Town", color: town?.primaryColor ?? undefined, settings, base: base ?? await appBaseUrl() };
 }
 
 /** The Town Manager's office: CAPITAL_NOTIFY_EMAIL if set, otherwise every administrator account */
@@ -37,9 +37,9 @@ async function loadProject(projectId: string) {
   });
 }
 
-export async function notifySubmitted(projectId: string, submitter: { name: string; email: string; kind: "admin" | "staff" }, resubmitted = false) {
+export async function notifySubmitted(projectId: string, submitter: { name: string; email: string; kind: "admin" | "staff" }, resubmitted = false, base?: string) {
   const p = await loadProject(projectId); if (!p) return;
-  const c = await context(p.townId); if (!c.settings.emailsEnabled) return;
+  const c = await context(p.townId, base); if (!c.settings.emailsEnabled) return;
   const total = p.years.reduce((s, y) => s + y.requestedAmount, 0);
   const yrs = p.years.filter(y => y.requestedAmount > 0).map(y => `FY${y.fiscalYear} ${money(y.requestedAmount)}`).join(", ");
   const details = [{ label: "Project", value: `${p.title} (${p.code})` }, { label: "Department", value: p.department.name }, { label: "Total requested", value: money(total) }, ...(yrs ? [{ label: "By year", value: yrs }] : [])];
@@ -55,9 +55,9 @@ export async function notifySubmitted(projectId: string, submitter: { name: stri
   }
 }
 
-export async function notifyDecision(projectId: string, outcome: "funded" | "not_funded" | "recommended", info: { fiscalYear?: string; amount?: number } = {}) {
+export async function notifyDecision(projectId: string, outcome: "funded" | "not_funded" | "recommended", info: { fiscalYear?: string; amount?: number } = {}, base?: string) {
   const p = await loadProject(projectId); if (!p) return;
-  const c = await context(p.townId); if (!c.settings.emailsEnabled) return;
+  const c = await context(p.townId, base); if (!c.settings.emailsEnabled) return;
   const people = await departmentRecipients(p.departmentId); if (!people.length) return;
   const funded = info.fiscalYear ? p.years.find(y => y.fiscalYear === info.fiscalYear) : undefined;
   const split = funded ? Object.entries(JSON.parse(funded.fundingSplit || "{}") as Record<string, number>).map(([k, v]) => `${fundingLabel(k)} ${money(v)}`).join(", ") : "";
@@ -70,16 +70,16 @@ export async function notifyDecision(projectId: string, outcome: "funded" | "not
   await sendEmail({ to: people.map(x => x.email), subject: copy.heading, html: e.html, text: e.text, kind: "capital_decision", townId: p.townId });
 }
 
-export async function notifyChangeRequest(projectId: string, authorName: string, body: string) {
+export async function notifyChangeRequest(projectId: string, authorName: string, body: string, base?: string) {
   const p = await loadProject(projectId); if (!p) return;
-  const c = await context(p.townId); if (!c.settings.emailsEnabled) return;
+  const c = await context(p.townId, base); if (!c.settings.emailsEnabled) return;
   const e = renderEmail({ townName: c.townName, color: c.color, heading: `Change requested: ${p.title}`, paragraphs: [`${authorName} (${p.department.name}) asked for a change to a funded project:`, `“${body.slice(0, 600)}”`], button: { label: "Review the request", url: `${c.base}/admin/capital/${p.id}` } });
   await sendEmail({ to: await adminRecipients(), subject: `Change requested: ${p.title}`, html: e.html, text: e.text, kind: "capital_change_request", townId: p.townId });
 }
 
-export async function notifyAssigned(staffUserId: string, departmentName: string) {
+export async function notifyAssigned(staffUserId: string, departmentName: string, base?: string) {
   const u = await prisma.staffUser.findUnique({ where: { id: staffUserId }, select: { email: true, name: true, townId: true } }); if (!u) return;
-  const c = await context(u.townId); if (!c.settings.emailsEnabled) return;
+  const c = await context(u.townId, base); if (!c.settings.emailsEnabled) return;
   const e = renderEmail({ townName: c.townName, color: c.color, heading: `You can now manage ${departmentName}'s capital projects`, paragraphs: [`Hello ${u.name}, you've been added as a department contact for ${departmentName}. You can enter and update capital requests, post status updates on funded projects, and add photos and quotes.`], button: { label: "Open capital projects", url: `${c.base}/staff/capital` } });
   await sendEmail({ to: u.email, subject: `You've been added to ${departmentName} capital projects`, html: e.html, text: e.text, kind: "capital_assigned", townId: u.townId });
 }

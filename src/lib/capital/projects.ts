@@ -11,6 +11,7 @@ import {
 import { capabilitiesFor, filterFieldPatch, isFunded, type Actor, type Capabilities } from "./permissions";
 import { compositeScore, effectivePriority, readiness, type ScoreResult } from "./scoring";
 import { inBackground, notifyChangeRequest, notifyDecision, notifySubmitted } from "./notify";
+import { appBaseUrl } from "@/lib/email";
 
 // ── DTOs ─────────────────────────────────────────────────────────────────────
 
@@ -365,7 +366,7 @@ export async function performAction(actor: Actor, id: string, action: ActionName
       const probs = submitProblems(p, settings);
       if (probs.length) throw new CapitalError("This request isn't ready to submit yet.", 400, probs);
       await prisma.capitalProject.update({ where: { id }, data: { requestStatus: "submitted", submittedAt: new Date() } });
-      inBackground(notifySubmitted(id, { name: actor.name, email: actor.email, kind: actor.kind }, action === "resubmit"));
+      inBackground(notifySubmitted(id, { name: actor.name, email: actor.email, kind: actor.kind }, action === "resubmit", await appBaseUrl()));
       break;
     }
     case "withdraw":
@@ -379,7 +380,7 @@ export async function performAction(actor: Actor, id: string, action: ActionName
       if (!REQUEST_STATUSES.some(s => s.key === status) || status === "approved") throw new CapitalError("Use “Fund this project” to approve a project.");
       if (isFunded({ departmentId: p.departmentId, requestStatus: p.requestStatus, years: p.years })) throw new CapitalError("This project is funded. Remove the approval first.");
       await prisma.capitalProject.update({ where: { id }, data: { requestStatus: status } });
-      if (status === "not_funded" || status === "recommended") inBackground(notifyDecision(id, status));
+      if (status === "not_funded" || status === "recommended") inBackground(notifyDecision(id, status, {}, await appBaseUrl()));
       break;
     }
     case "approveYear": {
@@ -409,7 +410,7 @@ export async function performAction(actor: Actor, id: string, action: ActionName
           data: { projectId: id, status: "not_started", note: `Funded in the FY${fy} capital budget: $${amount.toLocaleString()} (${Object.entries(funding).map(([k, v]) => `${fundingLabel(k)} $${v.toLocaleString()}`).join(", ")}).`, authorName: actor.name, authorRole: "system" },
         }),
       ]);
-      inBackground(notifyDecision(id, "funded", { fiscalYear: fy, amount }));
+      inBackground(notifyDecision(id, "funded", { fiscalYear: fy, amount }, await appBaseUrl()));
       break;
     }
     case "unapproveYear": {
@@ -467,7 +468,7 @@ export async function performAction(actor: Actor, id: string, action: ActionName
       else if (kind === "change_request") need(caps.canRequestChange, "Change requests are for funded projects.");
       else if (!["note"].includes(kind)) throw new CapitalError("Unknown comment type.");
       await prisma.capitalComment.create({ data: { projectId: id, kind, body: body.slice(0, 3000), authorName: actor.name, authorRole: role } });
-      if (kind === "change_request") inBackground(notifyChangeRequest(id, actor.name, body));
+      if (kind === "change_request") inBackground(notifyChangeRequest(id, actor.name, body, await appBaseUrl()));
       break;
     }
     case "resolveComment": {

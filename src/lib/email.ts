@@ -22,19 +22,33 @@ export function emailConfig() {
   };
 }
 
-/** Public base address for links in emails */
+/**
+ * Public base address for links in emails, in order of trust:
+ *   1. APP_URL (runtime) or NEXT_PUBLIC_APP_URL, e.g. https://finance.suttonma.gov
+ *   2. the public host the visitor used, from the proxy's forwarded headers
+ *   3. the request's own address (only correct when there is no proxy)
+ * Bracket access keeps these read at runtime rather than frozen in at build time.
+ */
 export async function appBaseUrl(request?: Request): Promise<string> {
-  const env = process.env.NEXT_PUBLIC_APP_URL;
+  const env = process.env["APP_URL"] || process.env["NEXT_PUBLIC_APP_URL"];
   if (env) return env.replace(/\/+$/, "");
+  const fromHeaders = (get: (k: string) => string | null) => {
+    const host = (get("x-forwarded-host") || get("host") || "").split(",")[0].trim();
+    if (!host) return null;
+    const proto = (get("x-forwarded-proto") || (/^(localhost|127\.)/.test(host) ? "http" : "https")).split(",")[0].trim();
+    return `${proto}://${host}`;
+  };
   try {
-    if (request) return new URL(request.url).origin;
+    if (request) return fromHeaders(k => request.headers.get(k)) ?? new URL(request.url).origin;
     const { headers } = await import("next/headers");
     const h = await headers();
-    const host = h.get("x-forwarded-host") || h.get("host");
-    if (host) return `${h.get("x-forwarded-proto") || "https"}://${host}`;
+    const u = fromHeaders(k => h.get(k));
+    if (u) return u;
   } catch { /* not inside a request */ }
   return "http://localhost:3000";
 }
+
+export const isLocalAddress = (url: string) => /^https?:\/\/(localhost|127\.|0\.0\.0\.0)/.test(url);
 
 export const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
