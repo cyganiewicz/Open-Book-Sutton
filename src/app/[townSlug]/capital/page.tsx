@@ -6,6 +6,13 @@ import { abbreviateCurrency, formatCurrency } from "@/lib/format";
 import CapitalProjectList from "@/components/portal/CapitalProjectList";
 import CapitalCharts from "@/components/portal/CapitalCharts";
 import FinancialPageHeader from "@/components/portal/FinancialPageHeader";
+import { getPublicPlan } from "@/lib/capital/public";
+import { projectStatusLabel } from "@/lib/capital/constants";
+
+interface CapRow {
+  id: string; fiscalYear: string; department: string | null; purpose: string | null; amount: number; fundingSource: string | null;
+  href?: string; funded?: boolean; statusLabel?: string; percent?: number | null;
+}
 
 export default async function CapitalPage({
   params,
@@ -16,14 +23,37 @@ export default async function CapitalPage({
   const town = await prisma.town.findUnique({ where: { slug: townSlug } });
   if (!town) return notFound();
 
-  const allRows = await prisma.budgetRow.findMany({
+  const legacy = await prisma.budgetRow.findMany({
     where: { townId: town.id, dataCategory: "capital" },
     orderBy: [{ fiscalYear: "desc" }, { amount: "desc" }],
   });
+  let allRows: CapRow[] = legacy.map(r => ({
+    id: r.id, fiscalYear: r.fiscalYear, department: r.department, purpose: r.purpose, amount: r.amount, fundingSource: r.fundingSource,
+  }));
+
+  // When the Town manages projects in the Capital module, that is the source of truth:
+  // funded projects for the adopted year, plus any outer-year requests the Town has chosen to publish.
+  const plan = await getPublicPlan(town.id);
+  const projectMode = plan.projects.length > 0;
+  if (projectMode) {
+    allRows = plan.projects.flatMap(p => p.years.flatMap(y => {
+      const funded = y.approved !== null;
+      const amount = funded ? (y.approved as number) : y.requested;
+      if (!amount || (!funded && y.fiscalYear <= plan.settings.adoptedFY)) return [];
+      const source = funded ? (y.funding.length === 1 ? y.funding[0].label : y.funding.length > 1 ? "Multiple sources" : null) : null;
+      return [{
+        id: `${p.id}-${y.fiscalYear}`, fiscalYear: y.fiscalYear, department: p.department, purpose: p.title, amount, fundingSource: source,
+        href: `/${town.slug}/capital/${p.code}`, funded,
+        statusLabel: funded ? projectStatusLabel(p.projectStatus) : undefined, percent: p.percentComplete,
+      }];
+    }));
+  }
 
   const color = town.primaryColor || "#2d6a4f";
-  const years = [...new Set(allRows.map(r => r.fiscalYear))].sort().reverse();
-  const latestYear = years[0] || "";
+  const sortedYears = [...new Set(allRows.map(r => r.fiscalYear))].sort();
+  // project mode: adopted year first, then future years in order; uploaded data: newest first
+  const years = projectMode ? sortedYears : [...sortedYears].reverse();
+  const latestYear = projectMode ? plan.settings.adoptedFY : (years[0] || "");
   const latestRows = allRows.filter(r => r.fiscalYear === latestYear);
 
   const totalLatest = latestRows.reduce((s, r) => s + r.amount, 0);
@@ -66,7 +96,7 @@ export default async function CapitalPage({
     const depts: Record<string, number> = {};
     for (const r of rows) depts[r.department || "Other"] = (depts[r.department || "Other"] || 0) + r.amount;
     return { year, depts, total: rows.reduce((s, r) => s + r.amount, 0) };
-  }).reverse();
+  }).sort((a, b) => a.year.localeCompare(b.year));
 
   const projectsByYear = years.map(year => ({
     year,
@@ -80,6 +110,7 @@ export default async function CapitalPage({
         amount: r.amount,
         fundingSource: r.fundingSource || null,
         description: null,
+        href: r.href, funded: r.funded, statusLabel: r.statusLabel, percent: r.percent,
       })),
   }));
 

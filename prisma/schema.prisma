@@ -18,6 +18,7 @@ model Town {
   heroImageUrl String?
   siteText     String   @default("")
   checkbookSettings String @default("")
+  capitalSettings   String @default("")
   inviteCode      String   @default("")
   allowedDomains  String   @default("")
   accountCodeRules String   @default("")
@@ -39,6 +40,8 @@ model Town {
   checkbookBatches  CheckbookBatch[]
   checkbookVendors  CheckbookVendor[]
   checkbookPayments CheckbookPayment[]
+  capitalDepartments CapitalDepartment[]
+  capitalProjects   CapitalProject[]
 }
 
 model AdminUser {
@@ -188,6 +191,7 @@ model StaffUser {
 
   sessions        StaffSession[]
   capitalRequests CapitalRequest[]
+  capitalMemberships CapitalDepartmentMember[]
 }
 
 model StaffInvite {
@@ -346,4 +350,159 @@ model CheckbookPaymentRaw {
   document  String
   voucher   String?
   po        String?
+}
+
+// ── Capital Improvement Program ────────────────────────────────────────────
+// One CapitalProject per project, with a row per fiscal year (request → recommendation → approval).
+// A year with approvedAmount set is "funded" and locked against department-head edits.
+
+model CapitalDepartment {
+  id        String @id @default(cuid())
+  townId    String
+  town      Town   @relation(fields: [townId], references: [id], onDelete: Cascade)
+  name      String
+  code      String // prefix used in project codes, e.g. HWY -> CIP-HWY-001
+  sortOrder Int    @default(0)
+
+  members  CapitalDepartmentMember[]
+  projects CapitalProject[]
+
+  @@unique([townId, name])
+  @@unique([townId, code])
+}
+
+model CapitalDepartmentMember {
+  id           String            @id @default(cuid())
+  departmentId String
+  department   CapitalDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  staffUserId  String
+  staffUser    StaffUser         @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+
+  @@unique([departmentId, staffUserId])
+  @@index([staffUserId])
+}
+
+model CapitalProject {
+  id           String            @id @default(cuid())
+  townId       String
+  town         Town              @relation(fields: [townId], references: [id], onDelete: Cascade)
+  code         String
+  departmentId String
+  department   CapitalDepartment @relation(fields: [departmentId], references: [id])
+
+  title       String
+  description String?
+  location    String?
+  category    String?
+  priority    Int?
+  deptRank    Int?
+
+  whyImportant    String?
+  alternatives    String?
+  whoServed       String?
+  usersServed     Int?
+  usefulLifeYears Int?
+  consequences    String?
+  maintenanceNeeds String?
+  costBasis       String?
+  benefits        String?
+
+  estimateType         String?
+  quoteDate            DateTime?
+  grantEligible        Boolean  @default(false)
+  grantNotes           String?
+  operatingImpact      Float?
+  operatingImpactNotes String?
+  costBreakdown        String   @default("[]")
+  proposedFunding      String   @default("[]")
+  firstRequestedFY     String?
+
+  requestStatus String   @default("draft")
+  approvedFY    String?
+  isPublic      Boolean  @default(false)
+  submittedAt   DateTime?
+
+  projectStatus   String    @default("not_started")
+  percentComplete Int?
+  statusSummary   String?
+  statusUpdatedAt DateTime?
+  actualCost      Float?
+  completedOn     DateTime?
+
+  evalScores           String  @default("{}")
+  evalNotes            String?
+  evalPriorityOverride Int?
+
+  createdByName String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  years       CapitalProjectYear[]
+  updates     CapitalStatusUpdate[]
+  comments    CapitalComment[]
+  attachments CapitalAttachment[]
+
+  @@unique([townId, code])
+  @@index([townId, requestStatus])
+  @@index([departmentId])
+}
+
+model CapitalProjectYear {
+  id                String         @id @default(cuid())
+  projectId         String
+  project           CapitalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fiscalYear        String
+  requestedAmount   Float          @default(0)
+  recommendedAmount Float?
+  approvedAmount    Float?
+  fundingSplit      String         @default("{}")
+  notes             String?
+
+  @@unique([projectId, fiscalYear])
+}
+
+model CapitalStatusUpdate {
+  id              String         @id @default(cuid())
+  projectId       String
+  project         CapitalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status          String
+  percentComplete Int?
+  note            String
+  authorName      String
+  authorRole      String
+  createdAt       DateTime       @default(now())
+
+  @@index([projectId, createdAt])
+}
+
+model CapitalComment {
+  id         String         @id @default(cuid())
+  projectId  String
+  project    CapitalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  kind       String         @default("note") // "note" | "change_request" | "admin_note"
+  body       String
+  authorName String
+  authorRole String
+  resolved   Boolean        @default(false)
+  createdAt  DateTime       @default(now())
+
+  @@index([projectId, createdAt])
+}
+
+model CapitalAttachment {
+  id             String         @id @default(cuid())
+  projectId      String
+  project        CapitalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  kind           String         // "photo" | "document" | "quote"
+  fileName       String
+  contentType    String
+  size           Int
+  data           Bytes
+  caption        String?
+  isPrimary      Boolean        @default(false)
+  isPublic       Boolean        @default(true)
+  uploadedByName String
+  createdAt      DateTime       @default(now())
+
+  @@index([projectId, kind])
 }

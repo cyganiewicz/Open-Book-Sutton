@@ -27,6 +27,9 @@ export default async function StaffLayout({
             <Link href="/staff" className="text-white/80 hover:text-white">
               Dashboard
             </Link>
+            <Link href="/staff/capital" className="text-white/80 hover:text-white">
+              Capital Projects
+            </Link>
             <Link href="/staff/submit" className="text-white/80 hover:text-white">
               Submit Request
             </Link>

@@ -10,6 +10,10 @@ interface Project {
   amount: number;
   fundingSource: string | null;
   description: string | null;
+  href?: string;
+  funded?: boolean;
+  statusLabel?: string;
+  percent?: number | null;
 }
 
 interface YearGroup {
@@ -47,7 +51,7 @@ function ProjectRow({
   const [expanded, setExpanded] = useState(false);
   const pct = yearTotal > 0 ? (project.amount / yearTotal) * 100 : 0;
   const sc = project.fundingSource ? sourceColor(project.fundingSource) : "#9ca3af";
-  const hasDetail = !!(project.description || project.fundingSource);
+  const hasDetail = !!(project.description || project.fundingSource || project.href);
 
   return (
     <div
@@ -82,6 +86,15 @@ function ProjectRow({
           </span>
           {project.department && (
             <span className="text-xs text-gray-400">{project.department}</span>
+          )}
+          {project.funded !== undefined && (
+            <span className="ml-2 inline-block text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
+              style={project.funded ? { backgroundColor: "#d1fae5", color: "#065f46" } : { backgroundColor: "#e5e7eb", color: "#4b5563" }}>
+              {project.funded ? "Funded" : "Requested"}
+            </span>
+          )}
+          {project.funded && project.statusLabel && project.statusLabel !== "Not started" && (
+            <span className="ml-1.5 text-[11px] text-gray-500">{project.statusLabel}{project.percent ? ` · ${project.percent}%` : ""}</span>
           )}
         </span>
 
@@ -147,6 +160,11 @@ function ProjectRow({
             </div>
             {project.description && (
               <p className="text-sm text-gray-600 leading-relaxed">{project.description}</p>
+            )}
+            {project.href && (
+              <a href={project.href} className="inline-block mt-2 text-sm font-semibold underline" style={{ color }}>
+                View project details →
+              </a>
             )}
             {/* Mini progress bar */}
             <div className="mt-3 h-1 bg-gray-200 rounded-full overflow-hidden">

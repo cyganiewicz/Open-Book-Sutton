@@ -23,6 +23,7 @@ export default async function AdminLayout({
     { href: "/admin/upload", label: "Upload" },
     { href: "/admin/data", label: "Data" },
     { href: "/admin/checkbook", label: "Checkbook" },
+    { href: "/admin/capital", label: "Capital" },
     { href: "/admin/account-codes", label: "Account Codes" },
     { href: "/admin/tooltips", label: "Tooltips" },
     { href: "/admin/links", label: "Links" },
