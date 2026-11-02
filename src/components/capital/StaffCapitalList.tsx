@@ -31,6 +31,19 @@ export default function StaffCapitalList() {
   // Land on what people are actively working on; fall back to funded projects if there is nothing open
   useEffect(() => { if (data && tab === null) setTab(requests.length > 0 ? "requests" : funded.length > 0 ? "funded" : "requests"); }, [data, tab, requests.length, funded.length]);
 
+  // Hooks must run on every render, so this lives above the early returns below.
+  // Funded projects, grouped by the fiscal year they were funded (newest first). A project funded in several years appears under each.
+  const fundedByYear = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const entries = funded.filter(r => !needle || `${r.title} ${r.code}`.toLowerCase().includes(needle))
+      .flatMap(r => r.years.filter(y => y.approvedAmount !== null && (!yearFilter || y.fiscalYear === yearFilter)).map(y => ({ r, y })));
+    const map = new Map<string, typeof entries>();
+    for (const e of entries) map.set(e.y.fiscalYear, [...(map.get(e.y.fiscalYear) ?? []), e]);
+    return [...map].sort((a, b) => b[0].localeCompare(a[0])).map(([year, list]) => ({ year, list: list.sort((a, b) => a.r.title.localeCompare(b.r.title)), total: list.reduce((s, e) => s + (e.y.approvedAmount ?? 0), 0) }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, q, yearFilter]);
+  const fundedYears = [...new Set(funded.flatMap(r => r.years.filter(y => y.approvedAmount !== null).map(y => y.fiscalYear)))].sort().reverse();
+
   if (error) return <ErrorBox message={error} />;
   if (!data || !tab) return <p className="text-gray-500">Loading…</p>;
   const { settings } = data;
@@ -61,18 +74,6 @@ export default function StaffCapitalList() {
       </table>
     </div>
   );
-
-  // Funded projects, grouped by the fiscal year they were funded (newest first). A project funded in several years appears under each.
-  const fundedByYear = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    const entries = funded.filter(r => !needle || `${r.title} ${r.code}`.toLowerCase().includes(needle))
-      .flatMap(r => r.years.filter(y => y.approvedAmount !== null && (!yearFilter || y.fiscalYear === yearFilter)).map(y => ({ r, y })));
-    const map = new Map<string, typeof entries>();
-    for (const e of entries) map.set(e.y.fiscalYear, [...(map.get(e.y.fiscalYear) ?? []), e]);
-    return [...map].sort((a, b) => b[0].localeCompare(a[0])).map(([year, list]) => ({ year, list: list.sort((a, b) => a.r.title.localeCompare(b.r.title)), total: list.reduce((s, e) => s + (e.y.approvedAmount ?? 0), 0) }));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, q, yearFilter]);
-  const fundedYears = [...new Set(funded.flatMap(r => r.years.filter(y => y.approvedAmount !== null).map(y => y.fiscalYear)))].sort().reverse();
 
   const reactivate = async (id: string) => { try { await postJson(`/api/capital/projects/${id}/action`, { action: "reactivate" }); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Could not reactivate."); } };
 
