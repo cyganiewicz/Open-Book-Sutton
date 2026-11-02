@@ -6,6 +6,7 @@ import HelpBox from "@/components/admin/HelpBox";
 import type { CapitalOverview } from "@/lib/capital/admin";
 import type { ProjectRow } from "@/lib/capital/projects";
 import { CRITERIA, REQUEST_STATUSES, priorityShort } from "@/lib/capital/constants";
+import AdminProjectList from "@/components/capital/AdminProjectList";
 import { ApiError, ErrorBox, Meter, ProjectStatusPill, StatusPill, api, fy, inputCls, money, moneyShort, postJson } from "@/components/capital/parts";
 
 type Tab = "projects" | "analysis" | "setup";
@@ -15,6 +16,7 @@ export default function AdminCapitalPage() {
   const [rows, setRows] = useState<ProjectRow[]>([]);
   const [tab, setTab] = useState<Tab>("projects");
   const [error, setError] = useState("");
+  const [flash, setFlash] = useState("");
   const load = useCallback(async () => {
     try {
       const [o, p] = await Promise.all([api<CapitalOverview>("/api/capital/admin"), api<{ rows: ProjectRow[] }>("/api/capital/projects")]);
@@ -44,72 +46,16 @@ export default function AdminCapitalPage() {
       )}
       {ov.openChangeRequests > 0 && <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"><strong>{ov.openChangeRequests} change request{ov.openChangeRequests === 1 ? "" : "s"}</strong> from departments are waiting on funded projects.</div>}
 
+      {flash && <p role="status" className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">{flash}</p>}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit" role="tablist">
         {([["projects", `Projects (${rows.length})`], ["analysis", "Analysis"], ["setup", "Setup"]] as [Tab, string][]).map(([k, label]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`px-4 py-1.5 rounded-md text-sm font-medium ${tab === k ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>{label}</button>
         ))}
       </div>
 
-      {tab === "projects" && <ProjectsTab rows={rows} ov={ov} reload={load} />}
+      {tab === "projects" && <AdminProjectList rows={rows} ov={ov} reload={load} />}
       {tab === "analysis" && <AnalysisTab ov={ov} />}
-      {tab === "setup" && <SetupTab ov={ov} reload={load} />}
-    </div>
-  );
-}
-
-// ── Projects ─────────────────────────────────────────────────────────────────
-
-function ProjectsTab({ rows, ov, reload }: { rows: ProjectRow[]; ov: CapitalOverview; reload: () => Promise<void> }) {
-  const [q, setQ] = useState(""); const [dept, setDept] = useState(""); const [status, setStatus] = useState(""); const [sort, setSort] = useState("code"); const [fundedYr, setFundedYr] = useState("");
-  const fundedYears = useMemo(() => [...new Set(rows.flatMap(r => r.years.filter(y => y.approvedAmount !== null).map(y => y.fiscalYear)))].sort().reverse(), [rows]);
-  const [note, setNote] = useState("");
-  const years = ov.planYears;
-  const amt = (r: ProjectRow, y: string) => { const v = r.years.find(x => x.fiscalYear === y); return v ? (v.approvedAmount ?? v.recommendedAmount ?? v.requestedAmount) : 0; };
-  const total = (r: ProjectRow) => years.reduce((s, y) => s + amt(r, y), 0);
-  const list = useMemo(() => {
-    let l = rows.filter(r => (!q || (r.title + r.code).toLowerCase().includes(q.toLowerCase())) && (!dept || r.departmentId === dept) && (!status || r.requestStatus === status) && (!fundedYr || r.years.some(y => y.fiscalYear === fundedYr && y.approvedAmount !== null)));
-    l = [...l].sort((a, b) => sort === "score" ? (b.composite ?? -1) - (a.composite ?? -1) : sort === "total" ? total(b) - total(a) : sort === "ready" ? a.readiness - b.readiness : a.code.localeCompare(b.code));
-    return l;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, q, dept, status, sort, fundedYr]);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-3 items-end">
-        <div><label htmlFor="pq" className="block text-xs font-medium text-gray-500">Search</label><input id="pq" value={q} onChange={e => setQ(e.target.value)} placeholder="Title or code" className={inputCls + " w-56"} /></div>
-        <div><label htmlFor="pd" className="block text-xs font-medium text-gray-500">Department</label><select id="pd" value={dept} onChange={e => setDept(e.target.value)} className={inputCls}><option value="">All</option>{ov.departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
-        <div><label htmlFor="ps" className="block text-xs font-medium text-gray-500">Status</label><select id="ps" value={status} onChange={e => setStatus(e.target.value)} className={inputCls}><option value="">All</option>{REQUEST_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}</select></div>
-        <div><label htmlFor="fy" className="block text-xs font-medium text-gray-500">Funded in</label><select id="fy" value={fundedYr} onChange={e => setFundedYr(e.target.value)} className={inputCls}><option value="">Any year</option>{fundedYears.map(y => <option key={y} value={y}>{fy(y)}</option>)}</select></div>
-        <div><label htmlFor="so" className="block text-xs font-medium text-gray-500">Sort by</label><select id="so" value={sort} onChange={e => setSort(e.target.value)} className={inputCls}><option value="code">Project number</option><option value="score">Highest score</option><option value="total">Largest total</option><option value="ready">Least complete</option></select></div>
-        <div className="flex-1" />
-        <button onClick={async () => { if (!confirm("Make every submitted, under-review and recommended request visible on the public site?")) return; try { const r = await postJson<{ count: number }>("/api/capital/admin", { action: "bulkPublish", statuses: ["submitted", "under_review", "recommended"], isPublic: true }); setNote(`${r.count} requests are now public.`); await reload(); } catch (e) { setNote(e instanceof ApiError ? e.message : "Failed"); } }}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white hover:bg-gray-50">Publish all pending requests</button>
-      </div>
-      {note && <p role="status" className="text-sm text-emerald-800">{note}</p>}
-      <div className="bg-white border border-gray-200 rounded-2xl overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead><tr className="text-left text-xs uppercase tracking-wide text-gray-500 border-b border-gray-100">
-            <th className="px-4 py-2 font-semibold">Project</th><th className="px-2 py-2 font-semibold">Status</th><th className="px-2 py-2 font-semibold">Priority</th>
-            {years.map(y => <th key={y} className="px-2 py-2 font-semibold text-right">{fy(y)}</th>)}
-            <th className="px-2 py-2 font-semibold w-24">Complete</th><th className="px-2 py-2 font-semibold text-right">Score</th>
-          </tr></thead>
-          <tbody>
-            {list.map(r => (
-              <tr key={r.id} className="border-t border-gray-100 hover:bg-gray-50">
-                <td className="px-4 py-2.5"><Link href={`/admin/capital/${r.id}`} className="font-medium text-gray-900 hover:underline">{r.title}</Link>
-                  <p className="text-xs text-gray-400"><span className="font-mono">{r.code}</span> · {r.departmentName}{r.openChangeRequests > 0 && <span className="ml-2 text-blue-700 font-medium">● change request</span>}{r.isPublic && <span className="ml-2 text-gray-400">· public</span>}</p></td>
-                <td className="px-2 py-2.5 whitespace-nowrap"><StatusPill status={r.requestStatus} />{r.requestStatus === "approved" && <div className="mt-1"><ProjectStatusPill status={r.projectStatus} /></div>}</td>
-                <td className="px-2 py-2.5 text-gray-600 whitespace-nowrap">{priorityShort(r.priority)}</td>
-                {years.map(y => { const a = amt(r, y); const appr = r.years.find(v => v.fiscalYear === y)?.approvedAmount != null; return <td key={y} className={`px-2 py-2.5 text-right tabular-nums ${appr ? "font-semibold text-emerald-800" : a ? "text-gray-800" : "text-gray-300"}`}>{a ? moneyShort(a) : "—"}</td>; })}
-                <td className="px-2 py-2.5"><Meter value={r.readiness} label="Completeness" /><span className="text-xs text-gray-400 tabular-nums">{r.readiness}%</span></td>
-                <td className="px-2 py-2.5 text-right tabular-nums font-semibold">{r.composite ?? "—"}</td>
-              </tr>
-            ))}
-            {list.length === 0 && <tr><td colSpan={years.length + 5} className="px-4 py-10 text-center text-gray-500">No projects match.</td></tr>}
-          </tbody>
-        </table>
-      </div>
-      <p className="text-xs text-gray-500">Amounts show the funded amount if approved, otherwise the recommended amount, otherwise the request. Green = funded.</p>
+      {tab === "setup" && <SetupTab key={ov.settings.adoptedFY} ov={ov} reload={load} onFlash={setFlash} />}
     </div>
   );
 }
@@ -193,7 +139,7 @@ function AnalysisTab({ ov }: { ov: CapitalOverview }) {
 
 // ── Setup ────────────────────────────────────────────────────────────────────
 
-function SetupTab({ ov, reload }: { ov: CapitalOverview; reload: () => Promise<void> }) {
+function SetupTab({ ov, reload, onFlash }: { ov: CapitalOverview; reload: () => Promise<void>; onFlash: (m: string) => void }) {
   const [msg, setMsg] = useState(""); const [err, setErr] = useState("");
   const run = async (fn: () => Promise<unknown>, ok: string) => { setErr(""); setMsg(""); try { await fn(); await reload(); setMsg(ok); } catch (e) { setErr(e instanceof ApiError ? e.message : "Something went wrong."); } };
 
@@ -206,6 +152,8 @@ function SetupTab({ ov, reload }: { ov: CapitalOverview; reload: () => Promise<v
   const [preview, setPreview] = useState<null | { total: number; newCount: number; alreadyImported: number; newDepartments: string[]; funded: { count: number; amount: number }; requestedByYear: Record<string, number>; notFunded: number; unfunded: number; reviewNotes: string[] }>(null);
   const [newDept, setNewDept] = useState({ name: "", code: "" });
   const [editDept, setEditDept] = useState<{ id: string; name: string; code: string } | null>(null);
+  type RF = { currentFY: string; targetFY: string; window: { from: string; to: string }; fundedInTarget: { count: number; amount: number }; toDraft: number; alreadyDrafts: number; deferred: number; fundedWithClosedRequest: number; warnings: string[] };
+  const [rf, setRf] = useState<RF | null>(null); const [rfTarget, setRfTarget] = useState(String(Number(s.adoptedFY) + 1));
   type Hist = { totalRows: number; create: number; addYear: number; skip: number; amount: number; byYear: { fiscalYear: string; count: number; amount: number }[]; newDepartments: string[]; errors: { row: number; reason: string }[]; warnings: string[]; sample: { fiscalYear: string; department: string; title: string; amount: number; action: string; reason: string | null }[] };
   const [hist, setHist] = useState<Hist | null>(null); const [histSource, setHistSource] = useState<"file" | "legacy">("file"); const [histFile, setHistFile] = useState<File | null>(null); const [histBusy, setHistBusy] = useState(false);
   async function sendHistory(mode: "preview" | "commit", source: "file" | "legacy") {
@@ -227,12 +175,35 @@ function SetupTab({ ov, reload }: { ov: CapitalOverview; reload: () => Promise<v
       <section className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">
         <h2 className="text-lg font-semibold">Budget cycle</h2>
         <div className="grid sm:grid-cols-3 gap-4">
-          <div><label htmlFor="afy" className="block text-sm font-medium">Adopted capital budget year</label><p className="text-xs text-gray-500 mb-1">Funded projects in this year (and earlier) are locked for departments.</p><input id="afy" value={adopted} onChange={e => setAdopted(e.target.value.replace(/\D/g, "").slice(0, 4))} className={inputCls} /></div>
+          <div><label htmlFor="afy" className="block text-sm font-medium">Adopted capital budget year</label><p className="text-xs text-gray-500 mb-1">Funded projects in this year (and earlier) are locked for departments. To move to a new year, use “Start the next cycle” below; changing this box alone doesn't update any requests.</p><input id="afy" value={adopted} onChange={e => setAdopted(e.target.value.replace(/\D/g, "").slice(0, 4))} className={inputCls} /></div>
           <div><label htmlFor="dl" className="block text-sm font-medium">Submission deadline (optional)</label><p className="text-xs text-gray-500 mb-1">Departments can edit through the end of this day.</p><input id="dl" type="date" value={deadline} onChange={e => setDeadline(e.target.value)} className={inputCls} /></div>
           <label className="flex items-center gap-2 text-sm font-medium self-end pb-2"><input type="checkbox" checked={open} onChange={e => setOpen(e.target.checked)} /> Departments can edit requests</label>
           <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={emails} onChange={e => setEmails(e.target.checked)} /> Email department heads and the Town Manager&apos;s office about the capital process</label>
         </div>
         <button onClick={() => run(() => postJson("/api/capital/admin", { action: "saveSettings", adoptedFY: adopted, submissionsOpen: open, submissionDeadline: deadline || null, emailsEnabled: emails }), "Budget cycle saved.")} className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-semibold">Save</button>
+      </section>
+
+      <section className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">
+        <div><h2 className="text-lg font-semibold">Start the next cycle</h2>
+          <p className="text-sm text-gray-500">Once a year&apos;s capital budget is adopted and your funding decisions are recorded, move the plan forward. Requests that weren&apos;t funded go back to their departments as <strong>drafts</strong> so earlier work is kept and can be revised for later years. Funded projects stay funded, and deferred requests stay deferred. Nothing changes until you confirm the preview.</p></div>
+        <div className="flex flex-wrap items-end gap-3">
+          <div><label htmlFor="rft" className="block text-xs font-medium text-gray-600">Newly adopted budget year</label><input id="rft" value={rfTarget} maxLength={4} onChange={e => { setRfTarget(e.target.value.replace(/\D/g, "")); setRf(null); }} className={inputCls + " w-28"} /></div>
+          <button onClick={() => run(async () => setRf(await postJson<RF>("/api/capital/admin", { action: "previewRollForward", targetFY: rfTarget })), "")} className="px-4 py-2 border border-gray-300 bg-white rounded-lg text-sm font-semibold hover:bg-gray-50">Preview</button>
+        </div>
+        {rf && (
+          <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 space-y-3 text-sm">
+            <p>Adopting <strong>FY{rf.targetFY}</strong> moves the planning window to <strong>FY{rf.window.from}–FY{rf.window.to}</strong>. FY{rf.targetFY} funding and earlier is locked for departments.</p>
+            <ul className="list-disc pl-5 space-y-1 text-gray-700">
+              <li><strong>{rf.fundedInTarget.count}</strong> project{rf.fundedInTarget.count === 1 ? " is" : "s are"} funded for FY{rf.targetFY} ({money(rf.fundedInTarget.amount)}). These stay funded and become the public record for that year.</li>
+              <li><strong>{rf.toDraft}</strong> unfunded request{rf.toDraft === 1 ? "" : "s"} (submitted, under review, recommended or not funded) go back to departments as drafts and are hidden from the public site until resubmitted.</li>
+              <li>{rf.alreadyDrafts} request{rf.alreadyDrafts === 1 ? " is" : "s are"} already drafts and stay as they are. {rf.deferred} deferred stay deferred.</li>
+              {rf.fundedWithClosedRequest > 0 && <li>{rf.fundedWithClosedRequest} funded project{rf.fundedWithClosedRequest === 1 ? " has" : "s have"} a request for FY{rf.targetFY} that wasn&apos;t funded. They stay funded, and that year&apos;s request is closed.</li>}
+            </ul>
+            {rf.warnings.map((w, i) => <p key={i} className="text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{w}</p>)}
+            <button onClick={() => { if (!confirm(`Adopt FY${rf.targetFY} and start the FY${rf.window.from}–FY${rf.window.to} cycle? ${rf.toDraft} request(s) will return to departments as drafts.`)) return; run(async () => { const r = await postJson<{ returnedToDraft: number }>("/api/capital/admin", { action: "commitRollForward", targetFY: rf.targetFY }); setRf(null); onFlash(`FY${rf.targetFY} is now the adopted budget. ${r.returnedToDraft} request${r.returnedToDraft === 1 ? "" : "s"} returned to departments as drafts. Use “Send call for projects” to tell department heads the new cycle is open.`); }, ""); }}
+              className="px-5 py-2 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800">Adopt FY{rf.targetFY} and start the next cycle</button>
+          </div>
+        )}
       </section>
 
       <section className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">

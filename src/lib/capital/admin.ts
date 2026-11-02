@@ -157,3 +157,58 @@ export async function commitSeed(townId: string, importedBy: string) {
   }, { timeout: 60000, maxWait: 10000 });
   return { created: fresh.length };
 }
+
+// ── Start the next cycle ─────────────────────────────────────────────────────
+// After a year's capital budget is adopted, the plan moves forward one year. Requests that were not
+// funded go back to their departments as drafts (carried over) so the earlier work is kept and can be
+// revised for later years. Funded projects, deferred requests and withdrawn requests are left alone.
+
+const OPEN_STATES = ["submitted", "under_review", "recommended", "not_funded"];
+
+export interface RollForwardPreview {
+  currentFY: string; targetFY: string; window: { from: string; to: string };
+  fundedInTarget: { count: number; amount: number };
+  toDraft: number; alreadyDrafts: number; deferred: number; fundedWithClosedRequest: number;
+  warnings: string[];
+}
+
+function checkTarget(current: string, target: string) {
+  if (!/^\d{4}$/.test(target)) throw new CapitalError("Enter the newly adopted fiscal year, e.g. 2028.");
+  const n = Number(target), c = Number(current);
+  if (n <= c) throw new CapitalError(`FY${target} is not after the current adopted year (FY${current}).`);
+  if (n > c + 3) throw new CapitalError("That's too far ahead. Move forward one year at a time.");
+}
+
+export async function previewRollForward(townId: string, target?: string): Promise<RollForwardPreview> {
+  const s = await loadCapitalSettings(townId);
+  const targetFY = target || String(Number(s.adoptedFY) + 1);
+  checkTarget(s.adoptedFY, targetFY);
+  const unfunded = { years: { none: { approvedAmount: { not: null as number | null } } } };
+  const [funded, toDraft, alreadyDrafts, deferred, closed] = await Promise.all([
+    prisma.capitalProjectYear.aggregate({ where: { fiscalYear: targetFY, approvedAmount: { not: null }, project: { townId } }, _count: true, _sum: { approvedAmount: true } }),
+    prisma.capitalProject.count({ where: { townId, requestStatus: { in: OPEN_STATES }, ...unfunded } }),
+    prisma.capitalProject.count({ where: { townId, requestStatus: "draft", ...unfunded } }),
+    prisma.capitalProject.count({ where: { townId, requestStatus: "deferred" } }),
+    prisma.capitalProject.count({ where: { townId, requestStatus: "approved", years: { some: { fiscalYear: { lte: targetFY, gt: s.adoptedFY }, requestedAmount: { gt: 0 }, approvedAmount: null } } } }),
+  ]);
+  const warnings: string[] = [];
+  if (funded._count === 0) warnings.push(`No projects are recorded as funded for FY${targetFY} yet. Record your funding decisions first, otherwise FY${targetFY} will look empty on the public site.`);
+  const from = String(Number(targetFY) + 1);
+  return { currentFY: s.adoptedFY, targetFY, window: { from, to: String(Number(from) + s.planLength - 1) }, fundedInTarget: { count: funded._count, amount: funded._sum.approvedAmount ?? 0 },
+    toDraft, alreadyDrafts, deferred, fundedWithClosedRequest: closed, warnings };
+}
+
+export async function commitRollForward(townId: string, target: string, by: string) {
+  const s = await loadCapitalSettings(townId);
+  checkTarget(s.adoptedFY, target);
+  const movers = await prisma.capitalProject.findMany({ where: { townId, requestStatus: { in: OPEN_STATES }, years: { none: { approvedAmount: { not: null } } } }, select: { id: true } });
+  const ids = movers.map(m => m.id);
+  const note = `Carried over: not funded in the FY${target} budget. Returned to the department as a draft by ${by} on ${new Date().toLocaleDateString("en-US", { dateStyle: "long" })}.`;
+  await prisma.$transaction([
+    prisma.capitalProject.updateMany({ where: { id: { in: ids } }, data: { requestStatus: "draft", isPublic: false, submittedAt: null } }),
+    prisma.capitalComment.createMany({ data: ids.map(projectId => ({ projectId, kind: "admin_note", body: note, authorName: by, authorRole: "admin" })) }),
+    prisma.town.update({ where: { id: townId }, data: { capitalSettings: JSON.stringify({ ...s, adoptedFY: target }) } }),
+  ]);
+  return { returnedToDraft: ids.length, adoptedFY: target, window: planWindow(target, s.planLength) };
+}
+const planWindow = (adopted: string, len: number) => ({ from: String(Number(adopted) + 1), to: String(Number(adopted) + len) });

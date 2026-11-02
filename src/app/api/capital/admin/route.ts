@@ -35,6 +35,10 @@ export const POST = (req: Request) => guarded(async () => {
       return NextResponse.json(await A.commitSeed(actor.townId, actor.name));
     case "bulkPublish":
       return NextResponse.json({ count: await A.bulkPublish(actor.townId, Array.isArray(b.statuses) ? b.statuses.map(String) : [], b.isPublic !== false) });
+    case "previewRollForward":
+      return NextResponse.json(await A.previewRollForward(actor.townId, typeof b.targetFY === "string" ? b.targetFY : undefined));
+    case "commitRollForward":
+      return NextResponse.json(await A.commitRollForward(actor.townId, String(b.targetFY ?? ""), actor.name));
     case "sendCall":
       return NextResponse.json(await sendCallForProjects(actor.townId, typeof b.note === "string" ? b.note.slice(0, 1000) : undefined));
     case "sendReminders":
