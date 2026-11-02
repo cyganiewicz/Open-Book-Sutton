@@ -203,8 +203,9 @@ function SetupTab({ ov, reload }: { ov: CapitalOverview; reload: () => Promise<v
   const [wts, setWts] = useState<Record<string, string>>(Object.fromEntries(CRITERIA.map(c => [c.key, String(s.weights[c.key] ?? c.weight)])));
   const wsum = Object.values(wts).reduce((a, b) => a + (Number(b) || 0), 0);
 
-  const [preview, setPreview] = useState<null | { total: number; newCount: number; alreadyImported: number; newDepartments: string[]; funded: { count: number; amount: number }; requestedByYear: Record<string, number>; notFunded: number; reviewNotes: string[] }>(null);
+  const [preview, setPreview] = useState<null | { total: number; newCount: number; alreadyImported: number; newDepartments: string[]; funded: { count: number; amount: number }; requestedByYear: Record<string, number>; notFunded: number; unfunded: number; reviewNotes: string[] }>(null);
   const [newDept, setNewDept] = useState({ name: "", code: "" });
+  const [editDept, setEditDept] = useState<{ id: string; name: string; code: string } | null>(null);
   type Hist = { totalRows: number; create: number; addYear: number; skip: number; amount: number; byYear: { fiscalYear: string; count: number; amount: number }[]; newDepartments: string[]; errors: { row: number; reason: string }[]; warnings: string[]; sample: { fiscalYear: string; department: string; title: string; amount: number; action: string; reason: string | null }[] };
   const [hist, setHist] = useState<Hist | null>(null); const [histSource, setHistSource] = useState<"file" | "legacy">("file"); const [histFile, setHistFile] = useState<File | null>(null); const [histBusy, setHistBusy] = useState(false);
   async function sendHistory(mode: "preview" | "commit", source: "file" | "legacy") {
@@ -262,8 +263,20 @@ function SetupTab({ ov, reload }: { ov: CapitalOverview; reload: () => Promise<v
         <div><h2 className="text-lg font-semibold">Departments and department heads</h2><p className="text-sm text-gray-500">Department heads can only see and edit projects in departments you assign them to. People must have a staff account first (Users → invite).</p></div>
         {ov.departments.map(d => (
           <div key={d.id} className="rounded-xl border border-gray-200 p-4 space-y-2">
+            {editDept?.id === d.id ? (
+              <div className="flex flex-wrap items-end gap-3">
+                <div><label htmlFor={`rn${d.id}`} className="block text-xs font-medium text-gray-600">Department name</label><input id={`rn${d.id}`} value={editDept.name} onChange={e => setEditDept({ ...editDept, name: e.target.value })} className={inputCls + " w-72"} autoFocus /></div>
+                {d.projectCount === 0
+                  ? <div><label htmlFor={`rc${d.id}`} className="block text-xs font-medium text-gray-600">Code</label><input id={`rc${d.id}`} value={editDept.code} maxLength={5} onChange={e => setEditDept({ ...editDept, code: e.target.value.toUpperCase().replace(/[^A-Z]/g, "") })} className={inputCls + " w-24"} /></div>
+                  : <p className="text-xs text-gray-500 pb-2">Code <span className="font-mono">{d.code}</span> stays the same because project numbers use it.</p>}
+                <button onClick={() => run(async () => { await postJson("/api/capital/admin", { action: "saveDepartment", id: d.id, name: editDept.name, code: editDept.code }); setEditDept(null); }, "Department renamed.")} disabled={editDept.name.trim().length < 2} className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-semibold disabled:opacity-40">Save</button>
+                <button onClick={() => setEditDept(null)} className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900">Cancel</button>
+              </div>
+            ) : (
             <div className="flex flex-wrap items-baseline gap-3"><h3 className="font-semibold">{d.name}</h3><span className="font-mono text-xs text-gray-400">CIP-{d.code}-###</span><span className="text-xs text-gray-500">{d.projectCount} projects</span><span className="flex-1" />
+              <button onClick={() => setEditDept({ id: d.id, name: d.name, code: d.code })} className="text-xs text-blue-600 hover:underline">Rename</button>
               {d.projectCount === 0 && <button onClick={() => { if (confirm(`Delete ${d.name}?`)) run(() => postJson("/api/capital/admin", { action: "deleteDepartment", id: d.id }), "Department deleted."); }} className="text-xs text-red-600 hover:underline">Delete</button>}</div>
+            )}
             {ov.staff.length === 0 ? <p className="text-sm text-gray-500">No staff accounts yet.</p> : (
               <div className="flex flex-wrap gap-2">{ov.staff.map(st => { const on = d.members.some(m => m.staffUserId === st.id); return (
                 <button key={st.id} aria-pressed={on} onClick={() => run(() => postJson("/api/capital/admin", { action: "setMembers", departmentId: d.id, staffUserIds: on ? d.members.filter(m => m.staffUserId !== st.id).map(m => m.staffUserId) : [...d.members.map(m => m.staffUserId), st.id] }), on ? `${st.name} removed from ${d.name}.` : `${st.name} added to ${d.name}.`)}
@@ -314,7 +327,7 @@ function SetupTab({ ov, reload }: { ov: CapitalOverview; reload: () => Promise<v
         {ov.seed.remaining > 0 && <button onClick={() => run(async () => setPreview(await postJson("/api/capital/admin", { action: "previewSeed" })), "")} className="px-4 py-2 border border-gray-300 bg-white rounded-lg text-sm font-semibold hover:bg-gray-50">Preview import</button>}
         {preview && (
           <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 space-y-3 text-sm">
-            <p><strong>{preview.newCount}</strong> projects will be created ({preview.funded.count} funded in FY2027 totaling <strong>{money(preview.funded.amount)}</strong>, {preview.notFunded} requested for FY2027 but not funded).</p>
+            <p><strong>{preview.newCount}</strong> projects will be created ({preview.funded.count} funded in FY2027 totaling <strong>{money(preview.funded.amount)}</strong>, and {preview.unfunded} requests that were not funded, which arrive as <strong>drafts</strong> so each department can revise and resubmit them for the new cycle).</p>
             {preview.newDepartments.length > 0 && <p>New departments: {preview.newDepartments.join(", ")}.</p>}
             <p className="text-gray-600">Requested by year: {Object.entries(preview.requestedByYear).map(([y, v]) => `FY${y} ${moneyShort(v)}`).join(" · ")}</p>
             {preview.reviewNotes.length > 0 && <div className="rounded-lg bg-amber-50 border border-amber-200 p-3"><p className="font-semibold text-amber-900">Please confirm these judgment calls (you can edit any project afterward):</p><ul className="list-disc pl-5 text-amber-900 mt-1 space-y-1">{preview.reviewNotes.map((n, i) => <li key={i}>{n}</li>)}</ul></div>}

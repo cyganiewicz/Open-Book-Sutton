@@ -37,7 +37,7 @@ const publicSelect = {
 };
 type Row = Awaited<ReturnType<typeof fetchRows>>[number];
 const fetchRows = (townId: string, where: object = {}) =>
-  prisma.capitalProject.findMany({ where: { townId, isPublic: true, requestStatus: { notIn: ["withdrawn"] }, ...where }, select: publicSelect, orderBy: { code: "asc" } });
+  prisma.capitalProject.findMany({ where: { townId, isPublic: true, requestStatus: { notIn: ["withdrawn", "deferred"] }, ...where }, select: publicSelect, orderBy: { code: "asc" } });
 
 function summarize(p: Row): PublicSummary {
   const photos = p.attachments.filter(a => a.kind === "photo");

@@ -51,7 +51,7 @@ const TONES: Record<string, string> = {
 export function Pill({ tone = "gray", children }: { tone?: string; children: ReactNode }) {
   return <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${TONES[tone] ?? TONES.gray}`}>{children}</span>;
 }
-const STATUS_TONE: Record<string, string> = { draft: "gray", submitted: "blue", under_review: "amber", recommended: "violet", approved: "green", not_funded: "red", withdrawn: "gray" };
+const STATUS_TONE: Record<string, string> = { deferred: "gray", draft: "gray", submitted: "blue", under_review: "amber", recommended: "violet", approved: "green", not_funded: "red", withdrawn: "gray" };
 export const StatusPill = ({ status }: { status: string }) => <Pill tone={STATUS_TONE[status]}>{requestStatusLabel(status)}</Pill>;
 const PS_TONE: Record<string, string> = { not_started: "gray", planning: "blue", procurement: "violet", in_progress: "amber", complete: "green", on_hold: "red", cancelled: "gray" };
 export const ProjectStatusPill = ({ status }: { status: string }) => <Pill tone={PS_TONE[status]}>{projectStatusLabel(status)}</Pill>;

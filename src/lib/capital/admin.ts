@@ -107,6 +107,7 @@ export async function previewSeed(townId: string) {
     funded: { count: fresh.filter(p => p.approved).length, amount: fresh.reduce((s, p) => s + (p.approved?.amount ?? 0), 0) },
     requestedByYear: Object.fromEntries(years.map(y => [y, fresh.reduce((s, p) => s + (p.requested[y] ?? 0), 0)])),
     notFunded: fresh.filter(p => p.requestStatus === "not_funded").length,
+    unfunded: fresh.filter(p => !p.approved).length,
     reviewNotes: SEED_REVIEW_NOTES,
   };
 }
@@ -138,7 +139,8 @@ export async function commitSeed(townId: string, importedBy: string) {
       const created = await tx.capitalProject.create({
         data: {
           townId, code: p.code, departmentId: deptIds.get(p.department)!, title: p.title, category: p.category,
-          requestStatus: p.requestStatus, approvedFY: p.approved?.fiscalYear ?? null, isPublic: !!p.approved,
+          // Funded projects arrive funded. Everything else arrives as a draft so each department can revise it for the new cycle.
+          requestStatus: p.approved ? "approved" : "draft", approvedFY: p.approved?.fiscalYear ?? null, isPublic: !!p.approved,
           createdByName: `Imported by ${importedBy}`, years: { create: yearRows },
         },
       });

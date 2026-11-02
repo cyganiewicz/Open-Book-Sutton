@@ -29,6 +29,9 @@ export interface Capabilities {
   canSubmit: boolean;
   canResubmit: boolean;
   canWithdraw: boolean;
+  /** park a request outside the active plan, and bring it back */
+  canDefer: boolean;
+  canReactivate: boolean;
   canDelete: boolean;
   canPostStatus: boolean;
   canUploadFiles: boolean;
@@ -43,12 +46,12 @@ export interface Capabilities {
 export const isFunded = (p: ProjectForPerms) =>
   p.requestStatus === "approved" || p.years.some(y => y.approvedAmount !== null);
 
-const EDITABLE_STATUSES = ["draft", "submitted", "under_review", "not_funded", "approved"];
+const EDITABLE_STATUSES = ["draft", "submitted", "under_review", "not_funded", "deferred", "approved"];
 
 export function capabilitiesFor(actor: Actor | null, project: ProjectForPerms | null, settings: CapitalSettings, now = new Date()): Capabilities {
   const none: Capabilities = {
     isAdmin: false, canView: false, canEditFields: false, lockedFields: [], editableYears: [], canSubmit: false,
-    canResubmit: false, canWithdraw: false, canDelete: false, canPostStatus: false, canUploadFiles: false,
+    canResubmit: false, canWithdraw: false, canDefer: false, canReactivate: false, canDelete: false, canPostStatus: false, canUploadFiles: false,
     canRequestChange: false, canApprove: false, canEvaluate: false, canPublish: false, readOnlyReason: null,
   };
   if (!actor) return none;
@@ -57,7 +60,7 @@ export function capabilitiesFor(actor: Actor | null, project: ProjectForPerms | 
   if (actor.kind === "admin") {
     return {
       ...none, isAdmin: true, canView: true, canEditFields: true, lockedFields: [], editableYears: displayYears(settings),
-      canSubmit: true, canResubmit: true, canWithdraw: true, canDelete: true, canPostStatus: true,
+      canSubmit: true, canResubmit: true, canWithdraw: true, canDefer: true, canReactivate: true, canDelete: true, canPostStatus: true,
       canUploadFiles: true, canRequestChange: false, canApprove: true, canEvaluate: true, canPublish: true,
     };
   }
@@ -97,6 +100,8 @@ export function capabilitiesFor(actor: Actor | null, project: ProjectForPerms | 
     canSubmit: open && project.requestStatus === "draft",
     canResubmit: open && project.requestStatus === "not_funded",
     canWithdraw: open && ["submitted", "under_review"].includes(project.requestStatus) && !funded,
+    canDefer: open && !funded && ["draft", "submitted", "under_review", "not_funded"].includes(project.requestStatus),
+    canReactivate: open && project.requestStatus === "deferred",
     canDelete: project.requestStatus === "draft" && open,
     canPostStatus: funded,
     canUploadFiles: funded || canEdit,

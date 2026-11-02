@@ -41,6 +41,8 @@ export interface ProjectDTO {
   years: YearDTO[]; attachments: AttachmentDTO[]; updates: UpdateDTO[]; comments: CommentDTO[];
   readiness: { score: number; items: { key: string; label: string; points: number; done: boolean }[] };
   evaluation: { scores: Record<string, number>; notes: string | null; priorityOverride: number | null; composite: ScoreResult } | null;
+  /** a request from the previous cycle that was not funded and is waiting for the department to revise it */
+  carriedForward: boolean;
   caps: Capabilities; updatedAt: string; createdByName: string | null;
 }
 
@@ -83,6 +85,11 @@ async function loadForActor(actor: Actor, id: string) {
   const caps = capabilitiesFor(actor, { departmentId: p.departmentId, requestStatus: p.requestStatus, years: p.years }, settings);
   if (!caps.canView) throw new CapitalError("Project not found.", 404); // don't reveal other departments' projects
   return { p, settings, caps };
+}
+
+/** Requested for an earlier (now closed) year, never funded, and now sitting as a draft */
+export function isCarriedForward(p: { requestStatus: string; years: { fiscalYear: string; requestedAmount: number; approvedAmount: number | null }[] }, settings: CapitalSettings): boolean {
+  return p.requestStatus === "draft" && !p.years.some(y => y.approvedAmount !== null) && p.years.some(y => y.fiscalYear <= settings.adoptedFY && y.requestedAmount > 0);
 }
 
 export function toDTO(p: LoadedProject, actor: Actor, caps: Capabilities, settings: CapitalSettings): ProjectDTO {
@@ -132,6 +139,7 @@ export function toDTO(p: LoadedProject, actor: Actor, caps: Capabilities, settin
       scores, notes: p.evalNotes, priorityOverride: p.evalPriorityOverride,
       composite: compositeScore({ priority: effectivePriority(p.priority, p.evalPriorityOverride), scores, readiness: r.score, weights: settings.weights }),
     } : null,
+    carriedForward: isCarriedForward(p, settings),
     caps, updatedAt: p.updatedAt.toISOString(), createdByName: p.createdByName,
   };
 }
@@ -146,7 +154,8 @@ export async function getProject(actor: Actor, id: string): Promise<ProjectDTO> 
 export interface ProjectRow {
   id: string; code: string; title: string; departmentId: string; departmentName: string; category: string | null;
   priority: number | null; requestStatus: string; projectStatus: string; percentComplete: number | null; isPublic: boolean;
-  years: { fiscalYear: string; requestedAmount: number; recommendedAmount: number | null; approvedAmount: number | null }[];
+  years: YearDTO[];
+  carriedForward: boolean;
   readiness: number; composite: number | null; operatingImpact: number | null; hasPhoto: boolean; openChangeRequests: number; updatedAt: string;
 }
 
@@ -160,7 +169,7 @@ export async function listProjects(actor: Actor): Promise<{ rows: ProjectRow[]; 
       id: p.id, code: p.code, title: p.title, departmentId: p.departmentId, departmentName: p.department.name, category: p.category,
       priority: actor.kind === "admin" ? effectivePriority(p.priority, p.evalPriorityOverride) : p.priority,
       requestStatus: p.requestStatus, projectStatus: p.projectStatus, percentComplete: p.percentComplete, isPublic: p.isPublic,
-      years: dto.years, readiness: dto.readiness.score, composite: dto.evaluation?.composite.score ?? null,
+      years: dto.years, carriedForward: dto.carriedForward, readiness: dto.readiness.score, composite: dto.evaluation?.composite.score ?? null,
       operatingImpact: p.operatingImpact, hasPhoto: p.attachments.some(a => a.kind === "photo"),
       openChangeRequests: p.comments.filter(c => c.kind === "change_request" && !c.resolved).length,
       updatedAt: p.updatedAt.toISOString(),
@@ -341,7 +350,7 @@ export async function deleteProject(actor: Actor, id: string) {
 // ── Workflow actions ─────────────────────────────────────────────────────────
 
 export type ActionName =
-  | "submit" | "resubmit" | "withdraw" | "setRequestStatus" | "approveYear" | "unapproveYear" | "setPublic"
+  | "submit" | "resubmit" | "withdraw" | "defer" | "reactivate" | "setRequestStatus" | "approveYear" | "unapproveYear" | "setPublic"
   | "evaluate" | "postStatus" | "comment" | "resolveComment";
 
 function submitProblems(p: LoadedProject, settings: CapitalSettings): string[] {
@@ -372,6 +381,16 @@ export async function performAction(actor: Actor, id: string, action: ActionName
     case "withdraw":
       need(caps.canWithdraw);
       await prisma.capitalProject.update({ where: { id }, data: { requestStatus: "withdrawn" } });
+      break;
+
+    case "defer":
+      need(caps.canDefer, "This request can't be deferred.");
+      if (isFunded({ departmentId: p.departmentId, requestStatus: p.requestStatus, years: p.years })) throw new CapitalError("Funded projects can't be deferred.");
+      await prisma.capitalProject.update({ where: { id }, data: { requestStatus: "deferred" } });
+      break;
+    case "reactivate":
+      need(caps.canReactivate, "This request isn't deferred.");
+      await prisma.capitalProject.update({ where: { id }, data: { requestStatus: "draft" } });
       break;
 
     case "setRequestStatus": {

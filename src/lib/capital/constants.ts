@@ -44,6 +44,7 @@ export const REQUEST_STATUSES = [
   { key: "recommended", label: "Recommended", tone: "violet" },
   { key: "approved", label: "Funded", tone: "green" },
   { key: "not_funded", label: "Not funded", tone: "red" },
+  { key: "deferred", label: "Deferred", tone: "gray" },
   { key: "withdrawn", label: "Withdrawn", tone: "gray" },
 ] as const;
 export type RequestStatus = (typeof REQUEST_STATUSES)[number]["key"];
