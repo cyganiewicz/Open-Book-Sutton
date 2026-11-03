@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { abbreviateCurrency, formatCurrency } from "@/lib/format";
 import CapitalProjectList from "@/components/portal/CapitalProjectList";
 import CapitalCharts from "@/components/portal/CapitalCharts";
+import CapitalOutlook, { buildOutlook } from "@/components/portal/CapitalOutlook";
 import FinancialPageHeader from "@/components/portal/FinancialPageHeader";
 import { getPublicPlan } from "@/lib/capital/public";
 import { projectStatusLabel } from "@/lib/capital/constants";
@@ -61,10 +62,9 @@ export default async function CapitalPage({
     ? [...new Set([adopted, ...allRows.filter(r => r.funded).map(r => r.fiscalYear)])].sort().reverse()
     : [];
   const featuredYear = projectMode ? (browseYears.includes(fyParam) ? fyParam : adopted) : "";
-  // project mode: the featured year, then (when viewing the adopted year) the published future requests; uploaded data: newest first
-  const years = projectMode
-    ? [featuredYear, ...(featuredYear === adopted ? sortedYears.filter(y => y > adopted) : [])]
-    : [...sortedYears].reverse();
+  // project mode: just the featured year (future-year requests have their own "Looking ahead" section); uploaded data: newest first
+  const years = projectMode ? [featuredYear] : [...sortedYears].reverse();
+  const outlook = projectMode && featuredYear === adopted ? buildOutlook(plan.projects, adopted) : null;
   const latestYear = projectMode ? featuredYear : (years[0] || "");
   const latestRows = allRows.filter(r => r.fiscalYear === latestYear);
 
@@ -85,6 +85,7 @@ export default async function CapitalPage({
     Purpose: r.purpose || "",
     Amount: formatCurrency(r.amount),
     "Funding Source": r.fundingSource || "",
+    ...(projectMode ? { Status: r.funded ? "Funded" : "Requested (not funded)" } : {}),
   }));
 
   const DEPT_COLORS = [
@@ -103,8 +104,10 @@ export default async function CapitalPage({
 
   const hasData = allRows.length > 0;
 
-  const yearlyData = (projectMode ? sortedYears : years).map(year => {
-    const rows = allRows.filter(r => r.fiscalYear === year);
+  // The chart shows money that was actually funded. Requests are shown separately, without bars.
+  const chartYears = projectMode ? [...new Set(allRows.filter(r => r.funded).map(r => r.fiscalYear))].sort() : years;
+  const yearlyData = chartYears.map(year => {
+    const rows = allRows.filter(r => r.fiscalYear === year && (!projectMode || r.funded));
     const depts: Record<string, number> = {};
     for (const r of rows) depts[r.department || "Other"] = (depts[r.department || "Other"] || 0) + r.amount;
     return { year, depts, total: rows.reduce((s, r) => s + r.amount, 0) };
@@ -130,7 +133,9 @@ export default async function CapitalPage({
   const topDept = topDepts[0];
 
   const metaStr = hasData
-    ? `${allRows.length} projects · ${years.length} fiscal year${years.length !== 1 ? "s" : ""} · ${abbreviateCurrency(totalAll)} multi-year total`
+    ? (projectMode
+        ? `${latestRows.length} projects funded in FY${latestYear}${outlook && outlook.rows.length ? ` · ${outlook.rows.length} requested for future years` : ""}`
+        : `${allRows.length} projects · ${years.length} fiscal year${years.length !== 1 ? "s" : ""} · ${abbreviateCurrency(totalAll)} multi-year total`)
     : undefined;
 
   return (
@@ -208,6 +213,14 @@ export default async function CapitalPage({
                     <p className="text-xs text-gray-400 mt-0.5">{years.length} fiscal years</p>
                   </div>
                 )}
+                {outlook && outlook.rows.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Looking Ahead</p>
+                    <a href="#looking-ahead" className="text-sm font-semibold underline underline-offset-2" style={{ color }}>
+                      {outlook.rows.length} request{outlook.rows.length === 1 ? "" : "s"} under review for FY{outlook.years[0]}{outlook.years.length > 1 ? `–FY${outlook.years[outlook.years.length - 1]}` : ""} ↓
+                    </a>
+                  </div>
+                )}
                 {topDept && (
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">
@@ -282,6 +295,8 @@ export default async function CapitalPage({
             yearlyData={yearlyData}
             color={color}
             latestYear={latestYear}
+            yearlyTitle={projectMode ? "Funded Capital Investment by Year" : undefined}
+            yearlySubtitle={projectMode ? "Capital funded by department in each fiscal year" : undefined}
           />
 
           {/* Capital Funding Explainer */}
@@ -341,6 +356,9 @@ export default async function CapitalPage({
             deptColors={DEPT_COLORS}
             sourceColorFn={sourceColor.toString()}
           />
+
+          {/* Requests for future years: shown on their own, without charts */}
+          {outlook && <CapitalOutlook projects={plan.projects} adoptedFY={adopted} townSlug={town.slug} color={color} />}
         </div>
       )}
     </div>

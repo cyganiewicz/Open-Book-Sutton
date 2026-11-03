@@ -36,6 +36,8 @@ function ColorSwatch({ color, size = 8 }: { color: string; size?: number }) {
 }
 
 interface CapitalChartsProps {
+  yearlyTitle?: string;
+  yearlySubtitle?: string;
   byDept: [string, number][];
   bySources: [string, number][];
   yearlyData: { year: string; depts: Record<string, number>; total: number }[];
@@ -43,7 +45,7 @@ interface CapitalChartsProps {
   latestYear: string;
 }
 
-export default function CapitalCharts({ byDept, bySources, yearlyData, color, latestYear }: CapitalChartsProps) {
+export default function CapitalCharts({ byDept, bySources, yearlyData, color, latestYear, yearlyTitle = "Four-Year Capital Investment Plan", yearlySubtitle = "Planned investment by department across fiscal years" }: CapitalChartsProps) {
   const [pieDim, setPieDim] = useState<"dept" | "source">("dept");
 
   const total = pieDim === "dept"
@@ -197,10 +199,10 @@ export default function CapitalCharts({ byDept, bySources, yearlyData, color, la
               className="text-base font-bold text-gray-900"
               style={{ fontFamily: "var(--font-display)" }}
             >
-              Four-Year Capital Investment Plan
+              {yearlyTitle}
             </h2>
             <p className="text-xs text-gray-400 mt-0.5">
-              Planned investment by department across fiscal years
+              {yearlySubtitle}
             </p>
           </div>
           <div className="h-64">
